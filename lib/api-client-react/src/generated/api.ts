@@ -21,6 +21,7 @@ import type {
 
 import type {
   ApiMessage,
+  BotActionResult,
   CheckResult,
   CompleteModuleRequest,
   DojoOverview,
@@ -439,6 +440,78 @@ export const useRunLessonCheck = <TError = ErrorType<ApiMessage>,
         TContext
       > => {
       return useMutation(getRunLessonCheckMutationOptions(options));
+    }
+
+export const getRunBotActionUrl = (lessonId: string,) => {
+
+
+
+
+  return `/api/dojo/lessons/${lessonId}/bot`
+}
+
+/**
+ * Runs the lesson's scripted teammate beat (bot.sh), which may push commits to the lesson's shared remote
+ * @summary Let time pass — the simulated teammate acts
+ */
+export const runBotAction = async (lessonId: string, options?: Parameters<typeof customFetch>[1]): Promise<BotActionResult> => {
+
+  return customFetch<BotActionResult>(getRunBotActionUrl(lessonId),
+  {
+    ...options,
+    method: 'POST'
+
+
+  }
+);}
+
+
+
+
+
+export const getRunBotActionMutationOptions = <TError = ErrorType<ApiMessage>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof runBotAction>>, TError,{lessonId: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof runBotAction>>, TError,{lessonId: string}, TContext> => {
+
+const mutationKey = ['runBotAction'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof runBotAction>>, {lessonId: string}> = (props) => {
+          const {lessonId} = props ?? {};
+
+          return  runBotAction(lessonId,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RunBotActionMutationResult = NonNullable<Awaited<ReturnType<typeof runBotAction>>>
+
+    export type RunBotActionMutationError = ErrorType<ApiMessage>
+
+    /**
+ * @summary Let time pass — the simulated teammate acts
+ */
+export const useRunBotAction = <TError = ErrorType<ApiMessage>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof runBotAction>>, TError,{lessonId: string}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof runBotAction>>,
+        TError,
+        {lessonId: string},
+        TContext
+      > => {
+      return useMutation(getRunBotActionMutationOptions(options));
     }
 
 export const getGetProgressUrl = () => {

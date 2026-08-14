@@ -53,6 +53,12 @@ that is always safe.
    submitted. It contains a planted bug **and a planted secret**. Find both in
    the diff, reject the bad, keep the good. This is the seat you'll occupy
    for real.
+8. **The collision** — a simulated teammate (Ruth Osei, contractor) pushes to
+   the shared remote while you work. Your push is rejected; fetch, read,
+   merge, push. Use the dashboard's "Time passes" button (or `bash bot.sh`)
+   to trigger her move.
+9. **The standoff** — Ruth edits the same line you did. Pull, hit a real
+   conflict, and make the ruling yourself. Same "Time passes" mechanic.
 
 ## Reset everything
 

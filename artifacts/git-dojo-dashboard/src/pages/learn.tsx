@@ -4,6 +4,9 @@ import { Module1_2 } from "@/content/tier1/module-1-2";
 import { Module1_3 } from "@/content/tier1/module-1-3";
 import { Module1_4 } from "@/content/tier1/module-1-4";
 import { Module1_5 } from "@/content/tier1/module-1-5";
+import { Module2_1 } from "@/content/tier2/module-2-1";
+import { Module2_2 } from "@/content/tier2/module-2-2";
+import { Module2_3 } from "@/content/tier2/module-2-3";
 import { ArrowLeft, Construction } from "lucide-react";
 import { useEffect } from "react";
 
@@ -21,6 +24,9 @@ export function LearnModuleView() {
   if (moduleId === "1-3") return <Module1_3 />;
   if (moduleId === "1-4") return <Module1_4 />;
   if (moduleId === "1-5") return <Module1_5 />;
+  if (moduleId === "2-1") return <Module2_1 />;
+  if (moduleId === "2-2") return <Module2_2 />;
+  if (moduleId === "2-3") return <Module2_3 />;
 
   // Placeholder for others
   return (

@@ -33,6 +33,8 @@ export interface Lesson {
   /** The playground contains a git repository */
   initialized: boolean;
   commitCount: number;
+  /** The lesson has a scripted teammate (bot.sh) that can act when time passes */
+  hasBot: boolean;
 }
 
 export type RepoFileStatus = typeof RepoFileStatus[keyof typeof RepoFileStatus];
@@ -88,6 +90,8 @@ export interface RepoState {
   remotes: string[];
   /** Plain-English explanation of the current repository state */
   summary: string;
+  /** The lesson has a scripted teammate (bot.sh) that can act when time passes */
+  hasBot: boolean;
 }
 
 export type ProgressEntryTrack = typeof ProgressEntryTrack[keyof typeof ProgressEntryTrack];
@@ -121,6 +125,13 @@ export const CompleteModuleRequestTrack = {
 export interface CompleteModuleRequest {
   moduleId: string;
   track: CompleteModuleRequestTrack;
+}
+
+export interface BotActionResult {
+  /** Whether the teammate script ran */
+  ran: boolean;
+  /** What the teammate did, in plain English */
+  output: string;
 }
 
 export interface CheckResult {

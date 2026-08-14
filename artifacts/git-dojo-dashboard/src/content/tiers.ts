@@ -28,9 +28,14 @@ export const tiers: TierDef[] = [
   },
   {
     id: "tier-2",
-    title: "Collaborate Like a Team",
-    description: "Pull requests, reviews, and safe merging.",
-    status: "coming_soon"
+    title: "Reviewing a Contractor's Work",
+    description: "Be the owner: read a pull request, pin comments on the diff, and make the call.",
+    status: "active",
+    modules: [
+      { id: "2.1", title: "What a pull request really is", path: "/learn/2-1" },
+      { id: "2.2", title: "Files changed: read every line", path: "/learn/2-2" },
+      { id: "2.3", title: "The verdict: approve or block", path: "/learn/2-3" },
+    ]
   },
   {
     id: "tier-3",

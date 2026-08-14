@@ -7,6 +7,7 @@
  */
 
 export * from './apiMessage';
+export * from './botActionResult';
 export * from './checkResult';
 export * from './completeModuleRequest';
 export * from './completeModuleRequestTrack';

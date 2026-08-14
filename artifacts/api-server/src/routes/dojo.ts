@@ -9,6 +9,7 @@ import {
   ListLessonsResponse,
   GetRepoStateResponse,
   RunLessonCheckResponse,
+  RunBotActionResponse,
 } from "@workspace/api-zod";
 import { recordCompletion } from "../lib/progress-store";
 
@@ -77,6 +78,17 @@ async function git(cwd: string, args: string[]): Promise<string | null> {
 
 function isRepo(dir: string): boolean {
   return existsSync(path.join(dir, ".git"));
+}
+
+/**
+ * Hub-style lessons (fake GitHub) keep the learner's working copy in a
+ * `laptop/` subfolder next to the bare remote. Resolve whichever exists.
+ */
+function resolveRepoDir(pg: string): string | null {
+  if (isRepo(pg)) return pg;
+  const laptop = path.join(pg, "laptop");
+  if (isRepo(laptop)) return laptop;
+  return null;
 }
 
 async function commitCount(dir: string): Promise<number> {
@@ -175,7 +187,8 @@ router.get("/dojo/overview", async (_req, res) => {
     const pg = playgroundDir(root, l.id);
     if (existsSync(pg)) {
       started += 1;
-      if (isRepo(pg)) commits += await commitCount(pg);
+      const rd = resolveRepoDir(pg);
+      if (rd) commits += await commitCount(rd);
     }
   }
   res.json(
@@ -198,12 +211,13 @@ router.get("/dojo/lessons", async (_req, res) => {
     listLessonDirs(root).map(async (l) => {
       const pg = playgroundDir(root, l.id);
       const hasPlayground = existsSync(pg);
-      const initialized = hasPlayground && isRepo(pg);
+      const rd = hasPlayground ? resolveRepoDir(pg) : null;
       return {
         ...l,
         hasPlayground,
-        initialized,
-        commitCount: initialized ? await commitCount(pg) : 0,
+        initialized: rd !== null,
+        commitCount: rd ? await commitCount(rd) : 0,
+        hasBot: existsSync(path.join(root, l.folderName, "bot.sh")),
       };
     }),
   );
@@ -218,9 +232,11 @@ router.get("/dojo/lessons/:lessonId/state", async (req, res) => {
     res.status(404).json({ error: `Lesson not found: ${lessonId}` });
     return;
   }
-  const pg = playgroundDir(root, lesson.id);
-  const hasPlayground = existsSync(pg);
-  const initialized = hasPlayground && isRepo(pg);
+  const pgRoot = playgroundDir(root, lesson.id);
+  const hasPlayground = existsSync(pgRoot);
+  const repoDir = hasPlayground ? resolveRepoDir(pgRoot) : null;
+  const initialized = repoDir !== null;
+  const pg = repoDir ?? pgRoot;
 
   let currentBranch: string | null = null;
   let detachedHead = false;
@@ -316,6 +332,7 @@ router.get("/dojo/lessons/:lessonId/state", async (req, res) => {
 
   const state = {
     lessonId: lesson.id,
+    hasBot: existsSync(path.join(root, lesson.folderName, "bot.sh")),
     hasPlayground,
     initialized,
     currentBranch,
@@ -369,6 +386,47 @@ router.post("/dojo/lessons/:lessonId/check", async (req, res) => {
   // Track B badge is granted here, server-side, only on a genuine grader pass.
   if (passed === true) recordCompletion(lesson.id, "cli");
   res.json(RunLessonCheckResponse.parse({ ran: true, passed, output }));
+});
+
+/**
+ * "Time passes" — run the lesson's scripted teammate beat. The bot commits to
+ * the lesson's bare remote (never the learner's working copy), so the learner
+ * genuinely must fetch/merge before their next push succeeds.
+ */
+router.post("/dojo/lessons/:lessonId/bot", async (req, res) => {
+  const root = dojoRoot();
+  const lessonId = req.params.lessonId ?? "";
+  const lesson = root ? listLessonDirs(root).find((l) => l.id === lessonId) : undefined;
+  if (!root || !lesson) {
+    res.status(404).json({ error: `Lesson not found: ${lessonId}` });
+    return;
+  }
+  const lessonFolder = path.join(root, lesson.folderName);
+  const botScript = path.join(lessonFolder, "bot.sh");
+  if (!existsSync(botScript)) {
+    res.json(
+      RunBotActionResponse.parse({
+        ran: false,
+        output: "This lesson has no simulated teammate.",
+      }),
+    );
+    return;
+  }
+  let output = "";
+  let ran = true;
+  try {
+    const { stdout, stderr } = await run("bash", ["bot.sh"], {
+      cwd: lessonFolder,
+      timeout: 20_000,
+      env: { ...process.env, GIT_TERMINAL_PROMPT: "0" },
+    });
+    output = [stdout, stderr].filter(Boolean).join("\n").trim();
+  } catch (err) {
+    ran = false;
+    const e = err as { stdout?: string; stderr?: string; message?: string };
+    output = [e.stdout, e.stderr].filter(Boolean).join("\n").trim() || (e.message ?? "bot.sh failed");
+  }
+  res.json(RunBotActionResponse.parse({ ran, output }));
 });
 
 export default router;

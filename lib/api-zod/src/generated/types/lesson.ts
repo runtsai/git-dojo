@@ -18,4 +18,6 @@ export interface Lesson {
   /** The playground contains a git repository */
   initialized: boolean;
   commitCount: number;
+  /** The lesson has a scripted teammate (bot.sh) that can act when time passes */
+  hasBot: boolean;
 }

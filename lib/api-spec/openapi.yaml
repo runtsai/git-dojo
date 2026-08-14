@@ -106,6 +106,31 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiMessage"
+  /dojo/lessons/{lessonId}/bot:
+    post:
+      operationId: runBotAction
+      tags: [dojo]
+      summary: Let time pass — the simulated teammate acts
+      description: Runs the lesson's scripted teammate beat (bot.sh), which may push commits to the lesson's shared remote
+      parameters:
+        - name: lessonId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Teammate action results
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BotActionResult"
+        "404":
+          description: Lesson not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiMessage"
   /progress:
     get:
       operationId: getProgress
@@ -188,8 +213,11 @@ components:
           description: The playground contains a git repository
         commitCount:
           type: number
+        hasBot:
+          type: boolean
+          description: The lesson has a scripted teammate (bot.sh) that can act when time passes
       required:
-        [id, number, title, folderName, hasPlayground, initialized, commitCount]
+        [id, number, title, folderName, hasPlayground, initialized, commitCount, hasBot]
     RepoFile:
       type: object
       properties:
@@ -267,9 +295,13 @@ components:
         summary:
           type: string
           description: Plain-English explanation of the current repository state
+        hasBot:
+          type: boolean
+          description: The lesson has a scripted teammate (bot.sh) that can act when time passes
       required:
         [
           lessonId,
+          hasBot,
           hasPlayground,
           initialized,
           currentBranch,
@@ -311,6 +343,16 @@ components:
           type: string
           enum: [visual, cli]
       required: [moduleId, track]
+    BotActionResult:
+      type: object
+      properties:
+        ran:
+          type: boolean
+          description: Whether the teammate script ran
+        output:
+          type: string
+          description: What the teammate did, in plain English
+      required: [ran, output]
     CheckResult:
       type: object
       properties:

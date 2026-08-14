@@ -40,7 +40,8 @@ export const ListLessonsResponseItem = zod.object({
   "folderName": zod.string().describe('Lesson folder name such as lesson-01-first-snapshot'),
   "hasPlayground": zod.boolean().describe('setup.sh has been run for this lesson'),
   "initialized": zod.boolean().describe('The playground contains a git repository'),
-  "commitCount": zod.number()
+  "commitCount": zod.number(),
+  "hasBot": zod.boolean().describe('The lesson has a scripted teammate (bot.sh) that can act when time passes')
 })
 export const ListLessonsResponse = zod.array(ListLessonsResponseItem)
 
@@ -79,7 +80,8 @@ export const GetRepoStateResponse = zod.object({
   "headHash": zod.string()
 })),
   "remotes": zod.array(zod.string()),
-  "summary": zod.string().describe('Plain-English explanation of the current repository state')
+  "summary": zod.string().describe('Plain-English explanation of the current repository state'),
+  "hasBot": zod.boolean().describe('The lesson has a scripted teammate (bot.sh) that can act when time passes')
 })
 
 
@@ -95,6 +97,20 @@ export const RunLessonCheckResponse = zod.object({
   "ran": zod.boolean(),
   "passed": zod.boolean().nullable().describe('True when every check passed, null when it could not be determined'),
   "output": zod.string().describe('Raw output of check.sh')
+})
+
+
+/**
+ * Runs the lesson's scripted teammate beat (bot.sh), which may push commits to the lesson's shared remote
+ * @summary Let time pass — the simulated teammate acts
+ */
+export const RunBotActionParams = zod.object({
+  "lessonId": zod.coerce.string()
+})
+
+export const RunBotActionResponse = zod.object({
+  "ran": zod.boolean().describe('Whether the teammate script ran'),
+  "output": zod.string().describe('What the teammate did, in plain English')
 })
 
 

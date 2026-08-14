@@ -6,6 +6,7 @@ import { FileStatus } from "@/components/repo-view/file-status";
 import { CommitTimeline } from "@/components/repo-view/commit-timeline";
 import { BranchList } from "@/components/repo-view/branch-list";
 import { CheckRunner } from "@/components/repo-view/check-runner";
+import { TeammateAction } from "@/components/repo-view/teammate-action";
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { CommandBlock } from "@/components/ui/command-block";
@@ -172,6 +173,7 @@ export function LessonView() {
               <CommitTimeline commits={repo.commits} />
             </div>
             <div className="space-y-8">
+              {repo.hasBot && <TeammateAction lessonId={lessonId!} />}
               <CheckRunner lessonId={lessonId!} />
               <BranchList branches={repo.branches} />
             </div>

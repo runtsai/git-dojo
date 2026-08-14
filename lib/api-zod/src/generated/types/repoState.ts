@@ -23,4 +23,6 @@ export interface RepoState {
   remotes: string[];
   /** Plain-English explanation of the current repository state */
   summary: string;
+  /** The lesson has a scripted teammate (bot.sh) that can act when time passes */
+  hasBot: boolean;
 }
