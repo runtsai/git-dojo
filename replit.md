@@ -8,6 +8,20 @@ Build spec: `attached_assets/PROMPT_GitHub_Mastery_Path_Replit_Build_v1_1_*.md` 
 
 Progress persistence: single-user JSON file at `data/progress.json` via `/api/progress`. **No fake completion:** CLI badges are recorded server-side only when a lesson's grader passes; the completion endpoint only accepts allowlisted visual module ids.
 
+## Design doctrine (hard rules — every tier and feature is built to these)
+
+Our three structural advantages. Never dilute them; every new module must express all three:
+1. **Context before command.** Every lesson follows WHAT → WHERE → WHY → WHEN → HOW, in that exact order. The learner understands the screen and the business reason before any command appears. No exceptions, no "quick" lessons that skip ahead.
+2. **The operator persona.** The learner is never a student passing a quiz — they are an owner protecting their company's records, reviewing a contractor's work, keeping the custody trail intact. Every scenario, example file, and grader message is framed with those real stakes.
+3. **The unlocked dual track.** Track A (visual), Track B (terminal), Breakthroughs, and future sections are never gated on each other. Learners self-regulate; persistent nav keeps every track one tap away.
+
+Simulator standards (raise the bar as Tiers 2–6 are built):
+4. **Dynamic consequence visualization.** Never explain an operation's effect in text alone — let the learner preview it. E.g. the merge-strategy choice (merge/squash/rebase) must live-redraw the commit graph before they commit to it.
+5. **Visceral danger feedback.** When the learner does something dangerous in a simulation (commits a planted secret, force-pushes over history), the simulator halts them with the same severity real GitHub would — high-contrast alert treatments, not a gentle toast. The simulator must feel as strict as the real platform.
+6. **Living automation.** Simulated CI/automation must run *live on screen* — queue, run, then stamp pass/fail onto the PR — never a static "the check passed" caption.
+
+Simulator state model: Track B and the Crisis Room are backed by real Git repos (`~/git-dojo`) graded server-side; Track A / Breakthroughs sims are front-end state machines — rich enough to react, never pretending to be graded.
+
 ## Important
 
 - The active Git Dojo course lives at `~/git-dojo` (OUTSIDE the workspace) because Replit's checkpoint system strips nested `.git` dirs inside the workspace. The API server reads from there (see `artifacts/api-server/src/routes/dojo.ts`, `dojoRoot()`); `workspace/git-dojo` is only a fallback for listing lessons.

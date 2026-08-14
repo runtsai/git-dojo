@@ -1,16 +1,33 @@
 import { useGetProgress, useListLessons } from "@workspace/api-client-react";
-import { Link } from "wouter";
-import { CheckCircle2, Lock, Terminal, Shield, Award, Trophy, Lightbulb, Play } from "lucide-react";
+import { Link, useLocation } from "wouter";
+import { CheckCircle2, Lock, Terminal, Shield, Award, Trophy, Lightbulb, Play, Map, X } from "lucide-react";
 import { tiers } from "@/content/tiers";
-import { useEffect } from "react";
+import { breakthroughs } from "@/content/breakthroughs";
+import { useEffect, useState } from "react";
 
 export function Home() {
+  const [_, setLocation] = useLocation();
   const { data: progress, isLoading: progressLoading } = useGetProgress();
   const { data: lessons, isLoading: lessonsLoading } = useListLessons();
+  const [showOrientation, setShowOrientation] = useState(false);
 
   useEffect(() => {
     document.title = "Git Dojo | The GitHub Mastery Path";
+    const dismissed = localStorage.getItem("dojo-orientation-dismissed");
+    if (!dismissed) {
+      setShowOrientation(true);
+    }
   }, []);
+
+  const dismissOrientation = () => {
+    localStorage.setItem("dojo-orientation-dismissed", "true");
+    setShowOrientation(false);
+  };
+
+  const showOrientationPanel = () => {
+    localStorage.removeItem("dojo-orientation-dismissed");
+    setShowOrientation(true);
+  };
 
   if (progressLoading || lessonsLoading) {
     return (
@@ -26,39 +43,136 @@ export function Home() {
   return (
     <div className="enter-slide-up max-w-7xl mx-auto space-y-12">
       
-      <div className="space-y-4 max-w-3xl">
-        <h1 className="text-4xl md:text-5xl lg:text-6xl heading-tight text-foreground">
-          The GitHub Mastery Path
-        </h1>
-        <p className="text-lg md:text-xl text-muted-foreground reading-text">
-          Learn how to trace, protect, and safely share the single source of truth for your company records. Two independent tracks. Zero gating.
-        </p>
-      </div>
-
-      <div className="bg-primary/5 border border-primary/20 rounded-xl p-6 md:p-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 shadow-lg shadow-primary/5 transition-colors hover:bg-primary/10">
+      <div className="space-y-4 max-w-3xl flex justify-between items-start">
         <div>
-          <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
-            <Lightbulb className="w-5 h-5 text-primary" /> 
-            Breakthroughs
-          </h2>
-          <p className="text-muted-foreground mt-2 max-w-2xl leading-relaxed text-sm md:text-base">
-            Stuck on a concept? These nine interactive ideas are where Git usually clicks. Play with the toys until the misconception visibly breaks.
+          <h1 className="text-4xl md:text-5xl lg:text-6xl heading-tight text-foreground">
+            The GitHub Mastery Path
+          </h1>
+          <p className="text-lg md:text-xl text-muted-foreground reading-text mt-4">
+            Learn how to trace, protect, and safely share the single source of truth for your company records. Two independent tracks. Zero gating.
           </p>
         </div>
-        <Link 
-          href="/breakthroughs"
-          className="bg-black/50 border border-white/10 hover:border-primary/50 text-foreground font-bold px-6 py-3 rounded-lg transition-all active:scale-95 whitespace-nowrap shadow-md hover:bg-secondary/50 flex-shrink-0"
-        >
-          Explore the Gallery
-        </Link>
+        {!showOrientation && (
+          <button 
+            onClick={showOrientationPanel}
+            className="hidden md:flex flex-shrink-0 items-center gap-2 text-sm font-bold text-muted-foreground hover:text-primary transition-colors bg-secondary/30 px-3 py-1.5 rounded-lg border border-white/5 mt-2"
+          >
+            <Map className="w-4 h-4" /> How this works
+          </button>
+        )}
+      </div>
+
+      {showOrientation && (
+        <div className="surface-card p-6 md:p-8 relative border-l-4 border-l-primary animate-in fade-in slide-in-from-top-4 duration-500">
+          <button 
+            onClick={dismissOrientation}
+            className="absolute top-4 right-4 p-2 text-muted-foreground hover:text-foreground bg-black/20 hover:bg-black/40 rounded-lg transition-colors"
+            aria-label="Dismiss"
+          >
+            <X className="w-5 h-5" />
+          </button>
+          
+          <div className="flex items-center gap-3 mb-6">
+            <Map className="w-6 h-6 text-primary" />
+            <h2 className="text-xl font-bold text-foreground">Start here</h2>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <div className="space-y-2">
+              <div className="font-bold text-foreground flex items-center gap-2">
+                <span className="bg-primary/20 text-primary w-6 h-6 rounded-full flex items-center justify-center text-xs">1</span>
+                The Main Course
+              </div>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                Visual lessons, no typing. Start with "What GitHub actually is". This is the primary path.
+              </p>
+            </div>
+            <div className="space-y-2">
+              <div className="font-bold text-foreground flex items-center gap-2">
+                <span className="bg-primary/20 text-primary w-6 h-6 rounded-full flex items-center justify-center text-xs">2</span>
+                Breakthroughs
+              </div>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                {breakthroughs.length} interactive playgrounds for when a concept won't click. Break things safely.
+              </p>
+            </div>
+            <div className="space-y-2">
+              <div className="font-bold text-foreground flex items-center gap-2">
+                <span className="bg-primary/20 text-primary w-6 h-6 rounded-full flex items-center justify-center text-xs">3</span>
+                Command Test Center
+              </div>
+              <p className="text-sm text-muted-foreground leading-relaxed">
+                Optional. Real commands, needs a terminal. Practice without fear.
+              </p>
+            </div>
+          </div>
+          
+          <button 
+            onClick={() => {
+              dismissOrientation();
+              setLocation('/learn/module-1-1');
+            }}
+            className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-6 py-3 rounded-lg transition-all active:scale-95 shadow-[0_0_20px_rgba(255,107,0,0.2)] inline-flex items-center gap-2"
+          >
+            <Play className="w-4 h-4 fill-current" /> Begin Module 1.1
+          </button>
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <div className="bg-primary/5 border border-primary/20 rounded-xl p-6 md:p-8 flex flex-col justify-between gap-6 shadow-lg shadow-primary/5 transition-colors hover:bg-primary/10">
+          <div>
+            <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
+              <Map className="w-5 h-5 text-primary" /> 
+              The Map
+            </h2>
+            <p className="text-muted-foreground mt-2 max-w-2xl leading-relaxed text-sm md:text-base">
+              The zoomed-out forest view. See the entire Git territory in one interactive picture. Highly recommended before starting.
+            </p>
+          </div>
+          <Link 
+            href="/map"
+            className="bg-primary hover:bg-primary/90 text-primary-foreground border border-transparent font-bold px-6 py-3 rounded-lg transition-all active:scale-95 whitespace-nowrap shadow-md flex-shrink-0 text-center"
+          >
+            See the whole territory first
+          </Link>
+        </div>
+
+        <div className="bg-[#161b22] border border-white/10 rounded-xl p-6 md:p-8 flex flex-col justify-between gap-6 shadow-lg shadow-black/50 transition-colors hover:bg-white/5">
+          <div>
+            <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
+              <Lightbulb className="w-5 h-5 text-foreground" /> 
+              Breakthroughs
+            </h2>
+            <p className="text-muted-foreground mt-2 max-w-2xl leading-relaxed text-sm md:text-base">
+              Stuck on a concept? These interactive ideas are where Git usually clicks. Play with the toys until the misconception visibly breaks.
+            </p>
+          </div>
+          <Link 
+            href="/breakthroughs"
+            className="bg-black/50 border border-white/10 hover:border-white/30 text-foreground font-bold px-6 py-3 rounded-lg transition-all active:scale-95 whitespace-nowrap shadow-md flex-shrink-0 text-center"
+          >
+            Explore the Gallery
+          </Link>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12">
         {/* Track A: Visual Mastery (Left side, takes 8 columns on desktop) */}
         <div className="lg:col-span-8 space-y-8">
-          <div className="flex items-center gap-3 border-b border-white/10 pb-4">
-            <Shield className="w-6 h-6 text-primary" />
-            <h2 className="text-2xl font-bold text-foreground tracking-tight">Track A: The Main Course</h2>
+          <div className="flex items-center justify-between border-b border-white/10 pb-4">
+            <div className="flex items-center gap-3">
+              <Shield className="w-6 h-6 text-primary" />
+              <h2 className="text-2xl font-bold text-foreground tracking-tight">Track A: The Main Course</h2>
+            </div>
+            {!showOrientation && (
+              <button 
+                onClick={showOrientationPanel}
+                className="md:hidden flex items-center gap-2 text-xs font-bold text-muted-foreground hover:text-primary transition-colors bg-secondary/30 px-2 py-1 rounded border border-white/5"
+              >
+                <Map className="w-3 h-3" /> Help
+              </button>
+            )}
           </div>
           
           <div className="space-y-6">
@@ -77,67 +191,73 @@ export function Home() {
                       ? isTierComplete
                         ? 'bg-[#161b22] border-emerald-500/30 shadow-[0_4px_30px_rgba(16,185,129,0.05)] relative overflow-hidden'
                         : '' 
-                      : 'bg-background border-white/5 opacity-75 grayscale-[20%]'
+                      : 'opacity-50 grayscale hover:grayscale-0 transition-all duration-500'
                   }`}
                 >
                   {isTierComplete && (
-                    <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 blur-3xl rounded-full translate-x-1/2 -translate-y-1/2 pointer-events-none" />
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 rounded-bl-full -z-10 translate-x-8 -translate-y-8"></div>
                   )}
-
-                  <div className="flex items-start justify-between gap-4 mb-6 relative z-10">
+                  
+                  <div className="flex justify-between items-start mb-6">
                     <div>
-                      <div className="flex items-center gap-3 mb-1">
-                        <div className={`text-sm font-bold tracking-widest uppercase ${isTierComplete ? 'text-emerald-400' : 'text-primary'}`}>
-                          Tier {idx + 1}
-                        </div>
-                        {isTierComplete && (
-                          <span className="bg-emerald-500/10 text-emerald-400 text-[10px] px-2 py-0.5 rounded font-bold flex items-center gap-1 border border-emerald-500/20">
-                            <Trophy className="w-3 h-3" /> COMPLETED
-                          </span>
-                        )}
+                      <div className="text-xs font-bold tracking-widest uppercase mb-2 flex items-center gap-2">
+                        <span className={isActive ? (isTierComplete ? 'text-emerald-500' : 'text-primary') : 'text-muted-foreground'}>Tier {idx + 1}</span>
+                        {isTierComplete && <span className="bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded text-[10px]">Complete</span>}
+                        
+                        {tier.status === "coming_soon" && <span className="bg-black/50 border border-white/10 px-2 py-0.5 rounded text-[10px] flex items-center gap-1"><Lock className="w-3 h-3" /> Locked</span>}
                       </div>
                       <h3 className="text-2xl font-bold text-foreground">{tier.title}</h3>
-                      <p className="text-muted-foreground mt-2 reading-text">{tier.description}</p>
                     </div>
-                    {!isActive && (
-                      <div className="bg-black/50 border border-white/10 text-muted-foreground px-3 py-1.5 rounded text-xs font-bold uppercase tracking-wider flex items-center gap-2 shadow-inner">
-                        <Lock className="w-3.5 h-3.5" /> Next Phase
+                    {isTierComplete && (
+                      <div className="hidden sm:flex p-3 bg-emerald-500/10 text-emerald-400 rounded-full border border-emerald-500/20 shadow-[0_0_15px_rgba(16,185,129,0.2)]">
+                        <Trophy className="w-6 h-6" />
                       </div>
                     )}
                   </div>
                   
-                  {isActive && tier.modules && (
-                    <div className="space-y-3 relative z-10">
-                      {tier.modules.map(mod => {
+                  <p className="text-muted-foreground mb-8 text-sm md:text-base">{tier.description}</p>
+                  
+                  {tierModules.length > 0 && (
+                    <div className="space-y-3">
+                      {tierModules.map((mod, mIdx) => {
                         const isCompleted = completedVisualModules.includes(mod.id);
                         return (
                           <Link 
                             key={mod.id} 
-                            href={mod.path}
-                            className={`group flex items-center justify-between p-4 rounded-lg border transition-all active:scale-[0.99] cursor-pointer ${
-                              isCompleted 
-                                ? 'bg-emerald-500/5 border-emerald-500/20 hover:border-emerald-500/40 hover:bg-emerald-500/10'
-                                : 'bg-black/40 border-white/5 hover:border-primary/40 hover:bg-secondary/40'
+                            href={isActive ? `/learn/${mod.id}` : '#'}
+                            className={`flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-lg border transition-all ${
+                              isActive
+                                ? isCompleted
+                                  ? 'bg-black/30 border-white/5 hover:border-emerald-500/30 group'
+                                  : 'bg-black/50 border-white/10 hover:border-primary/50 hover:bg-black/80 cursor-pointer shadow-sm group hover:-translate-y-0.5'
+                                : 'bg-black/20 border-white/5 cursor-not-allowed'
                             }`}
                           >
-                            <div className="flex items-center gap-4">
-                              <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 transition-colors ${
-                                isCompleted 
-                                  ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.2)] group-hover:bg-emerald-500 group-hover:text-emerald-950' 
-                                  : 'bg-background border-muted-foreground/30 text-muted-foreground/50 group-hover:border-primary/50 group-hover:text-primary'
+                            <div className="flex items-start sm:items-center gap-4 mb-3 sm:mb-0">
+                              <div className={`mt-0.5 sm:mt-0 flex-shrink-0 ${
+                                isActive
+                                  ? isCompleted ? 'text-emerald-500' : 'text-primary/50 group-hover:text-primary transition-colors'
+                                  : 'text-muted-foreground/30'
                               }`}>
-                                {isCompleted ? <CheckCircle2 className="w-4 h-4" /> : <Play className="w-3 h-3 translate-x-px" />}
+                                {isCompleted ? <CheckCircle2 className="w-5 h-5" /> : <Play className="w-5 h-5" />}
                               </div>
-                              <span className={`font-bold transition-colors ${
-                                isCompleted ? 'text-white' : 'text-muted-foreground group-hover:text-foreground'
-                              }`}>
-                                {mod.title}
-                              </span>
+                              <div>
+                                <div className="text-xs font-bold text-muted-foreground mb-1">Module {idx + 1}.{mIdx + 1}</div>
+                                <div className={`font-bold ${isActive ? (isCompleted ? 'text-foreground/70' : 'text-foreground group-hover:text-primary transition-colors') : 'text-muted-foreground'}`}>
+                                  {mod.title}
+                                </div>
+                              </div>
                             </div>
-                            <div className={`text-sm font-bold transition-colors ${
-                              isCompleted ? 'text-emerald-500/70 group-hover:text-emerald-400' : 'text-muted-foreground group-hover:text-primary/80'
-                            }`}>
-                              {isCompleted ? 'Review' : 'Start'} &rarr;
+                            
+                            <div className="flex items-center justify-between sm:justify-end w-full sm:w-auto gap-4 pl-9 sm:pl-0">
+                              <div className="text-xs text-muted-foreground/70 flex items-center gap-1.5 bg-black/40 px-2 py-1 rounded border border-white/5">
+                                
+                              </div>
+                              {isActive && !isCompleted && (
+                                <div className="text-xs font-bold text-primary bg-primary/10 px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap border border-primary/20">
+                                  Start Module
+                                </div>
+                              )}
                             </div>
                           </Link>
                         );
@@ -150,8 +270,8 @@ export function Home() {
           </div>
         </div>
 
-        {/* Track B: Command Test Center Badges (Right side, takes 4 columns) */}
-        <div className="lg:col-span-4 space-y-8">
+        {/* Track B: Sandbox (Right side, takes 4 columns on desktop) */}
+        <div className="lg:col-span-4 space-y-6">
           <div className="flex items-center gap-3 border-b border-white/10 pb-4">
             <Terminal className="w-6 h-6 text-primary" />
             <h2 className="text-2xl font-bold text-foreground tracking-tight">Track B: Sandbox</h2>

@@ -1,7 +1,8 @@
 import { useGetDojoOverview, useListLessons } from "@workspace/api-client-react";
 import { Link } from "wouter";
-import { Terminal, ChevronRight, BookOpen, GitCommit, LayoutGrid, CheckCircle2, ShieldAlert } from "lucide-react";
+import { Terminal, ChevronRight, BookOpen, GitCommit, LayoutGrid, CheckCircle2, ShieldAlert, Map, Info } from "lucide-react";
 import { useEffect } from "react";
+import { CommandBlock } from "@/components/ui/command-block";
 
 export function TestCenter() {
   const { data: overview, isLoading: overviewLoading } = useGetDojoOverview();
@@ -32,9 +33,8 @@ export function TestCenter() {
         <div className="surface-card p-8 text-left mt-10 relative overflow-hidden">
           <div className="absolute top-0 left-0 w-2 h-full bg-primary shadow-[0_0_15px_rgba(255,107,0,0.5)]"></div>
           <p className="font-bold text-lg mb-4 text-foreground">To begin your journey, open your terminal and run:</p>
-          <div className="bg-black/80 border border-white/10 font-mono p-5 rounded-lg flex items-center gap-4 text-lg shadow-inner">
-            <span className="text-primary font-bold select-none">$</span>
-            <span className="text-emerald-400">bash setup.sh</span>
+          <div className="max-w-md w-full min-w-0">
+            <CommandBlock command="bash setup.sh" />
           </div>
           <p className="text-muted-foreground mt-5 reading-text">
             This script will scaffold the sandbox repositories you need for the lessons. Come back to this dashboard once it finishes!
@@ -45,13 +45,22 @@ export function TestCenter() {
   }
 
   return (
-    <div className="space-y-12 enter-slide-up max-w-7xl mx-auto">
+    <div className="space-y-12 enter-slide-up max-w-7xl mx-auto w-full min-w-0">
       
       <div className="space-y-4">
         <h1 className="text-4xl md:text-5xl heading-tight text-foreground">Command Test Center</h1>
         <p className="text-lg md:text-xl text-muted-foreground reading-text">
-          An optional practice arena. The real commands, in a sandbox that can't hurt anything. Run them in your terminal, and watch the results appear here.
+          An optional practice arena. The real commands, in a sandbox that can't hurt anything.
         </p>
+        
+        <div className="flex flex-col sm:flex-row gap-4 mt-6 bg-black/40 border border-white/5 p-4 rounded-xl items-start sm:items-center">
+          <div className="bg-primary/20 text-primary p-2 rounded-lg shrink-0">
+            <Info className="w-5 h-5" />
+          </div>
+          <div className="text-sm text-muted-foreground">
+            <span className="font-bold text-foreground">How it works:</span> Open your terminal, navigate to the specific lesson folder, and type the commands. This screen watches the folder and updates automatically. If you're on a phone, skip this track and stick to <Link href="/" className="text-primary font-bold hover:underline">Track A</Link>.
+          </div>
+        </div>
       </div>
 
       <section className="flex flex-col lg:flex-row gap-6 justify-between items-start lg:items-end surface-card p-8">

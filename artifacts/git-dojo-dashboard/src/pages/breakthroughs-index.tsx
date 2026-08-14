@@ -21,7 +21,7 @@ export function BreakthroughsIndex() {
           Breakthroughs
         </h1>
         <p className="text-base sm:text-lg md:text-xl text-muted-foreground reading-text">
-          These are not graded lessons. They are interactive playgrounds for the nine most common Git misconceptions. 
+          These are not graded lessons. They are interactive playgrounds for {breakthroughs.length} of the most common Git misconceptions. 
           Play with them until the misconception visibly breaks.
         </p>
       </div>

@@ -17,6 +17,7 @@ import { LessonView } from '@/pages/lesson';
 import { LearnModuleView } from '@/pages/learn';
 import { BreakthroughsIndex } from '@/pages/breakthroughs-index';
 import { BreakthroughView } from '@/pages/breakthrough-view';
+import { MapView } from '@/pages/map';
 
 const queryClient = new QueryClient();
 
@@ -31,6 +32,7 @@ function Router() {
           <Route path="/learn/:moduleId" component={LearnModuleView} />
           <Route path="/breakthroughs" component={BreakthroughsIndex} />
           <Route path="/breakthroughs/:id" component={BreakthroughView} />
+          <Route path="/map" component={MapView} />
           <Route component={NotFound} />
         </Switch>
       </RoutedErrorBoundary>

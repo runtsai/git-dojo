@@ -69,5 +69,26 @@ export const breakthroughs: BreakthroughMeta[] = [
     hook: "Terrified of deleting everything? Look behind the curtain.",
     misconception: "One wrong command destroys work forever.",
     breakthrough: "Once sealed, a commit is nearly indestructible for 90 days — most 'disasters' are just misplaced labels."
+  },
+  {
+    id: "three-ways-to-merge",
+    title: "Three Ways to Merge",
+    hook: "Think 'merge' is one thing? There are three, and they leave three different histories.",
+    misconception: "Merge is just a single command with one outcome.",
+    breakthrough: "Git offers three distinct merge strategies to optimize how your company's history is recorded: true shape, single tidy commit, or a perfectly straight line."
+  },
+  {
+    id: "secrets-never-heal",
+    title: "Secrets Never Heal",
+    hook: "Committed a password? Think deleting it fixes the problem? Try it.",
+    misconception: "If I commit a password by accident, I can just delete it in the next commit.",
+    breakthrough: "Commits are permanent photographs — a secret that touches one is burned. You don't delete it; you kill the key (revoke) so the photograph doesn't matter."
+  },
+  {
+    id: "the-robot-coworker",
+    title: "The Robot Coworker",
+    hook: "Think those green checkmarks are just decorations? Watch them work.",
+    misconception: "Those green checkmarks on a PR are just decoration someone added.",
+    breakthrough: "Those marks are a robot coworker actually running your project's rules on every proposal — the checks are the company's quality gate working for you."
   }
 ];

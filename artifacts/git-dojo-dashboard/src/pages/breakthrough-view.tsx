@@ -13,6 +13,9 @@ import { MergeReveals } from "@/content/breakthroughs/merge-reveals";
 import { DetachedHead } from "@/content/breakthroughs/detached-head";
 import { ConflictsAreQuestions } from "@/content/breakthroughs/conflicts-are-questions";
 import { NothingIsLost } from "@/content/breakthroughs/nothing-is-lost";
+import { ThreeWaysToMerge } from "@/content/breakthroughs/three-ways-to-merge";
+import { SecretsNeverHeal } from "@/content/breakthroughs/secrets-never-heal";
+import { TheRobotCoworker } from "@/content/breakthroughs/the-robot-coworker";
 
 const toys: Record<string, React.ComponentType> = {
   "two-machines": TwoMachines,
@@ -24,6 +27,9 @@ const toys: Record<string, React.ComponentType> = {
   "detached-head": DetachedHead,
   "conflicts-are-questions": ConflictsAreQuestions,
   "nothing-is-lost": NothingIsLost,
+  "three-ways-to-merge": ThreeWaysToMerge,
+  "secrets-never-heal": SecretsNeverHeal,
+  "the-robot-coworker": TheRobotCoworker,
 };
 
 export function BreakthroughView() {
