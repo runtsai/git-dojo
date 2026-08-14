@@ -19,6 +19,8 @@ import { BreakthroughsIndex } from '@/pages/breakthroughs-index';
 import { BreakthroughView } from '@/pages/breakthrough-view';
 import { MapView } from '@/pages/map';
 import { GoLive } from '@/pages/go-live';
+import { CrisisRoom } from '@/pages/crisis-room';
+import { CrisisView } from '@/pages/crisis';
 
 const queryClient = new QueryClient();
 
@@ -31,6 +33,8 @@ function Router() {
           <Route path="/test-center" component={TestCenter} />
           <Route path="/test-center/:lessonId" component={LessonView} />
           <Route path="/learn/:moduleId" component={LearnModuleView} />
+          <Route path="/crisis" component={CrisisRoom} />
+          <Route path="/crisis/:crisisId" component={CrisisView} />
           <Route path="/breakthroughs" component={BreakthroughsIndex} />
           <Route path="/breakthroughs/:id" component={BreakthroughView} />
           <Route path="/map" component={MapView} />

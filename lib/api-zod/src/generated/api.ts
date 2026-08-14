@@ -115,6 +115,90 @@ export const RunBotActionResponse = zod.object({
 
 
 /**
+ * All Crisis Room scenarios with playground and badge status
+ * @summary List crisis scenarios
+ */
+export const ListCrisisScenariosResponseItem = zod.object({
+  "id": zod.string().describe('Scenario id such as crisis-01'),
+  "number": zod.number(),
+  "hasPlayground": zod.boolean().describe('The scenario\'s practice repo has been set up'),
+  "initialized": zod.boolean().describe('The playground contains a git repository'),
+  "solved": zod.boolean().describe('The grader has genuinely passed at least once'),
+  "path": zod.string().describe('Absolute path of the scenario\'s practice repository')
+})
+export const ListCrisisScenariosResponse = zod.array(ListCrisisScenariosResponseItem)
+
+
+/**
+ * Idempotently rebuilds the scenario's practice repo in its broken state
+ * @summary Initialize the scenario's broken repository
+ */
+export const SetupCrisisScenarioParams = zod.object({
+  "crisisId": zod.coerce.string()
+})
+
+export const SetupCrisisScenarioResponse = zod.object({
+  "ok": zod.boolean(),
+  "message": zod.string(),
+  "path": zod.string().describe('Absolute path of the scenario\'s practice repository')
+})
+
+
+/**
+ * Full git state of the scenario's practice repository
+ * @summary Repository state for a crisis scenario playground
+ */
+export const GetCrisisRepoStateParams = zod.object({
+  "crisisId": zod.coerce.string()
+})
+
+export const GetCrisisRepoStateResponse = zod.object({
+  "lessonId": zod.string(),
+  "hasPlayground": zod.boolean(),
+  "initialized": zod.boolean(),
+  "currentBranch": zod.string().nullable(),
+  "detachedHead": zod.boolean(),
+  "mergeInProgress": zod.boolean(),
+  "files": zod.array(zod.object({
+  "path": zod.string(),
+  "status": zod.enum(['staged', 'modified', 'staged_and_modified', 'untracked', 'deleted', 'conflicted'])
+})),
+  "commits": zod.array(zod.object({
+  "hash": zod.string(),
+  "shortHash": zod.string(),
+  "subject": zod.string(),
+  "authorName": zod.string(),
+  "date": zod.string().describe('ISO 8601 author date'),
+  "refs": zod.array(zod.string()).describe('Branch or tag names pointing at this commit'),
+  "branch": zod.string().nullish().describe('Branch this commit was listed under, when walking per-branch history')
+})),
+  "branches": zod.array(zod.object({
+  "name": zod.string(),
+  "isCurrent": zod.boolean(),
+  "headHash": zod.string()
+})),
+  "remotes": zod.array(zod.string()),
+  "summary": zod.string().describe('Plain-English explanation of the current repository state'),
+  "hasBot": zod.boolean().describe('The lesson has a scripted teammate (bot.sh) that can act when time passes')
+})
+
+
+/**
+ * Runs the scenario's server-side grader against the practice repo
+ * @summary Grade the scenario's recovery
+ */
+export const RunCrisisCheckParams = zod.object({
+  "crisisId": zod.coerce.string()
+})
+
+export const RunCrisisCheckResponse = zod.object({
+  "ran": zod.boolean(),
+  "passed": zod.boolean().nullable().describe('True when every check passed, null when it could not be determined'),
+  "output": zod.string().describe('Raw output of check.sh')
+})
+
+
+/**
  * All completed modules across both tracks
  * @summary Get saved course progress
  */
@@ -260,4 +344,5 @@ export const VerifyCapstoneMissionResponse = zod.object({
   "badgeEarnedAt": zod.string().nullable().describe('Set only when every mission has been verified against GitHub')
 })
 })
+
 

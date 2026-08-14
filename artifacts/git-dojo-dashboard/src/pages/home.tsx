@@ -1,10 +1,11 @@
 import { useGetProgress, useListLessons } from "@workspace/api-client-react";
 import { Link, useLocation } from "wouter";
-import { CheckCircle2, Lock, Terminal, Shield, Award, Trophy, Lightbulb, Play, Map, X, Rocket } from "lucide-react";
+import { CheckCircle2, Lock, Terminal, Shield, Award, Trophy, Lightbulb, Play, Map, X, Rocket, Siren } from "lucide-react";
 import { ComputerIcon, StickerIcon } from "@/components/git-icons";
 import { tiers } from "@/content/tiers";
 import { breakthroughs } from "@/content/breakthroughs";
 import { useEffect, useState } from "react";
+import { crises } from "@/content/crises";
 
 export function Home() {
   const [_, setLocation] = useLocation();
@@ -367,6 +368,43 @@ export function Home() {
               className="block w-full py-3 px-4 bg-primary/10 hover:bg-primary/20 border border-primary/30 text-primary text-center font-bold text-sm rounded-lg transition-all active:scale-95"
             >
               Take it live &rarr;
+            </Link>
+          </div>
+
+          <div className="surface-card p-6 border-destructive/20">
+            <div className="mb-6">
+              <h3 className="text-lg font-bold text-foreground flex items-center gap-2">
+                <Siren className="w-5 h-5 text-destructive" /> Crisis Room
+              </h3>
+              <p className="text-sm text-muted-foreground mt-2 leading-relaxed">
+                Real disasters, real recoveries. Detached HEAD, conflicts, the undo family, reflog rescues.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-4 gap-3 mb-8">
+              {crises.map((crisis) => {
+                const isEarned = completedCliLessons.includes(crisis.id);
+                return (
+                  <div 
+                    key={crisis.id} 
+                    title={crisis.title}
+                    className={`aspect-square rounded-lg flex items-center justify-center border-2 transition-all ${
+                      isEarned 
+                        ? 'bg-emerald-500/10 border-emerald-500 text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.2)]' 
+                        : 'bg-black/50 border-white/5 text-white/10'
+                    }`}
+                  >
+                    {isEarned ? <Award className="w-6 h-6" /> : <span className="font-mono text-xs font-bold">{crisis.number}</span>}
+                  </div>
+                );
+              })}
+            </div>
+
+            <Link 
+              href="/crisis"
+              className="block w-full py-3 px-4 bg-destructive/80 hover:bg-destructive text-white text-center font-bold text-sm rounded-lg transition-all active:scale-95 border border-white/5 shadow-md"
+            >
+              Enter the Crisis Room
             </Link>
           </div>
         </div>

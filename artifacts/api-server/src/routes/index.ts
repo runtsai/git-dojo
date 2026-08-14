@@ -3,11 +3,13 @@ import healthRouter from "./health";
 import dojoRouter from "./dojo";
 import progressRouter from "./progress";
 import capstoneRouter from "./capstone";
+import crisisRouter from "./crisis";
 
 const router: IRouter = Router();
 
 router.use(healthRouter);
 router.use(dojoRouter);
+router.use(crisisRouter);
 router.use(progressRouter);
 router.use(capstoneRouter);
 

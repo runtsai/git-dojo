@@ -16,6 +16,8 @@ tags:
     description: Course progress persistence across both tracks
   - name: capstone
     description: Go Live capstone against the learner's real GitHub account
+  - name: crisis
+    description: Crisis Room disaster-recovery scenarios
 paths:
   /healthz:
     get:
@@ -129,6 +131,96 @@ paths:
                 $ref: "#/components/schemas/BotActionResult"
         "404":
           description: Lesson not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiMessage"
+  /crisis/scenarios:
+    get:
+      operationId: listCrisisScenarios
+      tags: [crisis]
+      summary: List crisis scenarios
+      description: All Crisis Room scenarios with playground and badge status
+      responses:
+        "200":
+          description: Scenarios
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/CrisisScenario"
+  /crisis/scenarios/{crisisId}/setup:
+    post:
+      operationId: setupCrisisScenario
+      tags: [crisis]
+      summary: Initialize the scenario's broken repository
+      description: Idempotently rebuilds the scenario's practice repo in its broken state
+      parameters:
+        - name: crisisId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Setup result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CrisisSetupResult"
+        "404":
+          description: Scenario not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiMessage"
+  /crisis/scenarios/{crisisId}/state:
+    get:
+      operationId: getCrisisRepoState
+      tags: [crisis]
+      summary: Repository state for a crisis scenario playground
+      description: Full git state of the scenario's practice repository
+      parameters:
+        - name: crisisId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Repository state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RepoState"
+        "404":
+          description: Scenario not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiMessage"
+  /crisis/scenarios/{crisisId}/check:
+    post:
+      operationId: runCrisisCheck
+      tags: [crisis]
+      summary: Grade the scenario's recovery
+      description: Runs the scenario's server-side grader against the practice repo
+      parameters:
+        - name: crisisId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Check results
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CheckResult"
+        "404":
+          description: Scenario not found
           content:
             application/json:
               schema:
@@ -519,3 +611,35 @@ components:
           type: string
           description: Raw output of check.sh
       required: [ran, passed, output]
+    CrisisScenario:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Scenario id such as crisis-01
+        number:
+          type: number
+        hasPlayground:
+          type: boolean
+          description: The scenario's practice repo has been set up
+        initialized:
+          type: boolean
+          description: The playground contains a git repository
+        solved:
+          type: boolean
+          description: The grader has genuinely passed at least once
+        path:
+          type: string
+          description: Absolute path of the scenario's practice repository
+      required: [id, number, hasPlayground, initialized, solved, path]
+    CrisisSetupResult:
+      type: object
+      properties:
+        ok:
+          type: boolean
+        message:
+          type: string
+        path:
+          type: string
+          description: Absolute path of the scenario's practice repository
+      required: [ok, message, path]

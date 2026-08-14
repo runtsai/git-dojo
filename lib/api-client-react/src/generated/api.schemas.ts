@@ -202,3 +202,24 @@ export interface CheckResult {
   output: string;
 }
 
+export interface CrisisScenario {
+  /** Scenario id such as crisis-01 */
+  id: string;
+  number: number;
+  /** The scenario's practice repo has been set up */
+  hasPlayground: boolean;
+  /** The playground contains a git repository */
+  initialized: boolean;
+  /** The grader has genuinely passed at least once */
+  solved: boolean;
+  /** Absolute path of the scenario's practice repository */
+  path: string;
+}
+
+export interface CrisisSetupResult {
+  ok: boolean;
+  message: string;
+  /** Absolute path of the scenario's practice repository */
+  path: string;
+}
+

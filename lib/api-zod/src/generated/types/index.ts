@@ -15,6 +15,8 @@ export * from './capstoneVerifyResult';
 export * from './checkResult';
 export * from './completeModuleRequest';
 export * from './completeModuleRequestTrack';
+export * from './crisisScenario';
+export * from './crisisSetupResult';
 export * from './dojoOverview';
 export * from './healthStatus';
 export * from './lesson';
