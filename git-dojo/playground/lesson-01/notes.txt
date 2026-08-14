@@ -1,0 +1,2 @@
+RTS.AI working notes
+Day one of learning Git for real.
