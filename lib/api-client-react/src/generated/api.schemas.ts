@@ -90,6 +90,39 @@ export interface RepoState {
   summary: string;
 }
 
+export type ProgressEntryTrack = typeof ProgressEntryTrack[keyof typeof ProgressEntryTrack];
+
+
+export const ProgressEntryTrack = {
+  visual: 'visual',
+  cli: 'cli',
+} as const;
+
+export interface ProgressEntry {
+  /** Module id such as 1.1 (Track A) or lesson-01 (Track B) */
+  moduleId: string;
+  track: ProgressEntryTrack;
+  /** ISO 8601 timestamp of when the module first passed */
+  completedAt: string;
+}
+
+export interface Progress {
+  entries: ProgressEntry[];
+}
+
+export type CompleteModuleRequestTrack = typeof CompleteModuleRequestTrack[keyof typeof CompleteModuleRequestTrack];
+
+
+export const CompleteModuleRequestTrack = {
+  visual: 'visual',
+  cli: 'cli',
+} as const;
+
+export interface CompleteModuleRequest {
+  moduleId: string;
+  track: CompleteModuleRequestTrack;
+}
+
 export interface CheckResult {
   ran: boolean;
   /**

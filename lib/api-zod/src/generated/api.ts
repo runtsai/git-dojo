@@ -98,3 +98,34 @@ export const RunLessonCheckResponse = zod.object({
 })
 
 
+/**
+ * All completed modules across both tracks
+ * @summary Get saved course progress
+ */
+export const GetProgressResponse = zod.object({
+  "entries": zod.array(zod.object({
+  "moduleId": zod.string().describe('Module id such as 1.1 (Track A) or lesson-01 (Track B)'),
+  "track": zod.enum(['visual', 'cli']),
+  "completedAt": zod.string().describe('ISO 8601 timestamp of when the module first passed')
+}))
+})
+
+
+/**
+ * Marks a module as passed and persists it server-side
+ * @summary Record a module completion
+ */
+export const CompleteModuleBody = zod.object({
+  "moduleId": zod.string(),
+  "track": zod.enum(['visual', 'cli'])
+})
+
+export const CompleteModuleResponse = zod.object({
+  "entries": zod.array(zod.object({
+  "moduleId": zod.string().describe('Module id such as 1.1 (Track A) or lesson-01 (Track B)'),
+  "track": zod.enum(['visual', 'cli']),
+  "completedAt": zod.string().describe('ISO 8601 timestamp of when the module first passed')
+}))
+})
+
+

@@ -22,14 +22,16 @@ import type {
 import type {
   ApiMessage,
   CheckResult,
+  CompleteModuleRequest,
   DojoOverview,
   HealthStatus,
   Lesson,
+  Progress,
   RepoState
 } from './api.schemas';
 
 import { customFetch } from '../custom-fetch';
-import type { ErrorType } from '../custom-fetch';
+import type { ErrorType , BodyType } from '../custom-fetch';
 
 type AwaitedInput<T> = PromiseLike<T> | T;
 
@@ -437,5 +439,155 @@ export const useRunLessonCheck = <TError = ErrorType<ApiMessage>,
         TContext
       > => {
       return useMutation(getRunLessonCheckMutationOptions(options));
+    }
+
+export const getGetProgressUrl = () => {
+
+
+
+
+  return `/api/progress`
+}
+
+/**
+ * All completed modules across both tracks
+ * @summary Get saved course progress
+ */
+export const getProgress = async ( options?: Parameters<typeof customFetch>[1]): Promise<Progress> => {
+
+  return customFetch<Progress>(getGetProgressUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetProgressQueryKey = () => {
+    return [
+    `/api/progress`
+    ] as const;
+    }
+
+
+export const getGetProgressQueryOptions = <TData = Awaited<ReturnType<typeof getProgress>>, TError = ErrorType<unknown>>( options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getProgress>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetProgressQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getProgress>>> = ({ signal }) => getProgress({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getProgress>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetProgressQueryResult = NonNullable<Awaited<ReturnType<typeof getProgress>>>
+export type GetProgressQueryError = ErrorType<unknown>
+
+
+/**
+ * @summary Get saved course progress
+ */
+
+export function useGetProgress<TData = Awaited<ReturnType<typeof getProgress>>, TError = ErrorType<unknown>>(
+  options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getProgress>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetProgressQueryOptions(options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCompleteModuleUrl = () => {
+
+
+
+
+  return `/api/progress/complete`
+}
+
+/**
+ * Marks a module as passed and persists it server-side
+ * @summary Record a module completion
+ */
+export const completeModule = async (completeModuleRequest: CompleteModuleRequest, options?: Parameters<typeof customFetch>[1]): Promise<Progress> => {
+
+  return customFetch<Progress>(getCompleteModuleUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(completeModuleRequest)
+  }
+);}
+
+
+
+
+
+export const getCompleteModuleMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof completeModule>>, TError,{data: BodyType<CompleteModuleRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof completeModule>>, TError,{data: BodyType<CompleteModuleRequest>}, TContext> => {
+
+const mutationKey = ['completeModule'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof completeModule>>, {data: BodyType<CompleteModuleRequest>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  completeModule(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CompleteModuleMutationResult = NonNullable<Awaited<ReturnType<typeof completeModule>>>
+    export type CompleteModuleMutationBody = BodyType<CompleteModuleRequest>
+    export type CompleteModuleMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Record a module completion
+ */
+export const useCompleteModule = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof completeModule>>, TError,{data: BodyType<CompleteModuleRequest>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof completeModule>>,
+        TError,
+        {data: BodyType<CompleteModuleRequest>},
+        TContext
+      > => {
+      return useMutation(getCompleteModuleMutationOptions(options));
     }
 

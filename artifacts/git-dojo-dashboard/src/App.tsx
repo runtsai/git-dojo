@@ -12,7 +12,9 @@ import {
 } from 'wouter';
 import { Layout } from '@/components/layout';
 import { Home } from '@/pages/home';
+import { TestCenter } from '@/pages/test-center';
 import { LessonView } from '@/pages/lesson';
+import { LearnModuleView } from '@/pages/learn';
 
 const queryClient = new QueryClient();
 
@@ -22,7 +24,9 @@ function Router() {
       <RoutedErrorBoundary>
         <Switch>
           <Route path="/" component={Home} />
-          <Route path="/lesson/:lessonId" component={LessonView} />
+          <Route path="/test-center" component={TestCenter} />
+          <Route path="/test-center/:lessonId" component={LessonView} />
+          <Route path="/learn/:moduleId" component={LearnModuleView} />
           <Route component={NotFound} />
         </Switch>
       </RoutedErrorBoundary>

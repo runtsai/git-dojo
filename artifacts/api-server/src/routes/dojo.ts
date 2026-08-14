@@ -10,6 +10,7 @@ import {
   GetRepoStateResponse,
   RunLessonCheckResponse,
 } from "@workspace/api-zod";
+import { recordCompletion } from "../lib/progress-store";
 
 const run = promisify(execFile);
 
@@ -365,6 +366,8 @@ router.post("/dojo/lessons/:lessonId/check", async (req, res) => {
   const hasFail = /\bFAIL\b/.test(output);
   const hasPass = /\bPASS\b/.test(output);
   const passed = hasFail ? false : hasPass ? exitOk : exitOk ? null : false;
+  // Track B badge is granted here, server-side, only on a genuine grader pass.
+  if (passed === true) recordCompletion(lesson.id, "cli");
   res.json(RunLessonCheckResponse.parse({ ran: true, passed, output }));
 });
 

@@ -8,9 +8,14 @@
 
 export * from './apiMessage';
 export * from './checkResult';
+export * from './completeModuleRequest';
+export * from './completeModuleRequestTrack';
 export * from './dojoOverview';
 export * from './healthStatus';
 export * from './lesson';
+export * from './progress';
+export * from './progressEntry';
+export * from './progressEntryTrack';
 export * from './repoBranch';
 export * from './repoCommit';
 export * from './repoFile';

@@ -1,6 +1,12 @@
-# Git Dojo Dashboard
+# Git Dojo: The GitHub Mastery Path
 
-A visual companion for the Git Dojo learning course: it reads the learner's practice repositories and shows commits, file states, and branches graphically, with plain-English explanations and a one-click lesson grader.
+An open-source educational web app (by RUN Trading Systems / RTS.AI LLC) teaching GitHub visually, from beginner to expert. Two independent tracks, zero gating:
+- **Track A — six visual tiers** (`/learn/...`): interactive lessons following a strict WHAT/WHERE/WHY/WHEN/HOW structure on original, simulated GitHub-style screens (no GitHub trademarks). Lesson content lives in `artifacts/git-dojo-dashboard/src/content/` — one clear place per tier/module.
+- **Track B — Command Test Center** (`/test-center`): the original 7-lesson CLI dojo, with live repo-state visualization and check.sh graders.
+
+Build spec: `attached_assets/PROMPT_GitHub_Mastery_Path_Replit_Build_v1_1_*.md` (process: build tier by tier, owner reviews each chunk). Phase 1 (shell + ledger + Module 1.1 + Test Center) is done; Tiers 1.2–6 pending.
+
+Progress persistence: single-user JSON file at `data/progress.json` via `/api/progress`. **No fake completion:** CLI badges are recorded server-side only when a lesson's grader passes; the completion endpoint only accepts allowlisted visual module ids.
 
 ## Important
 

@@ -1,37 +1,56 @@
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { useHealthCheck, getHealthCheckQueryKey } from "@workspace/api-client-react";
-import { Activity, ShieldCheck, ShieldAlert } from "lucide-react";
+import { Activity, ShieldCheck, ShieldAlert, Terminal } from "lucide-react";
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const { data: health, isError } = useHealthCheck({ query: { queryKey: getHealthCheckQueryKey(), refetchInterval: 10000 } });
+  const [location] = useLocation();
   
   return (
-    <div className="min-h-[100dvh] flex flex-col font-sans selection:bg-primary/20">
-      <header className="border-b bg-card/80 backdrop-blur sticky top-0 z-10">
-        <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
+    <div className="min-h-[100dvh] flex flex-col font-sans selection:bg-primary/20 bg-background text-foreground">
+      <header className="border-b border-white/10 bg-card/80 backdrop-blur-md sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-3 group">
-            <div className="w-9 h-9 rounded-xl bg-primary text-primary-foreground flex items-center justify-center font-bold text-xl group-hover:scale-105 transition-transform shadow-sm">
+            <div className="w-8 h-8 rounded bg-primary text-primary-foreground flex items-center justify-center font-bold text-xl group-hover:scale-105 transition-transform shadow-lg shadow-primary/20">
               G
             </div>
-            <span className="font-bold text-2xl tracking-tight text-foreground">Git Dojo</span>
+            <span className="font-extrabold text-xl tracking-tight hidden sm:block">Git Dojo</span>
           </Link>
           
-          <div className="flex items-center gap-4 text-sm font-medium">
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-muted border">
+          <div className="flex items-center gap-4">
+            <Link 
+              href="/test-center" 
+              className={`flex items-center gap-2 px-4 py-2 rounded-md font-bold text-sm transition-colors ${
+                location.startsWith('/test-center') 
+                  ? 'bg-secondary text-foreground border border-white/10' 
+                  : 'text-muted-foreground hover:text-foreground hover:bg-secondary/50'
+              }`}
+            >
+              <Terminal className="w-4 h-4" />
+              <span className="hidden sm:inline">Command Test Center</span>
+              <span className="sm:hidden">Test Center</span>
+            </Link>
+
+            <div className="flex items-center gap-2 px-3 py-1.5 rounded bg-black/40 border border-white/5 text-xs font-medium">
               {isError ? (
-                <><ShieldAlert className="w-4 h-4 text-destructive" /> <span className="text-muted-foreground">Server Offline</span></>
+                <><ShieldAlert className="w-3.5 h-3.5 text-destructive" /> <span className="text-muted-foreground hidden sm:inline">Server Offline</span></>
               ) : health?.status === 'ok' ? (
-                <><ShieldCheck className="w-4 h-4 text-emerald-600 dark:text-emerald-500" /> <span className="text-muted-foreground">Dojo Active</span></>
+                <><ShieldCheck className="w-3.5 h-3.5 text-emerald-500" /> <span className="text-muted-foreground hidden sm:inline">Dojo Active</span></>
               ) : (
-                <><Activity className="w-4 h-4 text-amber-600 dark:text-amber-500 animate-pulse" /> <span className="text-muted-foreground">Connecting...</span></>
+                <><Activity className="w-3.5 h-3.5 text-primary animate-pulse" /> <span className="text-muted-foreground hidden sm:inline">Connecting...</span></>
               )}
             </div>
           </div>
         </div>
       </header>
-      <main className="flex-1 max-w-6xl mx-auto w-full px-4 py-8 md:py-12">
+      
+      <main className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 py-8 md:py-12">
         {children}
       </main>
+
+      <footer className="border-t border-white/5 py-8 mt-12 text-center text-sm text-muted-foreground/60 font-medium">
+        <p>An open-source learning project by RUN Trading Systems (RTS.AI) LLC</p>
+      </footer>
     </div>
   )
 }
