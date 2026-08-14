@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { AlertTriangle, MapPin, CheckCircle2, RotateCcw } from "lucide-react";
+import { BreakthroughContext } from "@/components/breakthrough-context";
 
 export function DetachedHead() {
   const [headPos, setHeadPos] = useState(5); // 1 to 5. 5 is attached to main.
@@ -107,6 +108,10 @@ export function DetachedHead() {
         </button>
       )}
 
+      <BreakthroughContext>
+        <p>Sometimes you need to prove exactly what a document said on a specific day last year. When you jump back to that old commit, your "HEAD" (where you are standing) detaches from the moving branch stickers. You are simply standing in the archive room.</p>
+        <p>It is designed this way so you can safely audit old records, run tests, or copy text without accidentally overwriting the past. When you are done looking, you just walk back to your branch sticker, and everything is exactly as you left it.</p>
+      </BreakthroughContext>
     </div>
   );
 }

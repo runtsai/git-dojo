@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { FileText, Camera, FileDiff, ChevronLeft, ChevronRight } from "lucide-react";
+import { BreakthroughContext } from "@/components/breakthrough-context";
 
 const commits = [
   { id: 1, msg: "Initial commit", snapshot: { "index.html": "v1" }, diff: { "index.html": "+ Created file" } },
@@ -104,6 +105,10 @@ export function SnapshotsNotDiffs() {
         </div>
       </div>
 
+      <BreakthroughContext>
+        <p>If Git only stored "what changed" line-by-line, rewinding to a version from three years ago would require calculating thousands of fragile diffs. Instead, Git takes a lightning-fast photograph of all your files every time you seal a record.</p>
+        <p>For your business, this means the custody trail is bulletproof. When an auditor asks to see exactly what the handbook looked like in 2022, Git isn't guessing based on old changes—it is handing you the exact, perfectly preserved photograph from that day.</p>
+      </BreakthroughContext>
     </div>
   );
 }

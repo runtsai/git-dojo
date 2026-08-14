@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { GitMerge, ArrowRight, Activity } from "lucide-react";
+import { BreakthroughContext } from "@/components/breakthrough-context";
 
 export function MergeReveals() {
   const [merged, setMerged] = useState(false);
@@ -82,6 +83,11 @@ export function MergeReveals() {
       {merged && (
         <button onClick={() => setMerged(false)} className="text-xs font-bold text-muted-foreground hover:text-foreground">Reset</button>
       )}
+
+      <BreakthroughContext>
+        <p>Merging often feels like a destructive action that rewrites history, but it is actually just drawing a new line between existing nodes. When a contractor finishes a proposal on their branch, their commits are already fully formed and sealed.</p>
+        <p>Merging simply creates one final record that says, "Connect their timeline into our main timeline here." This preserves their exact original custody trail—you see exactly when they did the work, not just the moment you approved it.</p>
+      </BreakthroughContext>
     </div>
   );
 }

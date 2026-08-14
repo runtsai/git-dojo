@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Wifi, WifiOff, Laptop, Globe, Upload, Download, Plus, CloudOff, AlertCircle } from "lucide-react";
+import { BreakthroughContext } from "@/components/breakthrough-context";
 
 export function TwoMachines() {
   const [online, setOnline] = useState(true);
@@ -185,6 +186,11 @@ export function TwoMachines() {
           </div>
         </div>
       </div>
+
+      <BreakthroughContext>
+        <p>Git was built so developers could work independently without a constant internet connection.</p>
+        <p>For your company, this means when a contractor is writing a new chapter of the compliance manual, they aren't directly editing the live files on the server. They work in their own independent copy locally, taking their time to seal records. When they are ready, they push their finished work up to GitHub. GitHub is simply the central meeting point where everyone's local copies are safely combined into the official company truth.</p>
+      </BreakthroughContext>
     </div>
   );
 }

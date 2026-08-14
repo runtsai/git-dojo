@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { ShieldAlert, Check, X, FileEdit } from "lucide-react";
+import { BreakthroughContext } from "@/components/breakthrough-context";
 
 export function ConflictsAreQuestions() {
   const [resolved, setResolved] = useState(false);
@@ -70,6 +71,10 @@ export function ConflictsAreQuestions() {
         </p>
       </div>
 
+      <BreakthroughContext>
+        <p>Git is designed with absolute paranoia about losing your data. If two people edit the exact same line of the compliance manual in different ways, Git refuses to guess which one is correct because guessing wrong means destroying company records.</p>
+        <p>It safely pauses the merge, highlights the exact disagreement, and hands you the pen. This fail-closed design guarantees that no contractor or employee can silently overwrite someone else's work—a human owner always has to make the final call.</p>
+      </BreakthroughContext>
     </div>
   );
 }

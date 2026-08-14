@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { PackageOpen, Truck, ShieldCheck, ArrowRight, FileEdit, FileCheck2, Archive } from "lucide-react";
+import { BreakthroughContext } from "@/components/breakthrough-context";
 
 type FileState = 'workbench' | 'dock' | 'sealed';
 interface MyFile { id: string; name: string; state: FileState; }
@@ -133,6 +134,11 @@ export function LoadingDock() {
           <button onClick={handleReset} className="text-sm font-bold text-muted-foreground hover:text-foreground underline underline-offset-4">Reset Toy</button>
         </div>
       )}
+
+      <BreakthroughContext>
+        <p>Work is inherently messy—you might edit the budget spreadsheet, draft an email, and update a policy all at the same time. The loading dock (staging area) exists so you don't have to seal all that chaos into a single confusing record.</p>
+        <p>You can put just the policy update on the dock and seal it, then put the budget on the dock and seal that. This forces your company's custody trail to remain clean and logical, ensuring every sealed record tells a single, clear story about what changed and why.</p>
+      </BreakthroughContext>
     </div>
   );
 }

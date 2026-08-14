@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Download, Merge, Search, Server, Laptop, GitCommit, GitBranch } from "lucide-react";
+import { BreakthroughContext } from "@/components/breakthrough-context";
 
 export function FetchIsLooking() {
   // State: 
@@ -117,6 +118,11 @@ export function FetchIsLooking() {
       <div className="bg-black/40 border border-white/10 p-4 rounded-lg text-sm text-muted-foreground leading-relaxed text-center">
         Pulling is just two commands duct-taped together: <code>git fetch</code> (look around and download new boxes without opening them) + <code>git merge</code> (force them into your current line). If you're scared, just fetch. It touches nothing.
       </div>
+
+      <BreakthroughContext>
+        <p>If pulling new work immediately mashed it into your local files, you would constantly risk breaking your current task. Fetching exists to give you a safe preview before committing to a merge.</p>
+        <p>When a contractor finishes a Pull Request and you want to review their changes locally, you fetch their work down into your hidden archive without touching your desk. Only when you have looked at it and confirmed it meets your standards do you pull (merge) it into your live, working files.</p>
+      </BreakthroughContext>
     </div>
   );
 }

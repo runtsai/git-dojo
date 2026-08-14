@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Trash2, AlertOctagon, RotateCcw, Eye, Search, FileSignature } from "lucide-react";
+import { BreakthroughContext } from "@/components/breakthrough-context";
 
 interface LogEntry {
   hash: string;
@@ -123,6 +124,11 @@ export function NothingIsLost() {
         )}
 
       </div>
+
+      <BreakthroughContext>
+        <p>The fear of making a mistake keeps many people from using Git effectively. But Git's architecture is fundamentally additive—it is almost impossible to actually delete a sealed record.</p>
+        <p>Even if you delete a branch sticker or force a reset, the photographs (commits) are still sitting in the archive, trackable via the hidden ledger (reflog). For your company, this means you can confidently let employees and contractors experiment. If they mess up the timeline, the original work is still safely preserved behind the curtain.</p>
+      </BreakthroughContext>
     </div>
   );
 }

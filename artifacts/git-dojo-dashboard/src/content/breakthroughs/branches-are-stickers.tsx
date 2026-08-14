@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { GitBranch, GitCommit, MoveRight, ArrowRight, MousePointer2 } from "lucide-react";
+import { BreakthroughContext } from "@/components/breakthrough-context";
 
 export function BranchesAreStickers() {
   const [commits, setCommits] = useState([1, 2, 3]);
@@ -108,11 +109,16 @@ export function BranchesAreStickers() {
 
       <div className="bg-primary/10 border border-primary/20 p-4 rounded-lg flex items-start gap-4">
         <div className="mt-1"><MousePointer2 className="w-5 h-5 text-primary" /></div>
-        <p className="text-sm text-primary-foreground/90 leading-relaxed font-medium">
+        <p className="text-sm text-foreground/90 leading-relaxed font-medium">
           Click a branch label to switch to it (move your <code className="bg-black/30 px-1 py-0.5 rounded">HEAD</code>). 
           Notice that when you commit, ONLY the active sticker moves forward. A branch is just a named pointer to a commit.
         </p>
       </div>
+
+      <BreakthroughContext>
+        <p>If creating a branch duplicated your entire project, starting a new task would be slow and waste massive amounts of disk space. Because a branch is just a tiny sticker pointing to a specific photograph, you can create hundreds of them instantly.</p>
+        <p>In practice, this means whenever a contractor wants to try an experimental new policy, they just stick a new label on the current truth and start working from there. The main company timeline remains untouched and completely safe while they experiment on their branch.</p>
+      </BreakthroughContext>
     </div>
   );
 }
