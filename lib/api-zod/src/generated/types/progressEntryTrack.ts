@@ -12,4 +12,5 @@ export type ProgressEntryTrack = typeof ProgressEntryTrack[keyof typeof Progress
 export const ProgressEntryTrack = {
   visual: 'visual',
   cli: 'cli',
+  live: 'live',
 } as const;

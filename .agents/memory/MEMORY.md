@@ -1,2 +1,3 @@
 - [Replit strips nested .git](replit-nested-git.md) — practice git repos must live outside /home/runner/workspace; active Git Dojo copy is at ~/git-dojo.
 - [Git default branch is master here](git-default-branch.md) — dojo lesson setup scripts must pin `-b main` / `git symbolic-ref HEAD refs/heads/main` or graders that reference main fail.
+- [GitHub connector scope limits](github-connector-scopes.md) — connector token lacks delete_repo; repo deletion must fall back to manual, branch deletion works.

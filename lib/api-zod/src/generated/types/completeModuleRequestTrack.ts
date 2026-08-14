@@ -12,4 +12,5 @@ export type CompleteModuleRequestTrack = typeof CompleteModuleRequestTrack[keyof
 export const CompleteModuleRequestTrack = {
   visual: 'visual',
   cli: 'cli',
+  live: 'live',
 } as const;

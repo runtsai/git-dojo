@@ -8,6 +8,10 @@
 
 export * from './apiMessage';
 export * from './botActionResult';
+export * from './capstoneMission';
+export * from './capstoneRepo';
+export * from './capstoneStatus';
+export * from './capstoneVerifyResult';
 export * from './checkResult';
 export * from './completeModuleRequest';
 export * from './completeModuleRequestTrack';

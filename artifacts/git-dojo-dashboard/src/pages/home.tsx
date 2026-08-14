@@ -1,6 +1,6 @@
 import { useGetProgress, useListLessons } from "@workspace/api-client-react";
 import { Link, useLocation } from "wouter";
-import { CheckCircle2, Lock, Terminal, Shield, Award, Trophy, Lightbulb, Play, Map, X } from "lucide-react";
+import { CheckCircle2, Lock, Terminal, Shield, Award, Trophy, Lightbulb, Play, Map, X, Rocket } from "lucide-react";
 import { ComputerIcon, StickerIcon } from "@/components/git-icons";
 import { tiers } from "@/content/tiers";
 import { breakthroughs } from "@/content/breakthroughs";
@@ -350,6 +350,23 @@ export function Home() {
               className="block w-full py-3 px-4 bg-secondary hover:bg-secondary/80 text-foreground text-center font-bold text-sm rounded-lg transition-all active:scale-95 border border-white/5 shadow-md"
             >
               Enter Test Center
+            </Link>
+          </div>
+
+          <div className="surface-card p-6 border-primary/20">
+            <div className="flex items-center gap-2 mb-3">
+              <Rocket className="w-5 h-5 text-primary" />
+              <h3 className="text-lg font-bold text-foreground">Go Live Capstone</h3>
+            </div>
+            <p className="text-sm text-muted-foreground leading-relaxed mb-4">
+              Optional final step: do it for real on your own GitHub account. Dojo creates a real
+              repo, opens a real PR, and verifies every step against the live GitHub API.
+            </p>
+            <Link 
+              href="/go-live"
+              className="block w-full py-3 px-4 bg-primary/10 hover:bg-primary/20 border border-primary/30 text-primary text-center font-bold text-sm rounded-lg transition-all active:scale-95"
+            >
+              Take it live &rarr;
             </Link>
           </div>
         </div>

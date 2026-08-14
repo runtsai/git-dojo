@@ -12,7 +12,7 @@ const PROGRESS_FILE = path.join(DATA_DIR, "progress.json");
 
 export interface ProgressEntry {
   moduleId: string;
-  track: "visual" | "cli";
+  track: "visual" | "cli" | "live";
   completedAt: string;
 }
 
@@ -29,7 +29,7 @@ export function loadEntries(): ProgressEntry[] {
 /** Records a completion (idempotent). Returns the full entry list. */
 export function recordCompletion(
   moduleId: string,
-  track: "visual" | "cli",
+  track: "visual" | "cli" | "live",
 ): ProgressEntry[] {
   const entries = loadEntries();
   if (!entries.some((e) => e.moduleId === moduleId && e.track === track)) {

@@ -14,6 +14,8 @@ tags:
     description: Git Dojo lesson and repository state operations
   - name: progress
     description: Course progress persistence across both tracks
+  - name: capstone
+    description: Go Live capstone against the learner's real GitHub account
 paths:
   /healthz:
     get:
@@ -163,6 +165,87 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Progress"
+  /capstone/status:
+    get:
+      operationId: getCapstoneStatus
+      tags: [capstone]
+      summary: Go Live capstone status
+      description: GitHub connection state, practice repo, and mission verification results
+      responses:
+        "200":
+          description: Capstone status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CapstoneStatus"
+  /capstone/repo:
+    post:
+      operationId: createCapstoneRepo
+      tags: [capstone]
+      summary: Create the real practice repository
+      description: Idempotently creates a dojo-prefixed repo on the learner's GitHub account and seeds the practice pull request
+      responses:
+        "200":
+          description: Repo ready (created now or already existed)
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CapstoneStatus"
+        "409":
+          description: GitHub not connected or repo creation failed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiMessage"
+    delete:
+      operationId: deleteCapstoneRepo
+      tags: [capstone]
+      summary: Reset the capstone and attempt repo deletion
+      description: Attempts to delete the dojo practice repo via GitHub. Connected GitHub tokens typically lack the delete_repo scope; in that case capstone state is still reset and a 409 explains where to delete the repo manually.
+      responses:
+        "200":
+          description: Repo deleted on GitHub and state cleared
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CapstoneStatus"
+        "409":
+          description: GitHub refused deletion (state was still reset when the repo remains) — error text includes the manual-deletion URL
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiMessage"
+  /capstone/verify/{missionId}:
+    post:
+      operationId: verifyCapstoneMission
+      tags: [capstone]
+      summary: Verify a capstone mission against live GitHub
+      description: Checks the real repository state via the GitHub API; badges are recorded only on verified truth
+      parameters:
+        - name: missionId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Verification result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CapstoneVerifyResult"
+        "404":
+          description: Unknown mission
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiMessage"
+        "409":
+          description: GitHub not connected or repo missing
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiMessage"
 components:
   schemas:
     HealthStatus:
@@ -321,7 +404,7 @@ components:
           description: Module id such as 1.1 (Track A) or lesson-01 (Track B)
         track:
           type: string
-          enum: [visual, cli]
+          enum: [visual, cli, live]
         completedAt:
           type: string
           description: ISO 8601 timestamp of when the module first passed
@@ -341,7 +424,7 @@ components:
           type: string
         track:
           type: string
-          enum: [visual, cli]
+          enum: [visual, cli, live]
       required: [moduleId, track]
     BotActionResult:
       type: object
@@ -353,6 +436,77 @@ components:
           type: string
           description: What the teammate did, in plain English
       required: [ran, output]
+    CapstoneRepo:
+      type: object
+      properties:
+        name:
+          type: string
+        fullName:
+          type: string
+          description: owner/name
+        htmlUrl:
+          type: string
+        cloneUrl:
+          type: string
+        defaultBranch:
+          type: string
+      required: [name, fullName, htmlUrl, cloneUrl, defaultBranch]
+    CapstoneMission:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Mission id (push-commit, create-branch, merge-pr)
+        title:
+          type: string
+        verified:
+          type: boolean
+          description: True only after the live GitHub API confirmed this step
+        verifiedAt:
+          type: ["string", "null"]
+          description: ISO 8601 timestamp of first verified pass
+      required: [id, title, verified, verifiedAt]
+    CapstoneStatus:
+      type: object
+      properties:
+        githubConnected:
+          type: boolean
+        githubLogin:
+          type: ["string", "null"]
+          description: The connected GitHub username, when available
+        repo:
+          anyOf:
+            - $ref: "#/components/schemas/CapstoneRepo"
+            - type: "null"
+        prNumber:
+          type: ["number", "null"]
+        prUrl:
+          type: ["string", "null"]
+        prBranch:
+          type: ["string", "null"]
+          description: Head branch of the Dojo-generated pull request
+        missions:
+          type: array
+          items:
+            $ref: "#/components/schemas/CapstoneMission"
+        badgeEarnedAt:
+          type: ["string", "null"]
+          description: Set only when every mission has been verified against GitHub
+      required:
+        [githubConnected, githubLogin, repo, prNumber, prUrl, prBranch, missions, badgeEarnedAt]
+    CapstoneVerifyResult:
+      type: object
+      properties:
+        missionId:
+          type: string
+        verified:
+          type: boolean
+        detail:
+          type: string
+          description: Honest explanation of what the live check saw
+        status:
+          $ref: "#/components/schemas/CapstoneStatus"
+      required: [missionId, verified, detail, status]
     CheckResult:
       type: object
       properties:

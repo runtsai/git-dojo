@@ -121,7 +121,7 @@ export const RunBotActionResponse = zod.object({
 export const GetProgressResponse = zod.object({
   "entries": zod.array(zod.object({
   "moduleId": zod.string().describe('Module id such as 1.1 (Track A) or lesson-01 (Track B)'),
-  "track": zod.enum(['visual', 'cli']),
+  "track": zod.enum(['visual', 'cli', 'live']),
   "completedAt": zod.string().describe('ISO 8601 timestamp of when the module first passed')
 }))
 })
@@ -133,15 +133,131 @@ export const GetProgressResponse = zod.object({
  */
 export const CompleteModuleBody = zod.object({
   "moduleId": zod.string(),
-  "track": zod.enum(['visual', 'cli'])
+  "track": zod.enum(['visual', 'cli', 'live'])
 })
 
 export const CompleteModuleResponse = zod.object({
   "entries": zod.array(zod.object({
   "moduleId": zod.string().describe('Module id such as 1.1 (Track A) or lesson-01 (Track B)'),
-  "track": zod.enum(['visual', 'cli']),
+  "track": zod.enum(['visual', 'cli', 'live']),
   "completedAt": zod.string().describe('ISO 8601 timestamp of when the module first passed')
 }))
 })
 
+
+/**
+ * GitHub connection state, practice repo, and mission verification results
+ * @summary Go Live capstone status
+ */
+export const GetCapstoneStatusResponse = zod.object({
+  "githubConnected": zod.boolean(),
+  "githubLogin": zod.string().nullable().describe('The connected GitHub username, when available'),
+  "repo": zod.union([zod.object({
+  "name": zod.string(),
+  "fullName": zod.string().describe('owner\/name'),
+  "htmlUrl": zod.string(),
+  "cloneUrl": zod.string(),
+  "defaultBranch": zod.string()
+}),zod.null()]),
+  "prNumber": zod.number().nullable(),
+  "prUrl": zod.string().nullable(),
+  "prBranch": zod.string().nullable().describe('Head branch of the Dojo-generated pull request'),
+  "missions": zod.array(zod.object({
+  "id": zod.string().describe('Mission id (push-commit, create-branch, merge-pr)'),
+  "title": zod.string(),
+  "verified": zod.boolean().describe('True only after the live GitHub API confirmed this step'),
+  "verifiedAt": zod.string().nullable().describe('ISO 8601 timestamp of first verified pass')
+})),
+  "badgeEarnedAt": zod.string().nullable().describe('Set only when every mission has been verified against GitHub')
+})
+
+
+/**
+ * Idempotently creates a dojo-prefixed repo on the learner's GitHub account and seeds the practice pull request
+ * @summary Create the real practice repository
+ */
+export const CreateCapstoneRepoResponse = zod.object({
+  "githubConnected": zod.boolean(),
+  "githubLogin": zod.string().nullable().describe('The connected GitHub username, when available'),
+  "repo": zod.union([zod.object({
+  "name": zod.string(),
+  "fullName": zod.string().describe('owner\/name'),
+  "htmlUrl": zod.string(),
+  "cloneUrl": zod.string(),
+  "defaultBranch": zod.string()
+}),zod.null()]),
+  "prNumber": zod.number().nullable(),
+  "prUrl": zod.string().nullable(),
+  "prBranch": zod.string().nullable().describe('Head branch of the Dojo-generated pull request'),
+  "missions": zod.array(zod.object({
+  "id": zod.string().describe('Mission id (push-commit, create-branch, merge-pr)'),
+  "title": zod.string(),
+  "verified": zod.boolean().describe('True only after the live GitHub API confirmed this step'),
+  "verifiedAt": zod.string().nullable().describe('ISO 8601 timestamp of first verified pass')
+})),
+  "badgeEarnedAt": zod.string().nullable().describe('Set only when every mission has been verified against GitHub')
+})
+
+
+/**
+ * Attempts to delete the dojo practice repo via GitHub. Connected GitHub tokens typically lack the delete_repo scope; in that case capstone state is still reset and a 409 explains where to delete the repo manually.
+ * @summary Reset the capstone and attempt repo deletion
+ */
+export const DeleteCapstoneRepoResponse = zod.object({
+  "githubConnected": zod.boolean(),
+  "githubLogin": zod.string().nullable().describe('The connected GitHub username, when available'),
+  "repo": zod.union([zod.object({
+  "name": zod.string(),
+  "fullName": zod.string().describe('owner\/name'),
+  "htmlUrl": zod.string(),
+  "cloneUrl": zod.string(),
+  "defaultBranch": zod.string()
+}),zod.null()]),
+  "prNumber": zod.number().nullable(),
+  "prUrl": zod.string().nullable(),
+  "prBranch": zod.string().nullable().describe('Head branch of the Dojo-generated pull request'),
+  "missions": zod.array(zod.object({
+  "id": zod.string().describe('Mission id (push-commit, create-branch, merge-pr)'),
+  "title": zod.string(),
+  "verified": zod.boolean().describe('True only after the live GitHub API confirmed this step'),
+  "verifiedAt": zod.string().nullable().describe('ISO 8601 timestamp of first verified pass')
+})),
+  "badgeEarnedAt": zod.string().nullable().describe('Set only when every mission has been verified against GitHub')
+})
+
+
+/**
+ * Checks the real repository state via the GitHub API; badges are recorded only on verified truth
+ * @summary Verify a capstone mission against live GitHub
+ */
+export const VerifyCapstoneMissionParams = zod.object({
+  "missionId": zod.coerce.string()
+})
+
+export const VerifyCapstoneMissionResponse = zod.object({
+  "missionId": zod.string(),
+  "verified": zod.boolean(),
+  "detail": zod.string().describe('Honest explanation of what the live check saw'),
+  "status": zod.object({
+  "githubConnected": zod.boolean(),
+  "githubLogin": zod.string().nullable().describe('The connected GitHub username, when available'),
+  "repo": zod.union([zod.object({
+  "name": zod.string(),
+  "fullName": zod.string().describe('owner\/name'),
+  "htmlUrl": zod.string(),
+  "cloneUrl": zod.string(),
+  "defaultBranch": zod.string()
+}),zod.null()]),
+  "prNumber": zod.number().nullable(),
+  "prUrl": zod.string().nullable(),
+  "prBranch": zod.string().nullable().describe('Head branch of the Dojo-generated pull request'),
+  "missions": zod.array(zod.object({
+  "id": zod.string().describe('Mission id (push-commit, create-branch, merge-pr)'),
+  "title": zod.string(),
+  "verified": zod.boolean().describe('True only after the live GitHub API confirmed this step'),
+  "verifiedAt": zod.string().nullable().describe('ISO 8601 timestamp of first verified pass')
+})),
+  "badgeEarnedAt": zod.string().nullable().describe('Set only when every mission has been verified against GitHub')
+})
+})
 

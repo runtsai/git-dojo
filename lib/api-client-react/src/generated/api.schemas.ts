@@ -100,6 +100,7 @@ export type ProgressEntryTrack = typeof ProgressEntryTrack[keyof typeof Progress
 export const ProgressEntryTrack = {
   visual: 'visual',
   cli: 'cli',
+  live: 'live',
 } as const;
 
 export interface ProgressEntry {
@@ -120,6 +121,7 @@ export type CompleteModuleRequestTrack = typeof CompleteModuleRequestTrack[keyof
 export const CompleteModuleRequestTrack = {
   visual: 'visual',
   cli: 'cli',
+  live: 'live',
 } as const;
 
 export interface CompleteModuleRequest {
@@ -132,6 +134,61 @@ export interface BotActionResult {
   ran: boolean;
   /** What the teammate did, in plain English */
   output: string;
+}
+
+export interface CapstoneRepo {
+  name: string;
+  /** owner/name */
+  fullName: string;
+  htmlUrl: string;
+  cloneUrl: string;
+  defaultBranch: string;
+}
+
+export interface CapstoneMission {
+  /** Mission id (push-commit, create-branch, merge-pr) */
+  id: string;
+  title: string;
+  /** True only after the live GitHub API confirmed this step */
+  verified: boolean;
+  /**
+     * ISO 8601 timestamp of first verified pass
+     * @nullable
+     */
+  verifiedAt: string | null;
+}
+
+export interface CapstoneStatus {
+  githubConnected: boolean;
+  /**
+     * The connected GitHub username, when available
+     * @nullable
+     */
+  githubLogin: string | null;
+  repo: CapstoneRepo | null;
+  /** @nullable */
+  prNumber: number | null;
+  /** @nullable */
+  prUrl: string | null;
+  /**
+     * Head branch of the Dojo-generated pull request
+     * @nullable
+     */
+  prBranch: string | null;
+  missions: CapstoneMission[];
+  /**
+     * Set only when every mission has been verified against GitHub
+     * @nullable
+     */
+  badgeEarnedAt: string | null;
+}
+
+export interface CapstoneVerifyResult {
+  missionId: string;
+  verified: boolean;
+  /** Honest explanation of what the live check saw */
+  detail: string;
+  status: CapstoneStatus;
 }
 
 export interface CheckResult {

@@ -1,6 +1,6 @@
 import { Link, useLocation } from "wouter";
 import { useHealthCheck, getHealthCheckQueryKey } from "@workspace/api-client-react";
-import { Activity, ShieldCheck, ShieldAlert, Terminal, Lightbulb } from "lucide-react";
+import { Activity, ShieldCheck, ShieldAlert, Terminal, Lightbulb, Rocket } from "lucide-react";
 import { useEffect } from "react";
 
 export function Layout({ children }: { children: React.ReactNode }) {
@@ -48,6 +48,19 @@ export function Layout({ children }: { children: React.ReactNode }) {
               <Terminal className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${location.startsWith('/test-center') ? 'text-primary' : ''}`} />
               <span className="hidden sm:inline">Command Test Center</span>
               <span className="sm:hidden">Tests</span>
+            </Link>
+
+            <Link 
+              href="/go-live" 
+              className={`flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 rounded-md font-bold text-xs sm:text-sm transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary active:scale-95 ${
+                location.startsWith('/go-live') 
+                  ? 'bg-secondary text-foreground shadow-sm' 
+                  : 'text-muted-foreground hover:text-foreground hover:bg-secondary/50'
+              }`}
+            >
+              <Rocket className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${location.startsWith('/go-live') ? 'text-primary' : ''}`} />
+              <span className="hidden sm:inline">Go Live</span>
+              <span className="sm:hidden">Live</span>
             </Link>
 
             <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full bg-secondary/50 border border-white/5 text-xs font-medium ml-2 shadow-inner">
