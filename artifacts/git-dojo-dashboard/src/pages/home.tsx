@@ -1,6 +1,6 @@
 import { useGetProgress, useListLessons } from "@workspace/api-client-react";
 import { Link } from "wouter";
-import { CheckCircle2, Lock, Terminal, Shield, Award } from "lucide-react";
+import { CheckCircle2, Lock, Terminal, Shield, Award, Trophy } from "lucide-react";
 import { tiers } from "@/content/tiers";
 
 export function Home() {
@@ -42,18 +42,37 @@ export function Home() {
             {tiers.map((tier, idx) => {
               const isActive = tier.status === "active";
               
+              const tierModules = tier.modules || [];
+              const completedInTier = tierModules.filter(m => completedVisualModules.includes(m.id)).length;
+              const isTierComplete = isActive && tierModules.length > 0 && completedInTier === tierModules.length;
+              
               return (
                 <div 
                   key={tier.id} 
                   className={`border rounded-xl p-6 md:p-8 transition-all ${
                     isActive 
-                      ? 'bg-card border-white/10 shadow-lg shadow-black/50' 
+                      ? isTierComplete
+                        ? 'bg-[#161b22] border-emerald-500/30 shadow-[0_0_20px_rgba(16,185,129,0.1)] relative overflow-hidden'
+                        : 'bg-card border-white/10 shadow-lg shadow-black/50' 
                       : 'bg-background border-white/5 opacity-75 grayscale-[20%]'
                   }`}
                 >
-                  <div className="flex items-start justify-between gap-4 mb-6">
+                  {isTierComplete && (
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 blur-3xl rounded-full translate-x-1/2 -translate-y-1/2" />
+                  )}
+
+                  <div className="flex items-start justify-between gap-4 mb-6 relative z-10">
                     <div>
-                      <div className="text-sm font-bold text-primary tracking-widest uppercase mb-1">Tier {idx + 1}</div>
+                      <div className="flex items-center gap-3 mb-1">
+                        <div className={`text-sm font-bold tracking-widest uppercase ${isTierComplete ? 'text-emerald-400' : 'text-primary'}`}>
+                          Tier {idx + 1}
+                        </div>
+                        {isTierComplete && (
+                          <span className="bg-emerald-500/20 text-emerald-400 text-[10px] px-2 py-0.5 rounded font-bold flex items-center gap-1 border border-emerald-500/30">
+                            <Trophy className="w-3 h-3" /> COMPLETED
+                          </span>
+                        )}
+                      </div>
                       <h3 className="text-2xl font-bold text-foreground">{tier.title}</h3>
                       <p className="text-muted-foreground mt-2">{tier.description}</p>
                     </div>
@@ -65,28 +84,36 @@ export function Home() {
                   </div>
                   
                   {isActive && tier.modules && (
-                    <div className="space-y-3">
+                    <div className="space-y-3 relative z-10">
                       {tier.modules.map(mod => {
                         const isCompleted = completedVisualModules.includes(mod.id);
                         return (
                           <Link 
                             key={mod.id} 
                             href={mod.path}
-                            className="group flex items-center justify-between p-4 rounded-lg bg-black/40 border border-white/5 hover:border-primary/50 hover:bg-secondary/50 transition-colors cursor-pointer"
+                            className={`group flex items-center justify-between p-4 rounded-lg border transition-colors cursor-pointer ${
+                              isCompleted 
+                                ? 'bg-emerald-500/5 border-emerald-500/20 hover:border-emerald-500/50 hover:bg-emerald-500/10'
+                                : 'bg-black/40 border-white/5 hover:border-primary/50 hover:bg-secondary/50'
+                            }`}
                           >
                             <div className="flex items-center gap-4">
                               <div className={`w-8 h-8 rounded-full flex items-center justify-center border-2 ${
                                 isCompleted 
-                                  ? 'bg-primary/20 border-primary text-primary' 
+                                  ? 'bg-emerald-500/20 border-emerald-500 text-emerald-400 shadow-[0_0_10px_rgba(16,185,129,0.2)]' 
                                   : 'bg-background border-muted-foreground/30 text-muted-foreground/50'
                               }`}>
                                 {isCompleted ? <CheckCircle2 className="w-4 h-4" /> : <span className="text-xs font-bold">{mod.id}</span>}
                               </div>
-                              <span className={`font-bold group-hover:text-primary transition-colors ${isCompleted ? 'text-foreground' : 'text-muted-foreground'}`}>
+                              <span className={`font-bold transition-colors ${
+                                isCompleted ? 'text-white' : 'text-muted-foreground group-hover:text-primary'
+                              }`}>
                                 {mod.title}
                               </span>
                             </div>
-                            <div className="text-sm font-bold text-muted-foreground group-hover:text-primary/80 transition-colors">
+                            <div className={`text-sm font-bold transition-colors ${
+                              isCompleted ? 'text-emerald-500/70 group-hover:text-emerald-400' : 'text-muted-foreground group-hover:text-primary/80'
+                            }`}>
                               {isCompleted ? 'Review' : 'Start'} &rarr;
                             </div>
                           </Link>
