@@ -15,6 +15,8 @@ import { Home } from '@/pages/home';
 import { TestCenter } from '@/pages/test-center';
 import { LessonView } from '@/pages/lesson';
 import { LearnModuleView } from '@/pages/learn';
+import { BreakthroughsIndex } from '@/pages/breakthroughs-index';
+import { BreakthroughView } from '@/pages/breakthrough-view';
 
 const queryClient = new QueryClient();
 
@@ -27,6 +29,8 @@ function Router() {
           <Route path="/test-center" component={TestCenter} />
           <Route path="/test-center/:lessonId" component={LessonView} />
           <Route path="/learn/:moduleId" component={LearnModuleView} />
+          <Route path="/breakthroughs" component={BreakthroughsIndex} />
+          <Route path="/breakthroughs/:id" component={BreakthroughView} />
           <Route component={NotFound} />
         </Switch>
       </RoutedErrorBoundary>

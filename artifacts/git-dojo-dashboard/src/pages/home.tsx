@@ -1,6 +1,6 @@
 import { useGetProgress, useListLessons } from "@workspace/api-client-react";
 import { Link } from "wouter";
-import { CheckCircle2, Lock, Terminal, Shield, Award, Trophy } from "lucide-react";
+import { CheckCircle2, Lock, Terminal, Shield, Award, Trophy, Lightbulb } from "lucide-react";
 import { tiers } from "@/content/tiers";
 
 export function Home() {
@@ -28,6 +28,24 @@ export function Home() {
         <p className="text-lg md:text-xl text-muted-foreground max-w-3xl leading-relaxed">
           Learn how to trace, protect, and safely share the single source of truth for your company records. Two independent tracks. Zero gating.
         </p>
+      </div>
+
+      <div className="bg-primary/5 border border-primary/20 rounded-xl p-6 md:p-8 flex flex-col md:flex-row items-start md:items-center justify-between gap-6 shadow-lg shadow-primary/5">
+        <div>
+          <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
+            <Lightbulb className="w-5 h-5 text-primary" /> 
+            Breakthroughs
+          </h2>
+          <p className="text-muted-foreground mt-2 max-w-2xl leading-relaxed">
+            Stuck on a concept? These nine interactive ideas are where Git usually clicks. Play with the toys until the misconception visibly breaks.
+          </p>
+        </div>
+        <Link 
+          href="/breakthroughs"
+          className="bg-black/50 border border-white/10 hover:border-primary/50 text-foreground font-bold px-6 py-3 rounded-lg transition-colors whitespace-nowrap shadow-md hover:bg-secondary/50 flex-shrink-0"
+        >
+          Explore the Gallery
+        </Link>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12">
