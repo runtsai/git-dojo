@@ -1,6 +1,7 @@
 import { useGetProgress, useListLessons } from "@workspace/api-client-react";
 import { Link, useLocation } from "wouter";
 import { CheckCircle2, Lock, Terminal, Shield, Award, Trophy, Lightbulb, Play, Map, X } from "lucide-react";
+import { ComputerIcon, StickerIcon } from "@/components/git-icons";
 import { tiers } from "@/content/tiers";
 import { breakthroughs } from "@/content/breakthroughs";
 import { useEffect, useState } from "react";
@@ -80,7 +81,7 @@ export function Home() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
             <div className="space-y-2">
               <div className="font-bold text-foreground flex items-center gap-2">
-                <span className="bg-primary/20 text-primary w-6 h-6 rounded-full flex items-center justify-center text-xs">1</span>
+                <span className="bg-primary/20 text-primary w-6 h-6 rounded-full flex items-center justify-center text-xs"><ComputerIcon className="w-3.5 h-3.5" /></span>
                 The Main Course
               </div>
               <p className="text-sm text-muted-foreground leading-relaxed">
@@ -89,7 +90,7 @@ export function Home() {
             </div>
             <div className="space-y-2">
               <div className="font-bold text-foreground flex items-center gap-2">
-                <span className="bg-primary/20 text-primary w-6 h-6 rounded-full flex items-center justify-center text-xs">2</span>
+                <span className="bg-primary/20 text-primary w-6 h-6 rounded-full flex items-center justify-center text-xs"><StickerIcon className="w-3.5 h-3.5" /></span>
                 Breakthroughs
               </div>
               <p className="text-sm text-muted-foreground leading-relaxed">
@@ -98,7 +99,7 @@ export function Home() {
             </div>
             <div className="space-y-2">
               <div className="font-bold text-foreground flex items-center gap-2">
-                <span className="bg-primary/20 text-primary w-6 h-6 rounded-full flex items-center justify-center text-xs">3</span>
+                <span className="bg-primary/20 text-primary w-6 h-6 rounded-full flex items-center justify-center text-xs"><Terminal className="w-3.5 h-3.5" /></span>
                 Command Test Center
               </div>
               <p className="text-sm text-muted-foreground leading-relaxed">
@@ -110,7 +111,7 @@ export function Home() {
           <button 
             onClick={() => {
               dismissOrientation();
-              setLocation('/learn/module-1-1');
+              setLocation('/learn/1-1');
             }}
             className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-6 py-3 rounded-lg transition-all active:scale-95 shadow-[0_0_20px_rgba(255,107,0,0.2)] inline-flex items-center gap-2"
           >

@@ -2,6 +2,10 @@ import { useState, useEffect, useRef } from "react";
 import { Link } from "wouter";
 import { ArrowLeft, Play, X, Map as MapIcon, Compass, PlayCircle, MousePointer2 } from "lucide-react";
 import { mapPlaces, mapFlows, mapJourneys, W5 } from "@/content/map";
+import { 
+  ComputerIcon, TrayIcon, SealedBoxIcon, CloudIcon, 
+  ProposalIcon, RobotIcon, UnlockIcon, LockIcon 
+} from "@/components/git-icons";
 
 // Diagram coordinates
 const PLACES = {
@@ -108,6 +112,17 @@ export function MapView() {
     : activeFlow 
       ? mapFlows.find(f => f.id === activeFlow)?.label 
       : null;
+
+  const PLACE_ICONS: Record<string, React.ElementType> = {
+    workbench: ComputerIcon,
+    dock: TrayIcon,
+    sealed: SealedBoxIcon,
+    "front-office": CloudIcon,
+    "pr-desk": ProposalIcon,
+    robot: RobotIcon,
+    review: UnlockIcon,
+    shared: CloudIcon,
+  };
 
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-7xl mx-auto space-y-6 sm:space-y-8">

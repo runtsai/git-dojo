@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { BreakthroughContext } from "@/components/breakthrough-context";
-import { GitPullRequest, CheckCircle2, XCircle, Terminal, RotateCcw, Merge } from "lucide-react";
+import { RotateCcw } from "lucide-react";
+import { ProposalIcon, RobotIcon, LockIcon, UnlockIcon } from "@/components/git-icons";
 
 type RunState = 'idle' | 'running' | 'success' | 'failed' | 'merged';
 
@@ -96,7 +97,7 @@ export function TheRobotCoworker() {
             </h3>
             <div className="flex items-center gap-2 mt-2 text-sm">
               <span className="bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-full font-bold flex items-center gap-1 text-xs">
-                <GitPullRequest className="w-3 h-3" /> Open
+                <ProposalIcon className="w-3 h-3" /> Open
               </span>
               <span className="text-muted-foreground font-mono">contractor-branch</span>
               <span className="text-muted-foreground">&rarr;</span>
@@ -133,11 +134,12 @@ export function TheRobotCoworker() {
         {/* Checks Section */}
         <div className="p-4 sm:p-6 flex flex-col gap-4">
           <div className="text-sm font-bold text-foreground mb-2 flex items-center gap-2">
-            Checks <span className="bg-white/10 text-white/70 px-2 py-0.5 rounded-full text-xs">1</span>
+            <RobotIcon className="w-4 h-4" /> Checks <span className="bg-white/10 text-white/70 px-2 py-0.5 rounded-full text-xs">1</span>
           </div>
 
           {runState === 'idle' ? (
-            <div className="border border-white/5 bg-white/[0.02] p-8 rounded-lg text-center text-muted-foreground text-sm italic">
+            <div className="border border-white/5 bg-white/[0.02] p-8 rounded-lg text-center text-muted-foreground text-sm italic flex flex-col items-center justify-center gap-3">
+              <RobotIcon className="w-8 h-8 opacity-20" />
               Checks will run automatically when the Pull Request is opened.
             </div>
           ) : (
@@ -151,8 +153,8 @@ export function TheRobotCoworker() {
                 {runState === 'running' && (
                   <div className="w-5 h-5 rounded-full border-2 border-primary border-t-transparent animate-none motion-safe:animate-spin" />
                 )}
-                {runState === 'success' && <CheckCircle2 className="w-5 h-5 text-emerald-400" />}
-                {runState === 'failed' && <XCircle className="w-5 h-5 text-destructive" />}
+                {runState === 'success' && <div className="w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center text-black text-xs font-bold font-sans">✓</div>}
+                {runState === 'failed' && <div className="w-5 h-5 rounded-full bg-destructive flex items-center justify-center text-white text-xs font-bold font-sans">✕</div>}
                 
                 <div className="flex-1 font-bold text-sm text-foreground">
                   {runState === 'running' ? 'Company Quality Gate is running...' :
@@ -164,7 +166,7 @@ export function TheRobotCoworker() {
               {/* Live Terminal */}
               <div className="bg-black border border-white/10 rounded-lg p-4 font-mono text-xs sm:text-sm leading-relaxed overflow-x-auto h-40 flex flex-col">
                 <div className="text-muted-foreground flex items-center gap-2 mb-2 pb-2 border-b border-white/10">
-                  <Terminal className="w-4 h-4" /> Build Output
+                  <RobotIcon className="w-4 h-4" /> Build Output
                 </div>
                 <div className="flex-1 overflow-y-auto space-y-1">
                   {logs.map((log, i) => (
@@ -194,7 +196,11 @@ export function TheRobotCoworker() {
             'bg-black/40 border-white/5'
           }`}>
             <div className="flex items-start sm:items-center gap-3">
-              <Merge className={`w-5 h-5 shrink-0 mt-0.5 sm:mt-0 ${runState === 'success' ? 'text-emerald-400' : runState === 'merged' ? 'text-[#8957e5]' : 'text-muted-foreground'}`} />
+              {runState === 'success' || runState === 'merged' ? (
+                <UnlockIcon className={`w-5 h-5 shrink-0 mt-0.5 sm:mt-0 ${runState === 'merged' ? 'text-[#8957e5]' : 'text-emerald-400'}`} />
+              ) : (
+                <LockIcon className="w-5 h-5 shrink-0 mt-0.5 sm:mt-0 text-muted-foreground" />
+              )}
               <div>
                 <div className="font-bold text-sm sm:text-base text-foreground">
                   {runState === 'success' ? 'Pull Request successfully reviewed' : 
@@ -211,13 +217,13 @@ export function TheRobotCoworker() {
             
             {runState === 'merged' ? (
               <div className="px-6 py-2.5 rounded-lg font-bold text-sm text-[#8957e5] bg-[#8957e5]/20 border border-[#8957e5]/30 shrink-0 text-center animate-in zoom-in-95 flex items-center justify-center gap-2">
-                <Merge className="w-4 h-4" /> Merged
+                <ProposalIcon className="w-4 h-4" /> Merged
               </div>
             ) : (
               <button 
                 onClick={() => setRunState('merged')}
                 disabled={runState !== 'success'}
-                className={`px-6 py-2.5 rounded-lg font-bold text-sm transition-all shrink-0 ${
+                className={`px-6 py-2.5 rounded-lg font-bold text-sm transition-all shrink-0 flex items-center justify-center gap-2 ${
                   runState === 'success' 
                     ? 'bg-emerald-500 hover:bg-emerald-600 text-white shadow-lg shadow-emerald-500/20 cursor-pointer' 
                     : 'bg-white/5 text-white/30 cursor-not-allowed border border-white/10'
