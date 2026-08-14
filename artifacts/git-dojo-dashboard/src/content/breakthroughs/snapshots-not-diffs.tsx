@@ -21,58 +21,59 @@ export function SnapshotsNotDiffs() {
       
       {/* View Toggle */}
       <div className="flex justify-center">
-        <div className="bg-black/40 p-1 rounded-lg border border-white/10 flex flex-col sm:flex-row w-full sm:w-auto">
+        <div className="bg-black/40 p-1 rounded-xl border border-white/10 flex flex-col sm:flex-row w-full sm:w-auto shadow-inner">
           <button
             onClick={() => setViewMode('snapshot')}
-            className={`flex items-center justify-center gap-2 px-4 py-2 rounded-md font-bold text-sm transition-colors ${
-              viewMode === 'snapshot' ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-foreground'
+            className={`min-h-[44px] flex items-center justify-center gap-2 px-6 py-2 rounded-lg font-bold text-sm transition-colors ${
+              viewMode === 'snapshot' ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground'
             }`}
           >
-            <Camera className="w-4 h-4" /> What Git actually stores
+            <Camera className="w-5 h-5" /> What Git actually stores
           </button>
           <button
             onClick={() => setViewMode('diff')}
-            className={`flex items-center justify-center gap-2 px-4 py-2 rounded-md font-bold text-sm transition-colors ${
-              viewMode === 'diff' ? 'bg-secondary text-foreground border-white/10' : 'text-muted-foreground hover:text-foreground'
+            className={`min-h-[44px] flex items-center justify-center gap-2 px-6 py-2 rounded-lg font-bold text-sm transition-colors ${
+              viewMode === 'diff' ? 'bg-secondary text-foreground border border-white/10 shadow-sm' : 'text-muted-foreground hover:text-foreground'
             }`}
           >
-            <FileDiff className="w-4 h-4" /> What Git shows you
+            <FileDiff className="w-5 h-5" /> What Git shows you
           </button>
         </div>
       </div>
 
       {/* Timeline */}
       <div className="px-4">
-        <div className="flex justify-between items-center relative mb-8">
-          <div className="absolute left-0 right-0 top-1/2 -translate-y-1/2 h-1 bg-white/10 rounded-full" />
+        <div className="flex justify-between items-center relative mb-12">
+          <div className="absolute left-0 right-0 top-1/2 -translate-y-1/2 h-1.5 bg-white/10 rounded-full" />
           {commits.map((c, i) => (
             <button
               key={c.id}
               onClick={() => setActiveCommit(i)}
-              className={`relative z-10 w-8 h-8 rounded-full border-4 flex items-center justify-center transition-all ${
+              className={`relative z-10 w-12 h-12 rounded-full border-4 flex items-center justify-center transition-all min-h-[44px] min-w-[44px] ${
                 i === activeCommit 
-                  ? 'bg-primary border-[#0d1117] ring-2 ring-primary scale-125' 
+                  ? 'bg-primary border-[#0d1117] ring-4 ring-primary/50 scale-110 shadow-lg shadow-primary/30' 
                   : 'bg-[#21262d] border-[#0d1117] text-muted-foreground hover:bg-white/20'
               }`}
             >
-              {i === activeCommit && <div className="w-2 h-2 bg-[#0d1117] rounded-full" />}
+              {i === activeCommit && <div className="w-3 h-3 bg-[#0d1117] rounded-full" />}
             </button>
           ))}
         </div>
         
-        <div className="text-center mb-6 h-8">
+        <div className="text-center mb-8 h-10 text-lg">
           <span className="font-mono text-primary font-bold">Commit {commit.id}:</span>{" "}
           <span className="text-foreground">{commit.msg}</span>
         </div>
       </div>
 
       {/* Content Area */}
-      <div className="bg-[#161b22] border border-white/10 rounded-xl overflow-hidden min-h-[250px] relative">
-        <div className="bg-[#21262d] border-b border-white/10 px-4 py-2 text-xs font-mono text-muted-foreground font-bold tracking-widest uppercase">
+      <div className="bg-[#0d1117] border border-white/10 rounded-2xl overflow-hidden min-h-[300px] relative shadow-2xl">
+        <div className="bg-[#161b22] border-b border-white/10 px-6 py-4 text-sm font-mono text-muted-foreground font-bold tracking-widest uppercase flex items-center justify-center gap-2">
+          {viewMode === 'snapshot' ? <Camera className="w-4 h-4" /> : <FileDiff className="w-4 h-4" />}
           {viewMode === 'snapshot' ? 'Full Archive Box (Snapshot)' : 'Calculated On-the-fly (Diff)'}
         </div>
         
-        <div className="p-6">
+        <div className="p-8">
           {viewMode === 'snapshot' ? (
             <div className="grid grid-cols-3 gap-4">
               {Object.entries(commit.snapshot).map(([file, version]) => (

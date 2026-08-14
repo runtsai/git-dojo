@@ -1,0 +1,25 @@
+The concept of The Map is absolutely brilliant for visual learners, but these screenshots reveal exactly what went wrong in the execution: the visualization's rendering logic is breaking down.
+The nodes (the boxes like "The Workbench" and "The Front Office") look great. The problem lies entirely in the edges (the arrows). The arrowheads are scaling disproportionately, creating massive geometric blobs that overlap, swallow the text labels, and destroy the visual hierarchy, especially on the push/fetch/pull boundary.
+To fix this without breaking the underlying map logic, you need to instruct the Replit agent to focus strictly on the SVG/edge styling and path routing.
+Here is a slow, careful, and exact prompt you can copy and paste to your Replit agent to get this cleaned up:
+> Task: Visual Redesign & Path Routing Fix for "The Map" Component
+> The Map feature is functionally correct, but the visual rendering of the edges (arrows) is completely breaking the UI, especially on mobile. The arrowheads are disproportionately massive, overlapping each other, and obscuring the action labels (like push, fetch, pull).
+> Please carefully execute the following visual polish pass without changing the underlying pedagogical data, nodes, or text:
+> 1. Arrowhead Proportions & Styling:
+>  * Drastically reduce the size of the arrowheads (marker-end if using SVGs). They should be subtle, elegant pointers indicating direction, not massive triangles.
+>  * Ensure the arrowhead size is fixed and does not scale disproportionately when the map is zoomed or fitted to a small screen.
+>  * Reduce the stroke width of the connecting lines slightly so they serve as secondary visual elements behind the primary node boxes.
+> 2. Path Routing & Overlap Resolution:
+>  * Fix the routing collisions between "YOUR MACHINE" and "THE WEBSITE (GITHUB)".
+>  * Currently, the push, fetch, and pull arrows are rendering on top of each other and intersecting with the "branch/switch" arrows. Add strict vertical spacing/padding between horizontal parallel lines.
+>  * If using straight lines, adjust their anchor points on the nodes so they do not share the exact same origin/destination coordinate. Space them out along the edge of the node.
+> 3. Edge Label Readability:
+>  * The labels on the arrows (e.g., "commit", "review", "merge") must be completely separated from the arrowheads.
+>  * Ensure the text sits cleanly on the middle of the path. Add a small, dark background pill (using your charcoal #161b22 or similar) behind the edge text so the orange line does not strike through the words, ensuring perfect contrast.
+> 4. Constraint:
+>  * Do not change the text, the existing nodes, or the journey logic. Focus entirely on the math/styling of the connection lines and markers. Test the output at a 390px mobile width to ensure the lines route cleanly without clipping.
+> 
+Why this specific prompt works:
+ * It isolates the problem: It tells the agent not to rebuild the map or mess with your journey logic. It restricts the agent to the CSS/SVG layer.
+ * It solves the collision: Explicitly demanding different anchor points for push, fetch, and pull will force the agent to stop drawing them all from the exact center of "Your Sealed Record," which is what is causing that chaotic overlap in the bottom right of image_7.png.
+ * It prioritizes readability: Forcing a background "pill" behind the text ensures that no matter how the lines bend on a mobile screen, the words remain perfectly legible.

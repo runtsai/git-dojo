@@ -11,7 +11,9 @@ import { ArrowLeft, Construction } from "lucide-react";
 import { useEffect } from "react";
 
 export function LearnModuleView() {
-  const { moduleId } = useParams<{ moduleId: string }>();
+  const { moduleId: rawModuleId } = useParams<{ moduleId: string }>();
+  // Tolerate legacy/alternate forms like "module-1-1" or "1.1"
+  const moduleId = rawModuleId?.replace(/^module-/, "").replace(".", "-");
 
   useEffect(() => {
     if (moduleId) {

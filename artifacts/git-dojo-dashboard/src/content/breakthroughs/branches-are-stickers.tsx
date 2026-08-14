@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { GitCommit, MousePointer2 } from "lucide-react";
 import { StickerIcon } from "@/components/git-icons";
 import { BreakthroughContext } from "@/components/breakthrough-context";
@@ -13,6 +13,16 @@ export function BranchesAreStickers() {
   const [ghost, setGhost] = useState<{name: string, commitIndex: number} | null>(null);
   const [byteCount, setByteCount] = useState(82); // 41 bytes * 2 branches
 
+  const ghostTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (ghostTimeoutRef.current) {
+        clearTimeout(ghostTimeoutRef.current);
+      }
+    };
+  }, []);
+
   const activeCommitIndex = branches.find(b => b.name === head)?.commitIndex ?? 0;
 
   const handleCreateBranch = () => {
@@ -23,18 +33,21 @@ export function BranchesAreStickers() {
     
     setBranches([...branches, { name: newName, commitIndex: activeCommitIndex, color: bColor }]);
     
+    if (ghostTimeoutRef.current) clearTimeout(ghostTimeoutRef.current);
     setGhost({ name: head, commitIndex: activeCommitIndex });
-    setTimeout(() => setGhost(null), 1000);
+    ghostTimeoutRef.current = setTimeout(() => setGhost(null), 1000);
     
     setHead(newName);
     setByteCount(b => b + 41);
   };
 
   const setHeadWithGhost = (newHead: string) => {
+    if (newHead === head) return;
     const b = branches.find(br => br.name === head);
     if (b) {
+      if (ghostTimeoutRef.current) clearTimeout(ghostTimeoutRef.current);
       setGhost({ name: head, commitIndex: b.commitIndex });
-      setTimeout(() => setGhost(null), 1000);
+      ghostTimeoutRef.current = setTimeout(() => setGhost(null), 1000);
     }
     setHead(newHead);
   };
@@ -45,8 +58,9 @@ export function BranchesAreStickers() {
     
     const b = branches.find(br => br.name === head);
     if (b) {
+      if (ghostTimeoutRef.current) clearTimeout(ghostTimeoutRef.current);
       setGhost({ name: head, commitIndex: b.commitIndex });
-      setTimeout(() => setGhost(null), 1000);
+      ghostTimeoutRef.current = setTimeout(() => setGhost(null), 1000);
     }
     
     // Move ONLY the active branch sticker
@@ -57,75 +71,75 @@ export function BranchesAreStickers() {
 
   return (
     <div className="flex flex-col gap-8 w-full max-w-4xl mx-auto py-4">
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-black/40 p-4 rounded-xl border border-white/10">
-        <div className="flex flex-wrap gap-3">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6 bg-[#0d1117] p-6 rounded-2xl border border-white/10 shadow-2xl">
+        <div className="flex flex-wrap gap-4">
           <button 
             onClick={handleCreateBranch}
             disabled={branches.length >= 4}
-            className="bg-secondary hover:bg-secondary/80 text-foreground border border-white/10 px-4 py-2 rounded font-bold text-sm transition-colors disabled:opacity-50"
+            className="min-h-[44px] bg-secondary hover:bg-secondary/80 text-foreground border border-white/10 px-6 py-3 rounded-xl font-bold text-sm transition-colors disabled:opacity-50"
           >
             Create Branch
           </button>
           <button 
             onClick={handleCommit}
-            className="bg-primary hover:bg-primary/90 text-primary-foreground px-4 py-2 rounded font-bold text-sm transition-colors shadow-lg shadow-primary/20"
+            className="min-h-[44px] bg-primary hover:bg-primary/90 text-primary-foreground px-6 py-3 rounded-xl font-bold text-sm transition-colors shadow-lg shadow-primary/20"
           >
             Commit on '{head}'
           </button>
         </div>
-        <div className="text-sm font-mono text-muted-foreground flex flex-col sm:items-end w-full sm:w-auto mt-2 sm:mt-0 pt-3 sm:pt-0 border-t border-white/10 sm:border-0">
+        <div className="text-sm font-mono text-muted-foreground flex flex-col sm:items-end w-full sm:w-auto mt-2 sm:mt-0 pt-4 sm:pt-0 border-t border-white/10 sm:border-0">
           <span>Project size: 1.4 MB</span>
-          <span className="text-primary font-bold">Branch data added: {byteCount} bytes</span>
+          <span className="text-primary font-bold text-base mt-1">Branch data added: {byteCount} bytes</span>
         </div>
       </div>
 
-      <div className="relative pt-24 pb-12 w-full overflow-x-auto">
-        <div className="min-w-max px-4 sm:px-8">
+      <div className="relative pt-32 pb-16 w-full overflow-x-auto bg-[#161b22]/50 rounded-2xl border border-white/5 border-dashed min-h-[300px] flex items-center">
+        <div className="min-w-max px-8 sm:px-12 w-full flex justify-center">
           <div className="flex items-center">
             {commits.map((c, i) => (
               <div key={c} className="flex items-center relative">
                 {/* Connecting line to previous */}
-                {i > 0 && <div className="h-1 w-16 bg-white/20" />}
+                {i > 0 && <div className="h-1.5 w-24 bg-white/20" />}
                 
                 {/* The Commit Node */}
                 <div className="relative">
                   {/* Branch Stickers above the node */}
-                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-4 flex flex-col-reverse gap-2 items-center">
+                  <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-6 flex flex-col-reverse gap-3 items-center">
                     {branches.filter(b => b.commitIndex === i).map((b, bi) => (
                       <button
                         key={b.name}
                         onClick={() => setHeadWithGhost(b.name)}
-                        className={`group flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold font-mono transition-all animate-in slide-in-from-top-4 cursor-pointer border-2 ${
+                        className={`min-h-[44px] group flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold font-mono transition-all animate-in slide-in-from-top-4 cursor-pointer border-2 ${
                           head === b.name 
-                            ? `${b.color} shadow-[0_4px_15px_rgba(0,0,0,0.3)] scale-110 z-10 relative` 
-                            : 'bg-black/60 text-muted-foreground border-white/10 hover:border-white/30 hover:text-white'
+                            ? `${b.color} shadow-[0_8px_20px_rgba(0,0,0,0.5)] scale-110 z-10 relative ring-4 ring-black/50` 
+                            : 'bg-black/80 text-muted-foreground border-white/20 hover:border-white/40 hover:text-white'
                         }`}
                       >
-                        <StickerIcon className="w-3.5 h-3.5" /> {b.name}
-                        {head !== b.name && <span className="opacity-0 group-hover:opacity-100 transition-opacity ml-1 bg-white/10 px-1 rounded text-[10px]">Switch</span>}
+                        <StickerIcon className="w-4 h-4" /> {b.name}
+                        {head !== b.name && <span className="opacity-0 group-hover:opacity-100 transition-opacity ml-1 bg-white/10 px-2 py-0.5 rounded text-[10px]">Switch</span>}
                         {/* Down arrow pointing to node */}
                         {head === b.name && (
-                          <div className="absolute top-full left-1/2 -translate-x-1/2 w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[6px] border-t-current mt-0.5 opacity-50" />
+                          <div className="absolute top-full left-1/2 -translate-x-1/2 w-0 h-0 border-l-[8px] border-l-transparent border-r-[8px] border-r-transparent border-t-[8px] border-t-current mt-0.5 opacity-50" />
                         )}
                       </button>
                     ))}
                     
                     {/* The Ghost Sticker */}
                     {ghost && ghost.commitIndex === i && (
-                      <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-bold font-mono border-2 border-dashed border-white/30 text-white/40 opacity-60 bg-transparent absolute animate-out fade-out slide-out-to-top-4 duration-1000 fill-mode-forwards pointer-events-none">
-                        <StickerIcon className="w-3.5 h-3.5" /> {ghost.name}
+                      <div className="min-h-[44px] flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-bold font-mono border-2 border-dashed border-white/30 text-white/40 opacity-60 bg-transparent absolute animate-out fade-out slide-out-to-top-8 duration-1000 fill-mode-forwards pointer-events-none">
+                        <StickerIcon className="w-4 h-4" /> {ghost.name}
                       </div>
                     )}
                   </div>
 
                   {/* Node Circle */}
-                  <div className={`w-8 h-8 rounded-full border-4 flex items-center justify-center z-10 relative ${
-                    i === activeCommitIndex ? 'bg-primary border-[#0d1117] ring-2 ring-primary' : 'bg-[#21262d] border-[#0d1117] text-white/20'
+                  <div className={`w-12 h-12 rounded-full border-4 flex items-center justify-center z-10 relative ${
+                    i === activeCommitIndex ? 'bg-primary border-[#0d1117] ring-4 ring-primary/30 shadow-lg shadow-primary/20' : 'bg-[#21262d] border-[#0d1117] text-white/20'
                   }`}>
-                    <GitCommit className="w-4 h-4" />
+                    <GitCommit className="w-6 h-6" />
                   </div>
                   
-                  <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 text-xs font-mono text-muted-foreground opacity-50">
+                  <div className="absolute top-full left-1/2 -translate-x-1/2 mt-4 text-sm font-mono text-muted-foreground opacity-50">
                     {c}
                   </div>
                 </div>
@@ -133,7 +147,7 @@ export function BranchesAreStickers() {
             ))}
             
             {/* Future dotted line */}
-            <div className="h-1 w-16 bg-white/5 border-t-2 border-dashed border-white/10 ml-0.5" />
+            <div className="h-1.5 w-24 bg-white/5 border-t-2 border-dashed border-white/10 ml-1" />
           </div>
         </div>
       </div>

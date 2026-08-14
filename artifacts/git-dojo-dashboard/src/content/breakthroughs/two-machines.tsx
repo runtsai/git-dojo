@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { Wifi, WifiOff, Laptop, Globe, Upload, Download, Plus, CloudOff, AlertCircle } from "lucide-react";
+import { Wifi, WifiOff, Upload, Download, Plus, CloudOff, AlertCircle } from "lucide-react";
 import { BreakthroughContext } from "@/components/breakthrough-context";
+import { ComputerIcon, CloudIcon } from "@/components/git-icons";
 
 export function TwoMachines() {
   const [online, setOnline] = useState(true);
@@ -68,7 +69,7 @@ export function TwoMachines() {
         <div className="sim-window border-white/10 flex flex-col h-full bg-[#161b22]">
           <div className="sim-chrome px-4 justify-between border-b border-white/10 p-4">
             <div className="flex items-center gap-3">
-              <Laptop className="w-5 h-5 text-primary" />
+              <ComputerIcon className="w-5 h-5 text-primary" />
               <h3 className="font-bold text-foreground">Your Computer</h3>
             </div>
             <span className="text-xs font-mono text-muted-foreground bg-black/50 px-2 py-1 rounded shadow-inner">Local Repo</span>
@@ -154,7 +155,7 @@ export function TwoMachines() {
         <div className="sim-window border-white/10 flex flex-col h-full bg-[#161b22]">
           <div className="sim-chrome px-4 justify-between border-b border-white/10 p-4">
             <div className="flex items-center gap-3">
-              <Globe className="w-5 h-5 text-blue-400" />
+              <CloudIcon className="w-5 h-5 text-blue-400" />
               <h3 className="font-bold text-foreground">GitHub</h3>
             </div>
             <span className="text-xs font-mono text-muted-foreground bg-black/50 px-2 py-1 rounded shadow-inner">Remote Repo</span>

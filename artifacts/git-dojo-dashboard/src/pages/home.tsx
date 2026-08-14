@@ -20,6 +20,20 @@ export function Home() {
     }
   }, []);
 
+  const [showMobileNotice, setShowMobileNotice] = useState(false);
+
+  useEffect(() => {
+    const noticeDismissed = localStorage.getItem("dojo-mobile-notice-dismissed");
+    if (!noticeDismissed) {
+      setShowMobileNotice(true);
+    }
+  }, []);
+
+  const dismissMobileNotice = () => {
+    localStorage.setItem("dojo-mobile-notice-dismissed", "true");
+    setShowMobileNotice(false);
+  };
+
   const dismissOrientation = () => {
     localStorage.setItem("dojo-orientation-dismissed", "true");
     setShowOrientation(false);
@@ -44,6 +58,25 @@ export function Home() {
   return (
     <div className="enter-slide-up max-w-7xl mx-auto space-y-12">
       
+      {showMobileNotice && (
+        <div className="block md:hidden bg-[#161b22] border border-white/10 p-5 rounded-xl shadow-lg relative animate-in fade-in">
+          <button 
+            onClick={dismissMobileNotice}
+            className="absolute top-2 right-2 p-2 text-muted-foreground hover:text-foreground transition-colors"
+            aria-label="Dismiss"
+          >
+            <X className="w-5 h-5" />
+          </button>
+          <div className="flex gap-3">
+            <ComputerIcon className="w-6 h-6 text-primary shrink-0 mt-0.5" />
+            <div className="text-sm leading-relaxed pr-6 text-muted-foreground">
+              <span className="font-bold block mb-1 text-primary">A quick heads up:</span>
+              The visual course, Breakthroughs, and Map all work great on your phone. For the full experience, including the Command Test Center, we recommend jumping on a computer.
+            </div>
+          </div>
+        </div>
+      )}
+
       <div className="space-y-4 max-w-3xl flex justify-between items-start">
         <div>
           <h1 className="text-4xl md:text-5xl lg:text-6xl heading-tight text-foreground">
