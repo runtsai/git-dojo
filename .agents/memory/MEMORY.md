@@ -1,0 +1,1 @@
+- [Replit strips nested .git](replit-nested-git.md) — practice git repos must live outside /home/runner/workspace; active Git Dojo copy is at ~/git-dojo.
