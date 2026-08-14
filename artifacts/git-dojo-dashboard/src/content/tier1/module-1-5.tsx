@@ -20,8 +20,8 @@ export function Module1_5() {
   
   const [showError, setShowError] = useState<string | null>(null);
 
-  const handleNext = () => setStep(s => Math.min(s + 1, 5));
-  const handlePrev = () => setStep(s => Math.max(s - 1, 1));
+  const handleNext = () => { setStep(s => Math.min(s + 1, 5)); window.scrollTo(0, 0); };
+  const handlePrev = () => { setStep(s => Math.max(s - 1, 1)); window.scrollTo(0, 0); };
 
   const handleQuizSubmit = () => {
     if (!foundFile && !checkedNotification) {
@@ -54,8 +54,8 @@ export function Module1_5() {
   );
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-20">
-      <Link href="/" className="inline-flex items-center gap-2 text-xs font-bold text-muted-foreground hover:text-foreground mb-4 transition-colors uppercase tracking-wider bg-black/40 border border-white/5 px-3 py-1.5 rounded">
+    <div className="max-w-4xl mx-auto space-y-8 enter-slide-up pb-20">
+      <Link href="/" className="inline-flex items-center gap-2 text-xs font-bold text-muted-foreground hover:text-foreground mb-4 transition-all active:scale-95 uppercase tracking-wider bg-black/40 border border-white/5 shadow-inner px-3 py-1.5 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
         <ArrowLeft className="w-3.5 h-3.5" /> Back to Ledger
       </Link>
 
@@ -73,21 +73,21 @@ export function Module1_5() {
         </div>
       </div>
 
-      <div className="bg-card border border-white/10 rounded-xl overflow-hidden shadow-2xl">
+      <div className="surface-card overflow-hidden">
         {step === 1 && (
           <div className="p-8 md:p-12 space-y-6">
             <div className="inline-block px-3 py-1 bg-primary/10 text-primary border border-primary/20 rounded text-xs font-bold uppercase tracking-wider mb-2">Part 1: The Command Center</div>
             <h2 className="text-3xl font-bold">Always Above You</h2>
             
-            <p className="text-muted-foreground leading-relaxed text-lg">
+            <p className="text-muted-foreground reading-text text-lg">
               No matter where you are in GitHub — looking at a file, reading a commit, or configuring settings — the global navigation bar is always pinned to the top of the screen.
             </p>
-            <p className="text-muted-foreground leading-relaxed text-lg">
+            <p className="text-muted-foreground reading-text text-lg">
               It is your escape hatch. It's how you jump between entirely different projects, search across the whole company, and see when someone needs your attention.
             </p>
             
             <div className="pt-6 flex justify-end">
-              <button onClick={handleNext} className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-6 py-3 rounded flex items-center gap-2 transition-colors">
+              <button onClick={handleNext} className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-6 py-3 rounded-lg flex items-center gap-2 transition-all active:scale-95 shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background">
                 Continue <ChevronRight className="w-4 h-4" />
               </button>
             </div>
@@ -98,7 +98,7 @@ export function Module1_5() {
           <div className="p-8 md:p-12 space-y-6">
             <div className="inline-block px-3 py-1 bg-primary/10 text-primary border border-primary/20 rounded text-xs font-bold uppercase tracking-wider mb-2">Part 2: The Interface</div>
             <h2 className="text-3xl font-bold">The Top Bar</h2>
-            <p className="text-muted-foreground leading-relaxed text-lg max-w-2xl">
+            <p className="text-muted-foreground reading-text text-lg max-w-2xl">
               This layout pattern is ubiquitous in modern software. Let's look at the pieces that matter most when you're managing company records.
             </p>
 
@@ -129,8 +129,8 @@ export function Module1_5() {
             </div>
 
             <div className="pt-4 flex justify-between">
-              <button onClick={handlePrev} className="text-muted-foreground hover:text-foreground font-bold px-4 py-2 transition-colors">Back</button>
-              <button onClick={handleNext} className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-6 py-3 rounded flex items-center gap-2 transition-colors">
+              <button onClick={handlePrev} className="text-muted-foreground hover:text-foreground font-bold px-4 py-2 transition-all active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded">Back</button>
+              <button onClick={handleNext} className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-6 py-3 rounded-lg flex items-center gap-2 transition-all active:scale-95 shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background">
                 Continue <ChevronRight className="w-4 h-4" />
               </button>
             </div>
@@ -149,7 +149,7 @@ export function Module1_5() {
                 </div>
                 <div>
                   <h3 className="text-xl font-bold text-foreground mb-2">Finding the Needle</h3>
-                  <p className="text-muted-foreground leading-relaxed">
+                  <p className="text-muted-foreground reading-text">
                     You don't need to click through folders to find a document. The search box indexes every word in every file across all your repositories. You type "vendor rate", it takes you straight to the policy.
                   </p>
                 </div>
@@ -161,7 +161,7 @@ export function Module1_5() {
                 </div>
                 <div>
                   <h3 className="text-xl font-bold text-foreground mb-2">The Collaboration Inbox</h3>
-                  <p className="text-muted-foreground leading-relaxed">
+                  <p className="text-muted-foreground reading-text">
                     Instead of checking your email for contractor questions, GitHub routes all discussions about the files directly to your notification bell, keeping the conversation tied to the work.
                   </p>
                 </div>
@@ -169,8 +169,8 @@ export function Module1_5() {
             </div>
 
             <div className="pt-6 flex justify-between">
-              <button onClick={handlePrev} className="text-muted-foreground hover:text-foreground font-bold px-4 py-2 transition-colors">Back</button>
-              <button onClick={handleNext} className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-6 py-3 rounded flex items-center gap-2 transition-colors">
+              <button onClick={handlePrev} className="text-muted-foreground hover:text-foreground font-bold px-4 py-2 transition-all active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded">Back</button>
+              <button onClick={handleNext} className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-6 py-3 rounded-lg flex items-center gap-2 transition-all active:scale-95 shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background">
                 Continue <ChevronRight className="w-4 h-4" />
               </button>
             </div>
@@ -187,8 +187,8 @@ export function Module1_5() {
             </div>
 
             <div className="pt-10 flex justify-between">
-              <button onClick={handlePrev} className="text-muted-foreground hover:text-foreground font-bold px-4 py-2 transition-colors">Back</button>
-              <button onClick={handleNext} className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-6 py-3 rounded flex items-center gap-2 transition-colors">
+              <button onClick={handlePrev} className="text-muted-foreground hover:text-foreground font-bold px-4 py-2 transition-all active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded">Back</button>
+              <button onClick={handleNext} className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-6 py-3 rounded-lg flex items-center gap-2 transition-all active:scale-95 shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background">
                 Begin Navigation Tasks <ChevronRight className="w-4 h-4" />
               </button>
             </div>
@@ -199,7 +199,7 @@ export function Module1_5() {
           <div className="p-8 md:p-12 space-y-6 relative">
             <div className="inline-block px-3 py-1 bg-primary/10 text-primary border border-primary/20 rounded text-xs font-bold uppercase tracking-wider mb-2">Part 5: Prove It</div>
             <h2 className="text-3xl font-bold mb-2">Navigate the Hub</h2>
-            <p className="text-muted-foreground text-lg mb-8 max-w-2xl">
+            <p className="text-muted-foreground text-lg mb-8 reading-text">
               Complete these two tasks using the navigation bar below:
               <br/>1) You have an unread notification. Find out what John said about the handbook.
               <br/>2) Use the search box to jump directly to the <code>onboarding.md</code> file.
@@ -234,11 +234,11 @@ export function Module1_5() {
             </div>
 
             <div className="mt-8 bg-black/30 border border-white/5 p-6 rounded-lg grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className={`flex items-center gap-3 p-3 rounded border transition-colors ${checkedNotification ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' : 'bg-black/40 border-white/10 text-white/40'}`}>
+              <div className={`flex items-center gap-3 p-3 rounded border transition-colors ${checkedNotification ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' : 'bg-black/40 border-white/10 text-muted-foreground'}`}>
                 <CheckCircle2 className={`w-5 h-5 ${checkedNotification ? 'opacity-100' : 'opacity-20'}`} />
                 <span className="font-medium text-sm">Read the notification</span>
               </div>
-              <div className={`flex items-center gap-3 p-3 rounded border transition-colors ${foundFile ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' : 'bg-black/40 border-white/10 text-white/40'}`}>
+              <div className={`flex items-center gap-3 p-3 rounded border transition-colors ${foundFile ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' : 'bg-black/40 border-white/10 text-muted-foreground'}`}>
                 <CheckCircle2 className={`w-5 h-5 ${foundFile ? 'opacity-100' : 'opacity-20'}`} />
                 <span className="font-medium text-sm">Search for onboarding.md</span>
               </div>
@@ -252,7 +252,7 @@ export function Module1_5() {
             )}
 
             <div className="pt-6 flex justify-between">
-              <button onClick={handlePrev} className="text-muted-foreground hover:text-foreground font-bold px-4 py-2 transition-colors">Back</button>
+              <button onClick={handlePrev} className="text-muted-foreground hover:text-foreground font-bold px-4 py-2 transition-all active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded">Back</button>
               <button 
                 onClick={handleQuizSubmit}
                 disabled={completeModule.isPending || (!foundFile || !checkedNotification)}
@@ -274,7 +274,7 @@ export function Module1_5() {
               You've mastered the GitHub interface. You can navigate, audit history, configure settings, and stay on top of notifications. The Ground Truth is yours.
             </p>
             <div className="pt-8 flex gap-4 justify-center">
-              <Link href="/" className="inline-flex items-center justify-center bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-8 py-4 rounded-lg transition-colors shadow-lg shadow-primary/20">
+              <Link href="/" className="inline-flex items-center justify-center bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-8 py-4 rounded-lg transition-all active:scale-95 shadow-[0_0_15px_rgba(255,107,0,0.2)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background">
                 Return to Ledger
               </Link>
             </div>

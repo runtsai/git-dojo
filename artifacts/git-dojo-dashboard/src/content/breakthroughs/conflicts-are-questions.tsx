@@ -24,7 +24,7 @@ export function ConflictsAreQuestions() {
           </div>
           
           <div className="p-4 sm:p-6 font-mono text-sm leading-loose">
-            <div className="text-white/50">Company Policy:</div>
+            <div className="text-muted-foreground">Company Policy:</div>
             
             <div className="mt-4 relative flex flex-col md:block">
               <div className="text-blue-400 bg-blue-500/10 px-2 py-1 -mx-2 rounded-t font-bold">&lt;&lt;&lt;&lt;&lt;&lt;&lt; HEAD (Your current version)</div>
@@ -34,7 +34,7 @@ export function ConflictsAreQuestions() {
               </div>
             </div>
             
-            <div className="text-white/40 bg-white/5 px-2 py-3 sm:py-1 -mx-2 font-bold flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="text-muted-foreground bg-white/5 px-2 py-3 sm:py-1 -mx-2 font-bold flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <span>=======</span>
               <button onClick={() => handleResolve('Both')} className="bg-white/20 hover:bg-white/30 text-white px-3 py-1.5 sm:py-0.5 rounded text-xs font-bold font-sans w-max">Combine Both</button>
             </div>
@@ -55,7 +55,7 @@ export function ConflictsAreQuestions() {
             <h3 className="font-bold text-primary">Conflict Resolved</h3>
           </div>
           <div className="p-6 font-mono text-sm leading-loose">
-            <div className="text-white/50">Company Policy:</div>
+            <div className="text-muted-foreground">Company Policy:</div>
             <div className="text-white mt-2 font-medium">{finalText}</div>
           </div>
           <div className="p-4 border-t border-white/10 bg-black/40 flex justify-end">

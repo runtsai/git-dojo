@@ -5,9 +5,9 @@ export function BranchList({ branches }: { branches: RepoBranch[] }) {
   if (branches.length === 0) return null;
 
   return (
-    <div className="bg-card border rounded-3xl p-8 shadow-sm">
-      <h3 className="text-xl font-bold mb-6 flex items-center gap-3 text-foreground">
-        <div className="p-2 bg-muted rounded-lg">
+    <div className="surface-card p-6 md:p-8">
+      <h3 className="text-xl font-bold mb-6 flex items-center gap-3 text-foreground tracking-tight">
+        <div className="p-2 bg-black/40 rounded-xl shadow-inner border border-white/5">
           <GitBranch className="w-5 h-5 text-foreground" />
         </div>
         Branches
@@ -17,21 +17,21 @@ export function BranchList({ branches }: { branches: RepoBranch[] }) {
         {branches.map(b => (
           <div 
             key={b.name} 
-            className={`flex items-center justify-between p-4 rounded-2xl border transition-all ${
+            className={`flex items-center justify-between p-4 rounded-xl border transition-all ${
               b.isCurrent 
                 ? 'bg-primary/5 border-primary/30 shadow-sm' 
-                : 'bg-background hover:bg-muted/50 border-border'
+                : 'bg-black/40 shadow-inner border-white/5 hover:bg-black/60'
             }`}
           >
             <div className="flex items-center gap-3">
-              <div className={`w-2.5 h-2.5 rounded-full ${b.isCurrent ? 'bg-primary' : 'bg-muted-foreground/30'}`} />
+              <div className={`w-2.5 h-2.5 rounded-full ${b.isCurrent ? 'bg-primary shadow-[0_0_10px_rgba(255,107,0,0.5)]' : 'bg-muted-foreground/30'}`} />
               <span className={`font-mono text-base ${b.isCurrent ? 'font-bold text-foreground' : 'font-medium text-muted-foreground'}`}>
                 {b.name}
               </span>
             </div>
             
             {b.isCurrent && (
-              <span className="flex items-center gap-1 text-[10px] uppercase font-bold tracking-widest text-primary bg-primary/10 px-2 py-1 rounded-md">
+              <span className="flex items-center gap-1 text-[10px] uppercase font-bold tracking-widest text-primary bg-primary/10 border border-primary/20 px-2 py-1 rounded-md shadow-sm">
                 <Check className="w-3.5 h-3.5" /> Current
               </span>
             )}

@@ -38,7 +38,7 @@ export function SimGlobalNav({
             {calloutBreadcrumbs}
             {breadcrumbs.map((crumb, i) => (
               <React.Fragment key={i}>
-                {i > 0 && <span className="text-white/40">/</span>}
+                {i > 0 && <span className="text-muted-foreground">/</span>}
                 <span className={i === breadcrumbs.length - 1 ? "font-bold text-white" : "hover:text-primary cursor-pointer transition-colors"}>{crumb}</span>
               </React.Fragment>
             ))}
@@ -50,7 +50,7 @@ export function SimGlobalNav({
             {calloutSearch}
             <button 
               onClick={onSearchClick} 
-              className="flex items-center gap-2 bg-[#0d1117] border border-white/10 hover:border-white/30 text-white/50 px-3 py-1.5 rounded-md text-sm transition-colors w-[200px]"
+              className="flex items-center gap-2 bg-[#0d1117] border border-white/10 hover:border-white/30 text-muted-foreground px-3 py-1.5 rounded-md text-sm transition-colors w-[200px]"
             >
               <Search className="w-4 h-4" />
               <span>Search or jump to...</span>
@@ -78,7 +78,7 @@ export function SimGlobalNav({
 
       {/* Main Content Area */}
       <div className="flex-1 bg-[#0d1117] relative flex">
-        <div className="flex-1 p-8 text-center text-white/40 flex flex-col items-center justify-center">
+        <div className="flex-1 p-8 text-center text-muted-foreground flex flex-col items-center justify-center">
           <FileText className="w-16 h-16 mb-4 opacity-20" />
           <p>Repository Content</p>
         </div>
@@ -92,31 +92,31 @@ export function SimSearchOverlay({ onClose, onSelect }: { onClose: () => void, o
     <div className="absolute inset-0 z-50 bg-black/60 flex items-start justify-center pt-16 px-4">
       <div className="bg-[#161b22] border border-white/10 w-full max-w-2xl rounded-xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95">
         <div className="p-3 border-b border-white/10 flex items-center gap-3">
-          <Search className="w-5 h-5 text-white/40" />
+          <Search className="w-5 h-5 text-muted-foreground" />
           <input 
             autoFocus
             type="text" 
             placeholder="Search or jump to..."
             className="flex-1 bg-transparent border-none outline-none text-white text-base"
           />
-          <button onClick={onClose} className="p-1 text-white/40 hover:text-white hover:bg-white/10 rounded">
+          <button onClick={onClose} className="p-1 text-muted-foreground hover:text-white hover:bg-white/10 rounded">
             <X className="w-4 h-4" />
           </button>
         </div>
         <div className="p-2 max-h-[300px] overflow-y-auto">
-          <div className="text-xs font-bold text-white/40 px-3 py-2 uppercase tracking-wider">Recent</div>
+          <div className="text-xs font-bold text-muted-foreground px-3 py-2 uppercase tracking-wider">Recent</div>
           <button onClick={() => onSelect('onboarding.md')} className="w-full flex items-center gap-3 px-3 py-2 text-left hover:bg-primary/20 hover:text-white rounded-md text-white/70 group transition-colors">
-            <FileText className="w-4 h-4 text-white/40 group-hover:text-primary" />
+            <FileText className="w-4 h-4 text-muted-foreground group-hover:text-primary" />
             <div className="flex-1">
               <span className="font-medium">onboarding.md</span>
-              <span className="text-white/40 text-xs ml-2">rts-records/company-handbook</span>
+              <span className="text-muted-foreground text-xs ml-2">rts-records/company-handbook</span>
             </div>
           </button>
           <button className="w-full flex items-center gap-3 px-3 py-2 text-left hover:bg-primary/20 hover:text-white rounded-md text-white/70 group transition-colors">
-            <FileText className="w-4 h-4 text-white/40 group-hover:text-primary" />
+            <FileText className="w-4 h-4 text-muted-foreground group-hover:text-primary" />
             <div className="flex-1">
               <span className="font-medium">safety-protocols.pdf</span>
-              <span className="text-white/40 text-xs ml-2">rts-records/company-handbook</span>
+              <span className="text-muted-foreground text-xs ml-2">rts-records/company-handbook</span>
             </div>
           </button>
         </div>
@@ -130,7 +130,7 @@ export function SimNotificationsOverlay({ onClose, onSelect }: { onClose: () => 
     <div className="absolute top-16 right-4 z-50 w-80 bg-[#161b22] border border-white/10 rounded-xl shadow-2xl overflow-hidden animate-in fade-in slide-in-from-top-4">
       <div className="p-3 border-b border-white/10 flex items-center justify-between">
         <h3 className="font-bold text-white">Notifications</h3>
-        <button onClick={onClose} className="p-1 text-white/40 hover:text-white hover:bg-white/10 rounded">
+        <button onClick={onClose} className="p-1 text-muted-foreground hover:text-white hover:bg-white/10 rounded">
           <X className="w-4 h-4" />
         </button>
       </div>
@@ -139,7 +139,7 @@ export function SimNotificationsOverlay({ onClose, onSelect }: { onClose: () => 
           <div className="mt-1"><Inbox className="w-5 h-5 text-blue-400" /></div>
           <div>
             <div className="text-sm font-medium text-white mb-1">John (Contractor) commented on handbook.md</div>
-            <div className="text-xs text-white/60">"Are we sure this is the right procedure for section 4?"</div>
+            <div className="text-xs text-muted-foreground">"Are we sure this is the right procedure for section 4?"</div>
             <div className="text-xs text-blue-400 mt-2">rts-records/company-handbook</div>
           </div>
         </button>
@@ -147,7 +147,7 @@ export function SimNotificationsOverlay({ onClose, onSelect }: { onClose: () => 
           <div className="mt-1"><Inbox className="w-5 h-5 text-emerald-400" /></div>
           <div>
             <div className="text-sm font-medium text-white mb-1">Safety protocols merged</div>
-            <div className="text-xs text-white/60">Pull request #42 was merged by Admin</div>
+            <div className="text-xs text-muted-foreground">Pull request #42 was merged by Admin</div>
             <div className="text-xs text-emerald-400 mt-2">rts-records/company-handbook</div>
           </div>
         </button>

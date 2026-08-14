@@ -76,7 +76,7 @@ export function FetchIsLooking() {
               {phase === 'fetched' && (
                 <div className="flex flex-col items-center animate-in slide-in-from-top-4 w-full">
                   <div className="w-8 h-8 rounded-full border-4 border-dashed bg-transparent border-white/30 flex items-center justify-center relative">
-                    <span className="absolute left-full ml-4 whitespace-nowrap bg-white/10 text-white/50 text-xs font-bold px-2 py-1 rounded border border-white/10">origin/main</span>
+                    <span className="absolute left-full ml-4 whitespace-nowrap bg-white/10 text-muted-foreground text-xs font-bold px-2 py-1 rounded border border-white/10">origin/main</span>
                     <div className="absolute right-full mr-4 text-xs text-muted-foreground whitespace-nowrap hidden sm:block">Ghosted (Safe)</div>
                   </div>
                   <div className="w-1 h-6 bg-white/10 border-r-2 border-dashed border-transparent" />

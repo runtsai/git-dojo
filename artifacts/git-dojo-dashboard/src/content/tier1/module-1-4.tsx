@@ -18,8 +18,8 @@ export function Module1_4() {
   const [quizAnswer, setQuizAnswer] = useState<string | null>(null);
   const [showError, setShowError] = useState<string | null>(null);
 
-  const handleNext = () => setStep(s => Math.min(s + 1, 5));
-  const handlePrev = () => setStep(s => Math.max(s - 1, 1));
+  const handleNext = () => { setStep(s => Math.min(s + 1, 5)); window.scrollTo(0, 0); };
+  const handlePrev = () => { setStep(s => Math.max(s - 1, 1)); window.scrollTo(0, 0); };
 
   const handleQuizSubmit = () => {
     if (visibility !== 'private') {
@@ -60,8 +60,8 @@ export function Module1_4() {
   );
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-20">
-      <Link href="/" className="inline-flex items-center gap-2 text-xs font-bold text-muted-foreground hover:text-foreground mb-4 transition-colors uppercase tracking-wider bg-black/40 border border-white/5 px-3 py-1.5 rounded">
+    <div className="max-w-4xl mx-auto space-y-8 enter-slide-up pb-20">
+      <Link href="/" className="inline-flex items-center gap-2 text-xs font-bold text-muted-foreground hover:text-foreground mb-4 transition-all active:scale-95 uppercase tracking-wider bg-black/40 border border-white/5 shadow-inner px-3 py-1.5 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
         <ArrowLeft className="w-3.5 h-3.5" /> Back to Ledger
       </Link>
 
@@ -79,21 +79,21 @@ export function Module1_4() {
         </div>
       </div>
 
-      <div className="bg-card border border-white/10 rounded-xl overflow-hidden shadow-2xl">
+      <div className="surface-card overflow-hidden">
         {step === 1 && (
           <div className="p-8 md:p-12 space-y-6">
             <div className="inline-block px-3 py-1 bg-primary/10 text-primary border border-primary/20 rounded text-xs font-bold uppercase tracking-wider mb-2">Part 1: The Vault</div>
             <h2 className="text-3xl font-bold">Configuring the Vault</h2>
             
-            <p className="text-muted-foreground leading-relaxed text-lg">
+            <p className="text-muted-foreground reading-text text-lg">
               The settings screen is where you control the meta-rules of your repository. It defines who is allowed to look at your files, what the repository is called, and how dangerous actions are handled.
             </p>
-            <p className="text-muted-foreground leading-relaxed text-lg">
+            <p className="text-muted-foreground reading-text text-lg">
               By default, repositories should be locked down. You only open them up when absolutely necessary.
             </p>
             
             <div className="pt-6 flex justify-end">
-              <button onClick={handleNext} className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-6 py-3 rounded flex items-center gap-2 transition-colors">
+              <button onClick={handleNext} className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-6 py-3 rounded-lg flex items-center gap-2 transition-all active:scale-95 shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background">
                 Continue <ChevronRight className="w-4 h-4" />
               </button>
             </div>
@@ -104,7 +104,7 @@ export function Module1_4() {
           <div className="p-8 md:p-12 space-y-6">
             <div className="inline-block px-3 py-1 bg-primary/10 text-primary border border-primary/20 rounded text-xs font-bold uppercase tracking-wider mb-2">Part 2: The Interface</div>
             <h2 className="text-3xl font-bold">The Controls</h2>
-            <p className="text-muted-foreground leading-relaxed text-lg max-w-2xl">
+            <p className="text-muted-foreground reading-text text-lg max-w-2xl">
               Let's look at the basic settings screen for a typical repository. Notice how the most destructive actions are grouped at the very bottom.
             </p>
 
@@ -171,8 +171,8 @@ export function Module1_4() {
             </div>
 
             <div className="pt-4 flex justify-between">
-              <button onClick={handlePrev} className="text-muted-foreground hover:text-foreground font-bold px-4 py-2 transition-colors">Back</button>
-              <button onClick={handleNext} className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-6 py-3 rounded flex items-center gap-2 transition-colors">
+              <button onClick={handlePrev} className="text-muted-foreground hover:text-foreground font-bold px-4 py-2 transition-all active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded">Back</button>
+              <button onClick={handleNext} className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-6 py-3 rounded-lg flex items-center gap-2 transition-all active:scale-95 shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background">
                 Continue <ChevronRight className="w-4 h-4" />
               </button>
             </div>
@@ -191,7 +191,7 @@ export function Module1_4() {
                 </div>
                 <div>
                   <h3 className="text-xl font-bold text-foreground mb-2">Default to Closed</h3>
-                  <p className="text-muted-foreground leading-relaxed">
+                  <p className="text-muted-foreground reading-text">
                     A company handbook might be public, but internal pay records or API keys should never be. Setting a repo to private ensures that even if you make a mistake, the outside world cannot see it.
                   </p>
                 </div>
@@ -203,7 +203,7 @@ export function Module1_4() {
                 </div>
                 <div>
                   <h3 className="text-xl font-bold text-foreground mb-2">The Danger Zone is Real</h3>
-                  <p className="text-muted-foreground leading-relaxed">
+                  <p className="text-muted-foreground reading-text">
                     Deleting a repository destroys the entire custody trail forever. There is no undo. GitHub puts these actions in a red box at the bottom for a reason — to make you pause.
                   </p>
                 </div>
@@ -211,8 +211,8 @@ export function Module1_4() {
             </div>
 
             <div className="pt-6 flex justify-between">
-              <button onClick={handlePrev} className="text-muted-foreground hover:text-foreground font-bold px-4 py-2 transition-colors">Back</button>
-              <button onClick={handleNext} className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-6 py-3 rounded flex items-center gap-2 transition-colors">
+              <button onClick={handlePrev} className="text-muted-foreground hover:text-foreground font-bold px-4 py-2 transition-all active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded">Back</button>
+              <button onClick={handleNext} className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-6 py-3 rounded-lg flex items-center gap-2 transition-all active:scale-95 shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background">
                 Continue <ChevronRight className="w-4 h-4" />
               </button>
             </div>
@@ -229,8 +229,8 @@ export function Module1_4() {
             </div>
 
             <div className="pt-10 flex justify-between">
-              <button onClick={handlePrev} className="text-muted-foreground hover:text-foreground font-bold px-4 py-2 transition-colors">Back</button>
-              <button onClick={handleNext} className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-6 py-3 rounded flex items-center gap-2 transition-colors">
+              <button onClick={handlePrev} className="text-muted-foreground hover:text-foreground font-bold px-4 py-2 transition-all active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded">Back</button>
+              <button onClick={handleNext} className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-6 py-3 rounded-lg flex items-center gap-2 transition-all active:scale-95 shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background">
                 Begin Hands-On Task <ChevronRight className="w-4 h-4" />
               </button>
             </div>
@@ -241,7 +241,7 @@ export function Module1_4() {
           <div className="p-8 md:p-12 space-y-6 relative">
             <div className="inline-block px-3 py-1 bg-primary/10 text-primary border border-primary/20 rounded text-xs font-bold uppercase tracking-wider mb-2">Part 5: Prove It</div>
             <h2 className="text-3xl font-bold mb-2">Configure the Vault</h2>
-            <p className="text-muted-foreground text-lg mb-8 max-w-2xl">
+            <p className="text-muted-foreground text-lg mb-8 reading-text">
               This repository (<code>rts-records/pay-records</code>) will hold your company's internal payroll data. 
               Configure it correctly below. Leave the default branch alone.
             </p>
@@ -307,7 +307,7 @@ export function Module1_4() {
             )}
 
             <div className="pt-6 flex justify-between">
-              <button onClick={handlePrev} className="text-muted-foreground hover:text-foreground font-bold px-4 py-2 transition-colors">Back</button>
+              <button onClick={handlePrev} className="text-muted-foreground hover:text-foreground font-bold px-4 py-2 transition-all active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded">Back</button>
               <button 
                 onClick={handleQuizSubmit}
                 disabled={completeModule.isPending}
@@ -332,7 +332,7 @@ export function Module1_4() {
               <Link href="/" className="inline-flex items-center justify-center bg-secondary hover:bg-secondary/80 text-foreground font-bold px-8 py-4 rounded-lg transition-colors border border-white/5">
                 Return to Ledger
               </Link>
-              <Link href="/learn/1-5" className="inline-flex items-center justify-center bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-8 py-4 rounded-lg transition-colors shadow-lg shadow-primary/20">
+              <Link href="/learn/1-5" className="inline-flex items-center justify-center bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-8 py-4 rounded-lg transition-all active:scale-95 shadow-[0_0_15px_rgba(255,107,0,0.2)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background">
                 Next: Global Nav &rarr;
               </Link>
             </div>

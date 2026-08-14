@@ -32,7 +32,7 @@ export function DetachedHead() {
                 <div className="relative">
                   {/* Branch label only on 5 */}
                   {id === 5 && (
-                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-4 bg-white/10 text-white/50 text-xs font-bold px-3 py-1 rounded font-mono border border-white/5">
+                    <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-4 bg-white/10 text-muted-foreground text-xs font-bold px-3 py-1 rounded font-mono border border-white/5">
                       main
                     </div>
                   )}

@@ -14,7 +14,7 @@ export function SimCommitList({
     <div className="space-y-4 animate-in fade-in">
       <div className="flex items-center gap-3 mb-4 text-white">
         <h3 className="font-bold text-lg flex items-center gap-2">
-          <GitCommit className="w-5 h-5 text-white/50" /> Commit History
+          <GitCommit className="w-5 h-5 text-muted-foreground" /> Commit History
         </h3>
       </div>
       
@@ -33,10 +33,10 @@ export function SimCommitList({
               {c.initials ? (
                 <div className={`w-5 h-5 rounded ${c.color || 'bg-blue-500/20 text-blue-400'} flex items-center justify-center text-xs font-bold`}>{c.initials}</div>
               ) : (
-                <User className="w-4 h-4 text-white/50" />
+                <User className="w-4 h-4 text-muted-foreground" />
               )}
               <span className="font-bold">{c.author}</span>
-              <span className="text-white/40 text-sm ml-auto">{c.time}</span>
+              <span className="text-muted-foreground text-sm ml-auto">{c.time}</span>
             </div>
             <p className="text-white/80 text-sm font-medium">{c.message}</p>
           </button>
@@ -59,7 +59,7 @@ export function SimDiffView({
     <div className="space-y-4 animate-in slide-in-from-right-4 duration-300">
       <div className="flex items-start gap-4 bg-[#161b22] p-4 rounded border border-white/10">
         {onBack && (
-          <button onClick={onBack} className="mt-1 text-white/50 hover:text-white transition-colors">
+          <button onClick={onBack} className="mt-1 text-muted-foreground hover:text-white transition-colors">
             <ArrowLeft className="w-5 h-5" />
           </button>
         )}
@@ -67,10 +67,10 @@ export function SimDiffView({
           <h3 className="font-bold text-white text-lg">{commit.message}</h3>
           <div className="flex items-center gap-3 mt-2 text-sm">
             <span className="text-white/80 font-medium">{commit.author}</span>
-            <span className="text-white/40">committed {commit.time}</span>
+            <span className="text-muted-foreground">committed {commit.time}</span>
           </div>
         </div>
-        <div className="text-white/40 font-mono text-sm bg-black/40 px-2 py-1 rounded">
+        <div className="text-muted-foreground font-mono text-sm bg-black/40 px-2 py-1 rounded">
           {commit.hash}
         </div>
       </div>
@@ -79,11 +79,11 @@ export function SimDiffView({
         {diffs.map((d, i) => (
           <div key={i} className="border border-white/10 rounded overflow-hidden text-left bg-[#0d1117]">
             <div className="bg-[#161b22] p-3 border-b border-white/10 flex items-center gap-2 text-sm text-white/80 font-mono">
-              <FileText className="w-4 h-4 text-white/40" /> {d.file}
+              <FileText className="w-4 h-4 text-muted-foreground" /> {d.file}
             </div>
             <div className="font-mono text-sm leading-relaxed overflow-x-auto">
               {d.unchanged.map((line, j) => (
-                <div key={`u-${j}`} className="flex px-4 py-0.5 text-white/60 hover:bg-white/5">
+                <div key={`u-${j}`} className="flex px-4 py-0.5 text-muted-foreground hover:bg-white/5">
                   <span className="w-8 text-right text-white/30 select-none pr-4"></span>
                   <span className="whitespace-pre">{line}</span>
                 </div>
@@ -100,7 +100,7 @@ export function SimDiffView({
                   <span className="whitespace-pre">{line}</span>
                 </div>
               ))}
-              <div className="flex px-4 py-0.5 text-white/60 hover:bg-white/5">
+              <div className="flex px-4 py-0.5 text-muted-foreground hover:bg-white/5">
                 <span className="w-8 text-right text-white/30 select-none pr-4"></span>
                 <span className="whitespace-pre"> </span>
               </div>

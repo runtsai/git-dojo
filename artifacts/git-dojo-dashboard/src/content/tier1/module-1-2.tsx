@@ -16,8 +16,8 @@ export function Module1_2() {
   const [clickedBranch, setClickedBranch] = useState(false);
   const [showError, setShowError] = useState<string | null>(null);
 
-  const handleNext = () => setStep(s => Math.min(s + 1, 5));
-  const handlePrev = () => setStep(s => Math.max(s - 1, 1));
+  const handleNext = () => { setStep(s => Math.min(s + 1, 5)); window.scrollTo(0, 0); };
+  const handlePrev = () => { setStep(s => Math.max(s - 1, 1)); window.scrollTo(0, 0); };
 
   const handleQuizSubmit = () => {
     if (!clickedCommits || !clickedReadme || !clickedBranch) {
@@ -49,8 +49,8 @@ export function Module1_2() {
   );
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-20">
-      <Link href="/" className="inline-flex items-center gap-2 text-xs font-bold text-muted-foreground hover:text-foreground mb-4 transition-colors uppercase tracking-wider bg-black/40 border border-white/5 px-3 py-1.5 rounded">
+    <div className="max-w-4xl mx-auto space-y-8 enter-slide-up pb-20">
+      <Link href="/" className="inline-flex items-center gap-2 text-xs font-bold text-muted-foreground hover:text-foreground mb-4 transition-all active:scale-95 uppercase tracking-wider bg-black/40 border border-white/5 shadow-inner px-3 py-1.5 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
         <ArrowLeft className="w-3.5 h-3.5" /> Back to Ledger
       </Link>
 
@@ -68,21 +68,21 @@ export function Module1_2() {
         </div>
       </div>
 
-      <div className="bg-card border border-white/10 rounded-xl overflow-hidden shadow-2xl">
+      <div className="surface-card overflow-hidden">
         {step === 1 && (
           <div className="p-8 md:p-12 space-y-6">
             <div className="inline-block px-3 py-1 bg-primary/10 text-primary border border-primary/20 rounded text-xs font-bold uppercase tracking-wider mb-2">Part 1: The First Look</div>
             <h2 className="text-3xl font-bold">The Front Door</h2>
             
-            <p className="text-muted-foreground leading-relaxed text-lg">
+            <p className="text-muted-foreground reading-text text-lg">
               When a contractor or an employee opens your project on GitHub, they don't see a wall of code right away. They see the <strong>repository home screen</strong>.
             </p>
-            <p className="text-muted-foreground leading-relaxed text-lg">
+            <p className="text-muted-foreground reading-text text-lg">
               It is designed to give a stranger everything they need to understand what this project is, what state it's in, and where to find the files they need.
             </p>
             
             <div className="pt-6 flex justify-end">
-              <button onClick={handleNext} className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-6 py-3 rounded flex items-center gap-2 transition-colors">
+              <button onClick={handleNext} className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-6 py-3 rounded-lg flex items-center gap-2 transition-all active:scale-95 shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background">
                 Continue <ChevronRight className="w-4 h-4" />
               </button>
             </div>
@@ -93,7 +93,7 @@ export function Module1_2() {
           <div className="p-8 md:p-12 space-y-6">
             <div className="inline-block px-3 py-1 bg-primary/10 text-primary border border-primary/20 rounded text-xs font-bold uppercase tracking-wider mb-2">Part 2: The Interface</div>
             <h2 className="text-3xl font-bold">Reading the Room</h2>
-            <p className="text-muted-foreground leading-relaxed text-lg max-w-2xl">
+            <p className="text-muted-foreground reading-text text-lg max-w-2xl">
               Let's look at the home screen for your company's records. It combines the file system you're used to with the context only a web page can provide.
             </p>
 
@@ -144,8 +144,8 @@ export function Module1_2() {
             </div>
 
             <div className="pt-4 flex justify-between">
-              <button onClick={handlePrev} className="text-muted-foreground hover:text-foreground font-bold px-4 py-2 transition-colors">Back</button>
-              <button onClick={handleNext} className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-6 py-3 rounded flex items-center gap-2 transition-colors">
+              <button onClick={handlePrev} className="text-muted-foreground hover:text-foreground font-bold px-4 py-2 transition-all active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded">Back</button>
+              <button onClick={handleNext} className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-6 py-3 rounded-lg flex items-center gap-2 transition-all active:scale-95 shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background">
                 Continue <ChevronRight className="w-4 h-4" />
               </button>
             </div>
@@ -164,7 +164,7 @@ export function Module1_2() {
                 </div>
                 <div>
                   <h3 className="text-xl font-bold text-foreground mb-2">Immediate Orientation</h3>
-                  <p className="text-muted-foreground leading-relaxed">
+                  <p className="text-muted-foreground reading-text">
                     A new contractor doesn't have to ask you what files are important. The README file is automatically displayed front and center, acting as a welcome mat.
                   </p>
                 </div>
@@ -176,7 +176,7 @@ export function Module1_2() {
                 </div>
                 <div>
                   <h3 className="text-xl font-bold text-foreground mb-2">Context Next to Content</h3>
-                  <p className="text-muted-foreground leading-relaxed">
+                  <p className="text-muted-foreground reading-text">
                     You don't just see the file names; you see <em>who</em> last touched them, and <em>when</em>, right there in the file tree. The context lives directly next to the content.
                   </p>
                 </div>
@@ -184,8 +184,8 @@ export function Module1_2() {
             </div>
 
             <div className="pt-6 flex justify-between">
-              <button onClick={handlePrev} className="text-muted-foreground hover:text-foreground font-bold px-4 py-2 transition-colors">Back</button>
-              <button onClick={handleNext} className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-6 py-3 rounded flex items-center gap-2 transition-colors">
+              <button onClick={handlePrev} className="text-muted-foreground hover:text-foreground font-bold px-4 py-2 transition-all active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded">Back</button>
+              <button onClick={handleNext} className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-6 py-3 rounded-lg flex items-center gap-2 transition-all active:scale-95 shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background">
                 Continue <ChevronRight className="w-4 h-4" />
               </button>
             </div>
@@ -202,8 +202,8 @@ export function Module1_2() {
             </div>
 
             <div className="pt-10 flex justify-between">
-              <button onClick={handlePrev} className="text-muted-foreground hover:text-foreground font-bold px-4 py-2 transition-colors">Back</button>
-              <button onClick={handleNext} className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-6 py-3 rounded flex items-center gap-2 transition-colors">
+              <button onClick={handlePrev} className="text-muted-foreground hover:text-foreground font-bold px-4 py-2 transition-all active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded">Back</button>
+              <button onClick={handleNext} className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-6 py-3 rounded-lg flex items-center gap-2 transition-all active:scale-95 shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background">
                 Begin Scavenger Hunt <ChevronRight className="w-4 h-4" />
               </button>
             </div>
@@ -214,7 +214,7 @@ export function Module1_2() {
           <div className="p-8 md:p-12 space-y-6 relative">
             <div className="inline-block px-3 py-1 bg-primary/10 text-primary border border-primary/20 rounded text-xs font-bold uppercase tracking-wider mb-2">Part 5: Prove It</div>
             <h2 className="text-3xl font-bold mb-2">Scavenger Hunt</h2>
-            <p className="text-muted-foreground text-lg mb-8 max-w-2xl">
+            <p className="text-muted-foreground text-lg mb-8 reading-text">
               Find and click on these three things in the simulated screen below:
               <br/>1) The total commit count
               <br/>2) The file a stranger reads first (README)
@@ -263,15 +263,15 @@ export function Module1_2() {
             </div>
 
             <div className="mt-8 bg-black/30 border border-white/5 p-6 rounded-lg grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className={`flex items-center gap-3 p-3 rounded border transition-colors ${clickedCommits ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' : 'bg-black/40 border-white/10 text-white/40'}`}>
+              <div className={`flex items-center gap-3 p-3 rounded border transition-colors ${clickedCommits ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' : 'bg-black/40 border-white/10 text-muted-foreground'}`}>
                 <CheckCircle2 className={`w-5 h-5 ${clickedCommits ? 'opacity-100' : 'opacity-20'}`} />
                 <span className="font-medium text-sm">Commit Count</span>
               </div>
-              <div className={`flex items-center gap-3 p-3 rounded border transition-colors ${clickedReadme ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' : 'bg-black/40 border-white/10 text-white/40'}`}>
+              <div className={`flex items-center gap-3 p-3 rounded border transition-colors ${clickedReadme ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' : 'bg-black/40 border-white/10 text-muted-foreground'}`}>
                 <CheckCircle2 className={`w-5 h-5 ${clickedReadme ? 'opacity-100' : 'opacity-20'}`} />
                 <span className="font-medium text-sm">README File</span>
               </div>
-              <div className={`flex items-center gap-3 p-3 rounded border transition-colors ${clickedBranch ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' : 'bg-black/40 border-white/10 text-white/40'}`}>
+              <div className={`flex items-center gap-3 p-3 rounded border transition-colors ${clickedBranch ? 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400' : 'bg-black/40 border-white/10 text-muted-foreground'}`}>
                 <CheckCircle2 className={`w-5 h-5 ${clickedBranch ? 'opacity-100' : 'opacity-20'}`} />
                 <span className="font-medium text-sm">Current Branch</span>
               </div>
@@ -285,7 +285,7 @@ export function Module1_2() {
             )}
 
             <div className="pt-6 flex justify-between">
-              <button onClick={handlePrev} className="text-muted-foreground hover:text-foreground font-bold px-4 py-2 transition-colors">Back</button>
+              <button onClick={handlePrev} className="text-muted-foreground hover:text-foreground font-bold px-4 py-2 transition-all active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded">Back</button>
               <button 
                 onClick={handleQuizSubmit}
                 disabled={completeModule.isPending}
@@ -314,7 +314,7 @@ export function Module1_2() {
               <Link href="/" className="inline-flex items-center justify-center bg-secondary hover:bg-secondary/80 text-foreground font-bold px-8 py-4 rounded-lg transition-colors border border-white/5">
                 Return to Ledger
               </Link>
-              <Link href="/learn/1-3" className="inline-flex items-center justify-center bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-8 py-4 rounded-lg transition-colors shadow-lg shadow-primary/20">
+              <Link href="/learn/1-3" className="inline-flex items-center justify-center bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-8 py-4 rounded-lg transition-all active:scale-95 shadow-[0_0_15px_rgba(255,107,0,0.2)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background">
                 Next: Reading History &rarr;
               </Link>
             </div>

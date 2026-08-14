@@ -123,9 +123,78 @@
   body {
     @apply font-sans antialiased bg-background text-foreground;
   }
+  
+  /* Focus Visible Outline Accessibility */
+  *:focus-visible {
+    @apply outline-none ring-2 ring-primary ring-offset-2 ring-offset-background;
+  }
 }
 
 /* Custom Utilities for aesthetic */
-.glass-panel {
+@utility glass-panel {
   @apply bg-card/80 backdrop-blur-md border border-white/5 shadow-xl;
+}
+
+/* Typographic rhythm */
+@utility reading-text {
+  @apply max-w-[65ch] leading-relaxed;
+}
+
+@utility heading-tight {
+  @apply tracking-tight font-extrabold;
+}
+
+/* Depth & materials */
+@utility surface-card {
+  @apply bg-card border border-white/10 rounded-xl shadow-lg shadow-black/50 hover:shadow-black/70 transition-shadow;
+}
+
+@utility interactive-card {
+  @apply bg-card border border-white/10 rounded-xl shadow-lg shadow-black/50 hover:shadow-black/70 hover:border-primary/40 hover:-translate-y-0.5 active:translate-y-0 active:scale-[0.98] transition-all cursor-pointer;
+}
+
+/* Simulated Screens */
+@utility sim-window {
+  @apply rounded-xl border border-white/10 bg-[#0d1117] shadow-2xl overflow-hidden flex flex-col;
+}
+
+@utility sim-chrome {
+  @apply flex items-center px-4 py-3 bg-[#161b22] border-b border-white/10 gap-2;
+}
+
+@utility sim-chrome-dots {
+  @apply flex items-center gap-1.5 mr-4;
+}
+
+.sim-chrome-dots > div {
+  @apply w-2.5 h-2.5 rounded-full;
+}
+
+.sim-chrome-dots .close { @apply bg-[#FF5F56]; }
+.sim-chrome-dots .min { @apply bg-[#FFBD2E]; }
+.sim-chrome-dots .max { @apply bg-[#27C93F]; }
+
+/* Pull Quotes */
+@utility pull-quote {
+  @apply pl-6 border-l-2 border-primary my-8 text-xl font-medium text-foreground italic leading-relaxed;
+}
+
+/* Motion */
+@utility enter-fade {
+  @apply animate-in fade-in duration-300 ease-out;
+}
+@utility enter-slide-up {
+  @apply animate-in fade-in slide-in-from-bottom-4 duration-500 ease-out;
+}
+
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

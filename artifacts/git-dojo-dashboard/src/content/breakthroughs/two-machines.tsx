@@ -51,12 +51,12 @@ export function TwoMachines() {
   return (
     <div className="flex flex-col items-center gap-8 w-full max-w-3xl mx-auto py-4">
       {/* Network Switch */}
-      <div className="flex items-center gap-4 bg-black/40 p-2 rounded-lg border border-white/10">
+      <div className="flex items-center gap-4 bg-black/40 p-2 rounded-xl border border-white/10 shadow-inner">
         <span className="text-sm font-bold text-muted-foreground uppercase tracking-wider px-2">Internet</span>
         <button 
           onClick={() => setOnline(!online)}
-          className={`flex items-center gap-2 px-4 py-2 rounded font-bold text-sm transition-colors ${
-            online ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-destructive/20 text-destructive border border-destructive/30'
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold text-sm transition-all active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
+            online ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 shadow-sm' : 'bg-destructive/20 text-destructive border border-destructive/30 shadow-sm'
           }`}
         >
           {online ? <><Wifi className="w-4 h-4" /> Connected</> : <><WifiOff className="w-4 h-4" /> Unplugged</>}
@@ -65,14 +65,16 @@ export function TwoMachines() {
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8 w-full">
         {/* Local Machine */}
-        <div className="bg-[#161b22] border border-white/10 rounded-xl overflow-hidden flex flex-col">
-          <div className="bg-[#21262d] border-b border-white/10 p-4 flex items-center gap-3">
-            <Laptop className="w-5 h-5 text-primary" />
-            <h3 className="font-bold text-foreground">Your Computer</h3>
-            <span className="ml-auto text-xs font-mono text-muted-foreground bg-black/50 px-2 py-1 rounded">Local Repo</span>
+        <div className="sim-window border-white/10 flex flex-col h-full bg-[#161b22]">
+          <div className="sim-chrome px-4 justify-between border-b border-white/10 p-4">
+            <div className="flex items-center gap-3">
+              <Laptop className="w-5 h-5 text-primary" />
+              <h3 className="font-bold text-foreground">Your Computer</h3>
+            </div>
+            <span className="text-xs font-mono text-muted-foreground bg-black/50 px-2 py-1 rounded shadow-inner">Local Repo</span>
           </div>
           
-          <div className="p-6 flex-1 flex flex-col gap-6">
+          <div className="p-6 flex-1 flex flex-col gap-6 bg-[#0d1117]">
             <div className="flex flex-col gap-2 min-h-[160px]">
               {allLocalKnowledge.map(c => {
                 const isLocal = localCommits.includes(c);
@@ -81,21 +83,21 @@ export function TwoMachines() {
                 const isRemoteHead = isGhosted && c === Math.max(...fetchedCommits);
 
                 return (
-                  <div key={c} className="flex flex-wrap items-center gap-2 sm:gap-3 animate-in slide-in-from-top-2">
+                  <div key={c} className="flex flex-wrap items-center gap-2 sm:gap-3 enter-fade">
                     {isLocal ? (
-                      <div className="w-3 h-3 rounded-full bg-primary ring-4 ring-primary/20 shrink-0" />
+                      <div className="w-3 h-3 rounded-full bg-primary ring-4 ring-primary/20 shrink-0 shadow-[0_0_10px_rgba(255,107,0,0.5)]" />
                     ) : (
                       <div className="w-3 h-3 rounded-full bg-transparent border-2 border-white/30 border-dashed shrink-0" />
                     )}
                     <div className={`h-0.5 w-2 sm:w-4 hidden sm:block ${isLocal ? 'bg-primary/20' : 'bg-white/10 border-t-2 border-dashed border-transparent'}`} />
-                    <div className={`border px-2 sm:px-3 py-1 sm:py-1.5 rounded text-xs sm:text-sm font-mono ${isLocal ? 'bg-black/40 border-white/5 text-muted-foreground' : 'bg-white/5 border-white/10 text-white/40'}`}>
+                    <div className={`border px-2 sm:px-3 py-1 sm:py-1.5 rounded-md text-xs sm:text-sm font-mono shadow-inner ${isLocal ? 'bg-black/40 border-white/5 text-muted-foreground' : 'bg-white/5 border-white/10 text-muted-foreground'}`}>
                       commit-{c}
                     </div>
                     {isLocalHead && (
-                      <span className="bg-primary/20 text-primary text-[10px] sm:text-xs font-bold px-1.5 sm:px-2 py-0.5 rounded ml-auto sm:ml-0">main</span>
+                      <span className="bg-primary/20 text-primary text-[10px] sm:text-xs font-bold px-1.5 sm:px-2 py-0.5 rounded ml-auto sm:ml-0 shadow-sm border border-primary/20">main</span>
                     )}
                     {isRemoteHead && (
-                      <span className="bg-white/10 text-white/50 border border-white/10 text-[10px] sm:text-xs font-bold px-1.5 sm:px-2 py-0.5 rounded ml-auto sm:ml-0">origin/main</span>
+                      <span className="bg-white/10 text-muted-foreground border border-white/10 text-[10px] sm:text-xs font-bold px-1.5 sm:px-2 py-0.5 rounded ml-auto sm:ml-0 shadow-sm">origin/main</span>
                     )}
                   </div>
                 );
@@ -104,7 +106,7 @@ export function TwoMachines() {
 
             <div className="mt-auto space-y-3 pt-6 border-t border-white/10 flex flex-col">
               {pushError && (
-                <div className="text-xs text-amber-400 font-bold bg-amber-500/10 p-3 rounded border border-amber-500/20 animate-in fade-in flex items-start gap-2 leading-relaxed">
+                <div className="text-xs text-amber-400 font-bold bg-amber-500/10 p-3 rounded-md border border-amber-500/20 enter-fade flex items-start gap-2 leading-relaxed shadow-sm">
                   <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
                   <span>{pushError}</span>
                 </div>
@@ -112,7 +114,7 @@ export function TwoMachines() {
 
               <button 
                 onClick={handleLocalCommit}
-                className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-4 py-2 rounded flex items-center justify-center gap-2 transition-colors"
+                className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-4 py-2.5 rounded-lg flex items-center justify-center gap-2 transition-all active:scale-95 shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-[#0d1117]"
               >
                 <Plus className="w-4 h-4" /> Save Work (Commit)
               </button>
@@ -120,27 +122,27 @@ export function TwoMachines() {
               <div className="grid grid-cols-2 gap-3">
                 <button 
                   onClick={handlePush}
-                  className={`px-3 py-2 rounded font-bold text-sm flex items-center justify-center gap-2 transition-colors border ${
+                  className={`px-3 py-2.5 rounded-lg font-bold text-sm flex items-center justify-center gap-2 transition-all border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
                     online 
-                      ? 'bg-black/50 border-white/10 hover:border-primary/50 text-foreground' 
-                      : 'bg-black/20 border-white/5 text-muted-foreground/50 cursor-not-allowed'
+                      ? 'bg-black/50 border-white/10 hover:border-primary/50 hover:bg-white/5 text-foreground active:scale-95 shadow-sm' 
+                      : 'bg-black/20 border-white/5 text-muted-foreground/50 cursor-not-allowed shadow-inner'
                   }`}
                 >
                   <Upload className="w-4 h-4" /> Push
                 </button>
                 <button 
                   onClick={handleFetch}
-                  className={`px-3 py-2 rounded font-bold text-sm flex items-center justify-center gap-2 transition-colors border ${
+                  className={`px-3 py-2.5 rounded-lg font-bold text-sm flex items-center justify-center gap-2 transition-all border focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
                     online 
-                      ? 'bg-black/50 border-white/10 hover:border-primary/50 text-foreground' 
-                      : 'bg-black/20 border-white/5 text-muted-foreground/50 cursor-not-allowed'
+                      ? 'bg-black/50 border-white/10 hover:border-primary/50 hover:bg-white/5 text-foreground active:scale-95 shadow-sm' 
+                      : 'bg-black/20 border-white/5 text-muted-foreground/50 cursor-not-allowed shadow-inner'
                   }`}
                 >
                   <Download className="w-4 h-4" /> Fetch
                 </button>
               </div>
               {!online && (
-                <div className="text-center text-xs text-destructive/80 font-bold flex items-center justify-center gap-1">
+                <div className="text-center text-xs text-destructive/80 font-bold flex items-center justify-center gap-1 mt-1">
                   <CloudOff className="w-3 h-3" /> Cannot sync while offline
                 </div>
               )}
@@ -149,36 +151,38 @@ export function TwoMachines() {
         </div>
 
         {/* Remote Server */}
-        <div className="bg-[#161b22] border border-white/10 rounded-xl overflow-hidden flex flex-col">
-          <div className="bg-[#21262d] border-b border-white/10 p-4 flex items-center gap-3">
-            <Globe className="w-5 h-5 text-blue-400" />
-            <h3 className="font-bold text-foreground">GitHub</h3>
-            <span className="ml-auto text-xs font-mono text-muted-foreground bg-black/50 px-2 py-1 rounded">Remote Repo</span>
+        <div className="sim-window border-white/10 flex flex-col h-full bg-[#161b22]">
+          <div className="sim-chrome px-4 justify-between border-b border-white/10 p-4">
+            <div className="flex items-center gap-3">
+              <Globe className="w-5 h-5 text-blue-400" />
+              <h3 className="font-bold text-foreground">GitHub</h3>
+            </div>
+            <span className="text-xs font-mono text-muted-foreground bg-black/50 px-2 py-1 rounded shadow-inner">Remote Repo</span>
           </div>
           
-          <div className="p-6 flex-1 flex flex-col gap-6">
+          <div className="p-6 flex-1 flex flex-col gap-6 bg-[#0d1117]">
             <div className="flex flex-col gap-2 min-h-[160px]">
               {remoteCommits.map(c => (
-                <div key={c} className="flex items-center gap-2 sm:gap-3 animate-in slide-in-from-top-2">
-                  <div className="w-3 h-3 rounded-full bg-blue-500 ring-4 ring-blue-500/20 shrink-0" />
+                <div key={c} className="flex items-center gap-2 sm:gap-3 enter-fade">
+                  <div className="w-3 h-3 rounded-full bg-blue-500 ring-4 ring-blue-500/20 shrink-0 shadow-[0_0_10px_rgba(59,130,246,0.5)]" />
                   <div className="h-0.5 bg-blue-500/20 w-2 sm:w-4 hidden sm:block" />
-                  <div className="bg-black/40 border border-white/5 px-2 sm:px-3 py-1 sm:py-1.5 rounded text-xs sm:text-sm font-mono text-muted-foreground">
+                  <div className="bg-black/40 border border-white/5 shadow-inner px-2 sm:px-3 py-1 sm:py-1.5 rounded-md text-xs sm:text-sm font-mono text-muted-foreground">
                     commit-{c}
                   </div>
                   {c === remoteCommits[remoteCommits.length - 1] && (
-                    <span className="bg-blue-500/20 text-blue-400 text-[10px] sm:text-xs font-bold px-1.5 sm:px-2 py-0.5 rounded ml-auto">main</span>
+                    <span className="bg-blue-500/20 text-blue-400 text-[10px] sm:text-xs font-bold px-1.5 sm:px-2 py-0.5 rounded ml-auto shadow-sm border border-blue-500/20">main</span>
                   )}
                 </div>
               ))}
             </div>
 
             <div className="mt-auto pt-6 border-t border-white/10 space-y-3 flex flex-col justify-end h-full min-h-[142px]">
-              <div className="text-xs text-muted-foreground text-center mb-2 px-4 leading-relaxed">
+              <div className="text-xs text-muted-foreground text-center mb-2 px-4 reading-text">
                 GitHub is just a server hosting a copy. Coworkers can push to it.
               </div>
               <button 
                 onClick={handleRemoteCommit}
-                className="w-full bg-black/50 hover:bg-black/80 border border-white/10 hover:border-blue-500/50 text-foreground font-bold px-4 py-2 rounded flex items-center justify-center gap-2 transition-colors"
+                className="w-full bg-black/50 hover:bg-black/80 hover:bg-white/5 border border-white/10 hover:border-blue-500/50 text-foreground font-bold px-4 py-2.5 rounded-lg flex items-center justify-center gap-2 transition-all active:scale-95 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0d1117]"
               >
                 <Plus className="w-4 h-4 text-blue-400" /> Coworker pushes a commit
               </button>

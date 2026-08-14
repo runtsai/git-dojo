@@ -16,8 +16,8 @@ export function Module1_3() {
   const [quizAnswer, setQuizAnswer] = useState<string | null>(null);
   const [showError, setShowError] = useState<string | null>(null);
 
-  const handleNext = () => setStep(s => Math.min(s + 1, 5));
-  const handlePrev = () => setStep(s => Math.max(s - 1, 1));
+  const handleNext = () => { setStep(s => Math.min(s + 1, 5)); window.scrollTo(0, 0); };
+  const handlePrev = () => { setStep(s => Math.max(s - 1, 1)); window.scrollTo(0, 0); };
 
   const handleQuizSubmit = () => {
     if (!selectedCommit) {
@@ -88,8 +88,8 @@ export function Module1_3() {
   );
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 pb-20">
-      <Link href="/" className="inline-flex items-center gap-2 text-xs font-bold text-muted-foreground hover:text-foreground mb-4 transition-colors uppercase tracking-wider bg-black/40 border border-white/5 px-3 py-1.5 rounded">
+    <div className="max-w-4xl mx-auto space-y-8 enter-slide-up pb-20">
+      <Link href="/" className="inline-flex items-center gap-2 text-xs font-bold text-muted-foreground hover:text-foreground mb-4 transition-all active:scale-95 uppercase tracking-wider bg-black/40 border border-white/5 shadow-inner px-3 py-1.5 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
         <ArrowLeft className="w-3.5 h-3.5" /> Back to Ledger
       </Link>
 
@@ -107,21 +107,21 @@ export function Module1_3() {
         </div>
       </div>
 
-      <div className="bg-card border border-white/10 rounded-xl overflow-hidden shadow-2xl">
+      <div className="surface-card overflow-hidden">
         {step === 1 && (
           <div className="p-8 md:p-12 space-y-6">
             <div className="inline-block px-3 py-1 bg-primary/10 text-primary border border-primary/20 rounded text-xs font-bold uppercase tracking-wider mb-2">Part 1: The Timeline</div>
             <h2 className="text-3xl font-bold">The Custody Trail</h2>
             
-            <p className="text-muted-foreground leading-relaxed text-lg">
+            <p className="text-muted-foreground reading-text text-lg">
               Every time someone saves a snapshot of their work, it gets added to the commit history. This history isn't just a log of dates — it is a permanent, sealed record of exactly who changed what.
             </p>
-            <p className="text-muted-foreground leading-relaxed text-lg">
+            <p className="text-muted-foreground reading-text text-lg">
               Because it tracks changes line-by-line, you can easily prove what a document looked like three months ago, or find out exactly when a mistake was introduced.
             </p>
             
             <div className="pt-6 flex justify-end">
-              <button onClick={handleNext} className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-6 py-3 rounded flex items-center gap-2 transition-colors">
+              <button onClick={handleNext} className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-6 py-3 rounded-lg flex items-center gap-2 transition-all active:scale-95 shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background">
                 Continue <ChevronRight className="w-4 h-4" />
               </button>
             </div>
@@ -132,7 +132,7 @@ export function Module1_3() {
           <div className="p-8 md:p-12 space-y-6">
             <div className="inline-block px-3 py-1 bg-primary/10 text-primary border border-primary/20 rounded text-xs font-bold uppercase tracking-wider mb-2">Part 2: The Interface</div>
             <h2 className="text-3xl font-bold">Spot the Difference</h2>
-            <p className="text-muted-foreground leading-relaxed text-lg max-w-2xl">
+            <p className="text-muted-foreground reading-text text-lg max-w-2xl">
               When you click on a commit in the history list, you see a "diff". A diff highlights what was removed in red and what was added in green.
             </p>
 
@@ -144,7 +144,7 @@ export function Module1_3() {
                     <div className="flex items-center gap-3 text-white mb-2">
                       <div className="w-5 h-5 rounded bg-emerald-500/20 text-emerald-400 flex items-center justify-center text-xs font-bold">J</div>
                       <span className="font-bold">John (Contractor)</span>
-                      <span className="text-white/40 text-sm ml-auto">1 day ago</span>
+                      <span className="text-muted-foreground text-sm ml-auto">1 day ago</span>
                     </div>
                     <p className="text-white/80 text-sm font-medium">Update Q3 vendor pricing rates</p>
                   </div>
@@ -156,7 +156,7 @@ export function Module1_3() {
                         pricing-policy.md
                       </div>
                       <div className="font-mono text-sm leading-relaxed overflow-x-auto">
-                        <div className="flex px-4 py-1 text-white/60 bg-white/5"><span className="w-8 pr-4"></span>The standard hourly rate is:</div>
+                        <div className="flex px-4 py-1 text-muted-foreground bg-white/5"><span className="w-8 pr-4"></span>The standard hourly rate is:</div>
                         <div className="relative">
                           <div className="absolute -left-3 top-1 w-6 h-6 bg-primary text-primary-foreground font-bold rounded-full flex items-center justify-center text-xs shadow-[0_0_10px_rgba(255,107,0,0.5)] z-10">3</div>
                           <div className="flex px-4 py-1 bg-red-950/30 text-red-200"><span className="w-8 pr-4">-</span>Standard Rate: $150/hr</div>
@@ -188,8 +188,8 @@ export function Module1_3() {
             </div>
 
             <div className="pt-4 flex justify-between">
-              <button onClick={handlePrev} className="text-muted-foreground hover:text-foreground font-bold px-4 py-2 transition-colors">Back</button>
-              <button onClick={handleNext} className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-6 py-3 rounded flex items-center gap-2 transition-colors">
+              <button onClick={handlePrev} className="text-muted-foreground hover:text-foreground font-bold px-4 py-2 transition-all active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded">Back</button>
+              <button onClick={handleNext} className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-6 py-3 rounded-lg flex items-center gap-2 transition-all active:scale-95 shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background">
                 Continue <ChevronRight className="w-4 h-4" />
               </button>
             </div>
@@ -208,7 +208,7 @@ export function Module1_3() {
                 </div>
                 <div>
                   <h3 className="text-xl font-bold text-foreground mb-2">No silent overwrites</h3>
-                  <p className="text-muted-foreground leading-relaxed">
+                  <p className="text-muted-foreground reading-text">
                     If someone alters a critical aerospace compliance policy, they can't just quietly save over the file. The diff proves exactly which lines they touched.
                   </p>
                 </div>
@@ -220,7 +220,7 @@ export function Module1_3() {
                 </div>
                 <div>
                   <h3 className="text-xl font-bold text-foreground mb-2">The Undo Button</h3>
-                  <p className="text-muted-foreground leading-relaxed">
+                  <p className="text-muted-foreground reading-text">
                     Because the entire history is stored as a series of diffs, you can always safely rewind a file back to a previous state if a mistake was made.
                   </p>
                 </div>
@@ -228,8 +228,8 @@ export function Module1_3() {
             </div>
 
             <div className="pt-6 flex justify-between">
-              <button onClick={handlePrev} className="text-muted-foreground hover:text-foreground font-bold px-4 py-2 transition-colors">Back</button>
-              <button onClick={handleNext} className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-6 py-3 rounded flex items-center gap-2 transition-colors">
+              <button onClick={handlePrev} className="text-muted-foreground hover:text-foreground font-bold px-4 py-2 transition-all active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded">Back</button>
+              <button onClick={handleNext} className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-6 py-3 rounded-lg flex items-center gap-2 transition-all active:scale-95 shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background">
                 Continue <ChevronRight className="w-4 h-4" />
               </button>
             </div>
@@ -246,8 +246,8 @@ export function Module1_3() {
             </div>
 
             <div className="pt-10 flex justify-between">
-              <button onClick={handlePrev} className="text-muted-foreground hover:text-foreground font-bold px-4 py-2 transition-colors">Back</button>
-              <button onClick={handleNext} className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-6 py-3 rounded flex items-center gap-2 transition-colors">
+              <button onClick={handlePrev} className="text-muted-foreground hover:text-foreground font-bold px-4 py-2 transition-all active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded">Back</button>
+              <button onClick={handleNext} className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-6 py-3 rounded-lg flex items-center gap-2 transition-all active:scale-95 shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background">
                 Begin Hands-On Task <ChevronRight className="w-4 h-4" />
               </button>
             </div>
@@ -258,7 +258,7 @@ export function Module1_3() {
           <div className="p-8 md:p-12 space-y-6 relative">
             <div className="inline-block px-3 py-1 bg-primary/10 text-primary border border-primary/20 rounded text-xs font-bold uppercase tracking-wider mb-2">Part 5: Prove It</div>
             <h2 className="text-3xl font-bold mb-2">Audit the Invoice</h2>
-            <p className="text-muted-foreground text-lg mb-8 max-w-2xl">
+            <p className="text-muted-foreground text-lg mb-8 reading-text">
               A vendor just sent an invoice with a $185 hourly rate. You remember it being lower.
               Find the commit that changed the pricing policy and identify what the old rate was.
             </p>
@@ -304,7 +304,7 @@ export function Module1_3() {
             )}
 
             <div className="pt-6 flex justify-between">
-              <button onClick={handlePrev} className="text-muted-foreground hover:text-foreground font-bold px-4 py-2 transition-colors">Back</button>
+              <button onClick={handlePrev} className="text-muted-foreground hover:text-foreground font-bold px-4 py-2 transition-all active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded">Back</button>
               <button 
                 onClick={handleQuizSubmit}
                 disabled={completeModule.isPending}
@@ -333,7 +333,7 @@ export function Module1_3() {
               <Link href="/" className="inline-flex items-center justify-center bg-secondary hover:bg-secondary/80 text-foreground font-bold px-8 py-4 rounded-lg transition-colors border border-white/5">
                 Return to Ledger
               </Link>
-              <Link href="/learn/1-4" className="inline-flex items-center justify-center bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-8 py-4 rounded-lg transition-colors shadow-lg shadow-primary/20">
+              <Link href="/learn/1-4" className="inline-flex items-center justify-center bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-8 py-4 rounded-lg transition-all active:scale-95 shadow-[0_0_15px_rgba(255,107,0,0.2)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background">
                 Next: Repo Settings &rarr;
               </Link>
             </div>
