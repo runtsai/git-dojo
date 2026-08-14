@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "Git Dojo Dashboard"
+description = "A visual companion dashboard for the Git Dojo learning course. It reads the learner's practice repositories and displays their state graphically — commit history as a timeline, staged/modified/untracked files, branches, and plain-English explanations — so a beginner gets visual confirmation of every git command they run in the shell."
+version = "1.0.0"
+id = "artifacts/git-dojo-dashboard"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 22943
+
+[services.development]
+run = "pnpm --filter @workspace/git-dojo-dashboard run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/git-dojo-dashboard", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/git-dojo-dashboard/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "22943"
+BASE_PATH = "/"

@@ -1,6 +1,10 @@
-# [Project name]
+# Git Dojo Dashboard
 
-_Replace the heading above with the project's name, and this line with one sentence describing what this app does for users._
+A visual companion for the Git Dojo learning course: it reads the learner's practice repositories and shows commits, file states, and branches graphically, with plain-English explanations and a one-click lesson grader.
+
+## Important
+
+- The active Git Dojo course lives at `~/git-dojo` (OUTSIDE the workspace) because Replit's checkpoint system strips nested `.git` dirs inside the workspace. The API server reads from there (see `artifacts/api-server/src/routes/dojo.ts`, `dojoRoot()`); `workspace/git-dojo` is only a fallback for listing lessons.
 
 ## Run & Operate
 

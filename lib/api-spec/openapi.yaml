@@ -10,6 +10,8 @@ servers:
 tags:
   - name: health
     description: Health operations
+  - name: dojo
+    description: Git Dojo lesson and repository state operations
 paths:
   /healthz:
     get:
@@ -24,6 +26,84 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+  /dojo/overview:
+    get:
+      operationId: getDojoOverview
+      tags: [dojo]
+      summary: Course overview
+      description: High-level progress across all Git Dojo lessons
+      responses:
+        "200":
+          description: Overview
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DojoOverview"
+  /dojo/lessons:
+    get:
+      operationId: listLessons
+      tags: [dojo]
+      summary: List lessons
+      description: All Git Dojo lessons with playground status
+      responses:
+        "200":
+          description: Lessons
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Lesson"
+  /dojo/lessons/{lessonId}/state:
+    get:
+      operationId: getRepoState
+      tags: [dojo]
+      summary: Repository state for a lesson playground
+      description: Full git state of the lesson's practice repository
+      parameters:
+        - name: lessonId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Repository state
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RepoState"
+        "404":
+          description: Lesson not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiMessage"
+  /dojo/lessons/{lessonId}/check:
+    post:
+      operationId: runLessonCheck
+      tags: [dojo]
+      summary: Run the lesson's check script
+      description: Executes the lesson's check.sh grader and returns its output
+      parameters:
+        - name: lessonId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Check results
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CheckResult"
+        "404":
+          description: Lesson not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiMessage"
 components:
   schemas:
     HealthStatus:
@@ -33,4 +113,149 @@ components:
           type: string
       required:
         - status
-
+    ApiMessage:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
+    DojoOverview:
+      type: object
+      properties:
+        totalLessons:
+          type: number
+        startedLessons:
+          type: number
+        totalCommits:
+          type: number
+        dojoFound:
+          type: boolean
+          description: Whether the git-dojo folder exists at the expected location
+      required: [totalLessons, startedLessons, totalCommits, dojoFound]
+    Lesson:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Short lesson id such as lesson-01
+        number:
+          type: number
+        title:
+          type: string
+        folderName:
+          type: string
+          description: Lesson folder name such as lesson-01-first-snapshot
+        hasPlayground:
+          type: boolean
+          description: setup.sh has been run for this lesson
+        initialized:
+          type: boolean
+          description: The playground contains a git repository
+        commitCount:
+          type: number
+      required:
+        [id, number, title, folderName, hasPlayground, initialized, commitCount]
+    RepoFile:
+      type: object
+      properties:
+        path:
+          type: string
+        status:
+          type: string
+          enum:
+            [staged, modified, staged_and_modified, untracked, deleted, conflicted]
+      required: [path, status]
+    RepoCommit:
+      type: object
+      properties:
+        hash:
+          type: string
+        shortHash:
+          type: string
+        subject:
+          type: string
+        authorName:
+          type: string
+        date:
+          type: string
+          description: ISO 8601 author date
+        refs:
+          type: array
+          items:
+            type: string
+          description: Branch or tag names pointing at this commit
+        branch:
+          type: ["string", "null"]
+          description: Branch this commit was listed under, when walking per-branch history
+      required: [hash, shortHash, subject, authorName, date, refs]
+    RepoBranch:
+      type: object
+      properties:
+        name:
+          type: string
+        isCurrent:
+          type: boolean
+        headHash:
+          type: string
+      required: [name, isCurrent, headHash]
+    RepoState:
+      type: object
+      properties:
+        lessonId:
+          type: string
+        hasPlayground:
+          type: boolean
+        initialized:
+          type: boolean
+        currentBranch:
+          type: ["string", "null"]
+        detachedHead:
+          type: boolean
+        mergeInProgress:
+          type: boolean
+        files:
+          type: array
+          items:
+            $ref: "#/components/schemas/RepoFile"
+        commits:
+          type: array
+          items:
+            $ref: "#/components/schemas/RepoCommit"
+        branches:
+          type: array
+          items:
+            $ref: "#/components/schemas/RepoBranch"
+        remotes:
+          type: array
+          items:
+            type: string
+        summary:
+          type: string
+          description: Plain-English explanation of the current repository state
+      required:
+        [
+          lessonId,
+          hasPlayground,
+          initialized,
+          currentBranch,
+          detachedHead,
+          mergeInProgress,
+          files,
+          commits,
+          branches,
+          remotes,
+          summary,
+        ]
+    CheckResult:
+      type: object
+      properties:
+        ran:
+          type: boolean
+        passed:
+          type: ["boolean", "null"]
+          description: True when every check passed, null when it could not be determined
+        output:
+          type: string
+          description: Raw output of check.sh
+      required: [ran, passed, output]
