@@ -78,9 +78,11 @@ Or trigger the **`sync-github`** step in the Replit validation panel.
 **Safety rules built into the script:**
 - Refuses to push if GitHub has commits that local `main` doesn't — prints the diverging SHAs and exits non-zero.
 - No `--force` ever used.
-- The GitHub OAuth token is supplied ephemerally by Replit's built-in `GIT_ASKPASS` helper (`replit-git-askpass`) — it is never written to git config, env files, or log output.
+- The GitHub OAuth token is supplied ephemerally — it is never written to git config, env files, or log output.
 
-**Requirement:** GitHub must be connected in your Replit workspace (Settings → Integrations → GitHub, or via the Git panel). The script runs in the same shell session where `REPLIT_ASKPASS_PID2_SESSION` is active.
+**Auth (tried in order):**
+1. **Replit GitHub connector token** — fetched from the Replit connector API (`REPLIT_CONNECTORS_HOSTNAME` + `REPL_IDENTITY`). Works from agent shell and automated post-merge runs. Requires the GitHub connector to be connected in workspace Settings → Integrations → GitHub.
+2. **`replit-git-askpass`** — fallback for interactive workspace shell sessions where the ASKPASS session is live.
 
 ## Gotchas
 
