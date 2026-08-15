@@ -1,4 +1,4 @@
-import { useGetRepoState, getGetRepoStateQueryKey } from "@workspace/api-client-react";
+import { useGetRepoState, getGetRepoStateQueryKey, useListLessons } from "@workspace/api-client-react";
 import { useParams, Link } from "wouter";
 import { ArrowLeft, ChevronDown, ChevronUp, Map, RefreshCw, Terminal, GitBranch, Info } from "lucide-react";
 import { SummaryPanel } from "@/components/repo-view/summary-panel";
@@ -101,6 +101,9 @@ export function LessonView() {
     }
   });
 
+  const { data: lessons, isLoading: isLessonsLoading } = useListLessons();
+  const folderName = lessons?.find((l) => l.id === lessonId)?.folderName;
+
   const handleRefresh = () => {
     queryClient.invalidateQueries({ queryKey: getGetRepoStateQueryKey(lessonId || '') });
   };
@@ -154,13 +157,21 @@ export function LessonView() {
           </div>
           <h2 className="text-2xl font-bold mb-3 text-foreground tracking-tight">Playground Not Found</h2>
           <p className="text-muted-foreground mb-8 reading-text mx-auto">You haven't generated the files for this mission yet. Each lesson builds its own practice folder — run this lesson's setup script:</p>
-          <div className="max-w-md mx-auto space-y-4 w-full min-w-0">
-            <CommandBlock command={`cd ~/git-dojo/${lessonId}-*`} step={1} />
-            <CommandBlock command="bash setup.sh" step={2} />
-          </div>
-          <p className="text-sm text-muted-foreground mt-6 reading-text mx-auto">
-            (The <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded">*</code> fills in the lesson's full folder name — that works in Git Bash and the Replit Shell.)
-          </p>
+          {isLessonsLoading ? (
+            <div className="max-w-md mx-auto flex justify-center py-4">
+              <div className="w-6 h-6 border-2 border-primary/20 border-t-primary rounded-full animate-spin" />
+            </div>
+          ) : folderName ? (
+            <div className="max-w-md mx-auto space-y-4 w-full min-w-0">
+              <CommandBlock command={`cd ~/git-dojo/${folderName}`} step={1} />
+              <CommandBlock command="bash setup.sh" step={2} />
+            </div>
+          ) : (
+            <div className="max-w-md mx-auto space-y-4 w-full min-w-0">
+              <p className="text-sm text-muted-foreground">Navigate into the <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded">{lessonId}</code> folder inside <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded">~/git-dojo/</code>, then run:</p>
+              <CommandBlock command="bash setup.sh" />
+            </div>
+          )}
         </div>
       ) : !repo.initialized ? (
         <div className="surface-card p-10 text-center max-w-2xl mx-auto border-primary/30 shadow-[0_0_30px_rgba(255,107,0,0.1)]">
