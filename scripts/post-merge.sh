@@ -3,12 +3,8 @@ set -e
 pnpm install --frozen-lockfile
 pnpm --filter db push
 
-# Sync to GitHub mirror (best-effort — failure is logged but never blocks the merge)
+# Sync to GitHub mirror — failure blocks the merge so divergence is caught immediately
 echo ""
 echo "── Syncing to GitHub mirror ──────────────────────────────────────────────"
-if bash "$(dirname "$0")/sync-to-github.sh"; then
-  echo "✓ GitHub sync succeeded."
-else
-  echo "⚠ GitHub sync failed (exit $?). The merge is complete; sync manually when ready:"
-  echo "    bash scripts/sync-to-github.sh"
-fi
+bash "$(dirname "$0")/sync-to-github.sh"
+echo "✓ GitHub sync succeeded."
