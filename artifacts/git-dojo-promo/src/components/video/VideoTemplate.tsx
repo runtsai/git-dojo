@@ -36,6 +36,67 @@ const SCENE_START_SEC: Record<string, number> = (() => {
 
 const AUDIO_SEEK_EPSILON_SEC = 0.18;
 
+const TOTAL_RUNTIME_MS = Object.values(SCENE_DURATIONS).reduce((a, b) => a + b, 0);
+
+// A repo being built start-to-finish, scrolling up behind the scenes
+// over the full runtime of the video.
+type RepoLine = { text: string; tone: 'cmd' | 'add' | 'commit' | 'branch' | 'merge' | 'tag' };
+
+const REPO_TIMELINE: RepoLine[] = [
+  { text: '$ git init', tone: 'cmd' },
+  { text: 'Initialized empty repository', tone: 'cmd' },
+  { text: '+ README.md', tone: 'add' },
+  { text: '+ .gitignore', tone: 'add' },
+  { text: 'commit a1f09e2  "first commit"', tone: 'commit' },
+  { text: '+ index.html', tone: 'add' },
+  { text: '+ styles.css', tone: 'add' },
+  { text: 'commit 4c88b17  "add homepage"', tone: 'commit' },
+  { text: '$ git branch feature/login', tone: 'branch' },
+  { text: '$ git checkout feature/login', tone: 'branch' },
+  { text: '+ login.js', tone: 'add' },
+  { text: '+ auth.js', tone: 'add' },
+  { text: 'commit 9d2e5a0  "build login form"', tone: 'commit' },
+  { text: 'commit b7c1f44  "validate passwords"', tone: 'commit' },
+  { text: '$ git push origin feature/login', tone: 'cmd' },
+  { text: 'Pull request #1 opened', tone: 'merge' },
+  { text: 'Review: approved', tone: 'merge' },
+  { text: 'Merged #1 into main', tone: 'merge' },
+  { text: '+ tests/login.test.js', tone: 'add' },
+  { text: 'commit e3a9c61  "add tests"', tone: 'commit' },
+  { text: 'CI: all checks passed', tone: 'merge' },
+  { text: '+ LICENSE', tone: 'add' },
+  { text: 'commit f0d47b8  "prepare release"', tone: 'commit' },
+  { text: '$ git tag v1.0.0', tone: 'tag' },
+  { text: 'Release v1.0.0 published', tone: 'tag' },
+];
+
+const TONE_COLORS: Record<RepoLine['tone'], string> = {
+  cmd: 'rgba(139, 148, 158, 0.9)',
+  add: 'rgba(63, 185, 80, 0.9)',
+  commit: 'rgba(88, 166, 255, 0.9)',
+  branch: 'rgba(210, 168, 255, 0.9)',
+  merge: 'rgba(163, 113, 247, 0.9)',
+  tag: 'rgba(240, 180, 41, 0.95)',
+};
+
+const RepoBuildFeed = () => (
+  <div className="absolute inset-0 pointer-events-none z-[1] overflow-hidden" aria-hidden="true">
+    <motion.div
+      className="absolute left-[6%] font-mono whitespace-nowrap"
+      style={{ top: '100%', fontSize: 22, lineHeight: '52px', opacity: 0.28 }}
+      initial={{ y: 0 }}
+      animate={{ y: -(REPO_TIMELINE.length * 52 + 60) }}
+      transition={{ duration: TOTAL_RUNTIME_MS / 1000, ease: 'linear', repeat: Infinity }}
+    >
+      {REPO_TIMELINE.map((line, i) => (
+        <div key={i} style={{ color: TONE_COLORS[line.tone] }}>
+          {line.text}
+        </div>
+      ))}
+    </motion.div>
+  </div>
+);
+
 // Persistent grid background outside AnimatePresence
 const PersistentBackground = ({ currentScene }: { currentScene: number }) => {
   return (
@@ -108,6 +169,7 @@ export default function VideoTemplate({
       className="w-full h-screen overflow-hidden relative flex items-center justify-center bg-bg-light"
     >
       <PersistentBackground currentScene={sceneIndex} />
+      <RepoBuildFeed />
 
       <AnimatePresence mode="popLayout">
         {SceneComponent && <SceneComponent key={currentSceneKey} />}
