@@ -4,7 +4,8 @@ cd "$(dirname "$0")/.."
 rm -rf playground/lesson-09
 mkdir -p playground/lesson-09/hub
 cd playground/lesson-09
-git init -q --bare -b main hub/rates.git
+git init -q --bare hub/rates.git
+git --git-dir=hub/rates.git symbolic-ref HEAD refs/heads/main
 git clone -q hub/rates.git laptop 2>/dev/null
 cd laptop
 git symbolic-ref HEAD refs/heads/main

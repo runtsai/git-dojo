@@ -39,18 +39,24 @@ have never seen — I will not let you publish blind.*
 ```
 git fetch
 git log --oneline main..origin/main
-git diff main origin/main
+git diff main...origin/main
 ```
 
-That's Ruth's invoicing section. It doesn't touch your file lines — this will
-merge cleanly.
+The three dots matter: `main...origin/main` shows only what Ruth added since
+you two last agreed, not your own unpushed work turned inside out. You'll see
+one new file, `invoicing.txt`, with her invoicing section. It doesn't touch the
+lines you edited — this will merge cleanly.
 
 **5. Merge her work into yours, then push.**
 
 ```
-git merge origin/main
+git merge origin/main --no-edit
 git push
 ```
+
+(`--no-edit` accepts Git's ready-made merge message so it does not open a text
+editor. Without it, Git would drop you into an editor to confirm the message —
+harmless, but easy to get stuck in.)
 
 (`git pull` does fetch + merge in one step. Learn them separately once, so you
 know what pull actually does.)

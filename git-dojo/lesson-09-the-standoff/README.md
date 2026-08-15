@@ -12,10 +12,12 @@ bash setup.sh
 cd ../playground/lesson-09/laptop
 ```
 
-**1. Make your change.** Edit `rates.txt` and set the standard line to:
+**1. Make your change.** Set the standard line in `rates.txt` to
+`Standard crate: 200 per pallet`. You can open the file in an editor, or run
+this one line, which rewrites just that line:
 
 ```
-Standard crate: 200 per pallet
+sed -i 's/^Standard crate: .*/Standard crate: 200 per pallet/' rates.txt
 ```
 
 Then seal it:
@@ -69,12 +71,14 @@ Standard crate: 200 per pallet
 
 ```
 git add rates.txt
-git commit
+git commit --no-edit
 git push
 ```
 
 The commit message Git offers ("Merge branch...") is fine — it is the record
-of the standoff and who resolved it.
+of the standoff and who resolved it. `--no-edit` accepts that message without
+opening a text editor; without it, Git would drop you into an editor to confirm
+the message, which is easy to get stuck in.
 
 **6. Verify.** Run the grader, or press **Run Check** in the dashboard:
 

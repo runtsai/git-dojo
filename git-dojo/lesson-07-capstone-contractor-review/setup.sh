@@ -5,6 +5,7 @@ rm -rf playground/lesson-07
 mkdir -p playground/lesson-07
 cd playground/lesson-07
 git init -q
+git symbolic-ref HEAD refs/heads/main
 git config user.name "Adam Cornelius"
 git config user.email "owner@example.com"
 printf "RTS Product v1\nA local-first document desk.\n" > product.txt

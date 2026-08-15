@@ -77,13 +77,19 @@ Git Bash.)
 
 ### Step 5: Tell Git who you are
 
-(Goes into every commit you seal.)
+(Goes into every commit you seal. Without the name and email, Git refuses to
+commit — you'd hit "Author identity unknown" in the middle of Lesson 1.)
 
 ```
 git config --global user.name  "Your Name"
 git config --global user.email "you@yourdomain.com"
 git config --global init.defaultBranch main
 ```
+
+That last line makes new repos start on a branch called `main` (matching
+GitHub and this course). The lesson scripts work either way, but without it
+Git prints a long "hint: Using 'master'..." notice every time — set it and
+you'll never see that.
 
 ### Step 6: Start Lesson 1
 

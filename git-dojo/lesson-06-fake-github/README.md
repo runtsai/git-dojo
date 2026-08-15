@@ -48,10 +48,15 @@ the offsite custody copy, made in one word.
 cd ..
 git clone hub/website.git contractor
 cd contractor
+git config user.name  "Sam Okafor"
+git config user.email "sam@contractor.example"
 git log --oneline
 ```
 
-Read that log — the contractor received your full history, hashes identical.
+The two `config` lines make this clone a genuinely different person — the
+contractor, Sam Okafor — so the commit Sam makes next carries Sam's name, not
+yours. Read that log — the contractor received your full history, hashes
+identical.
 **A clone is a byte-exact custody readback.** Verify it yourself:
 
 ```

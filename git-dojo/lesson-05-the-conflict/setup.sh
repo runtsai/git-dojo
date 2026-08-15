@@ -5,6 +5,7 @@ rm -rf playground/lesson-05
 mkdir -p playground/lesson-05
 cd playground/lesson-05
 git init -q
+git symbolic-ref HEAD refs/heads/main
 git config user.name "Previous Operator"
 git config user.email "ops@example.com"
 printf "RTS Freight pricing\nStandard load: \$500\nDelivery fee: \$50\n" > pricing.txt

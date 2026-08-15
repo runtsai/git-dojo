@@ -3,7 +3,7 @@ BASE="$(dirname "$0")/../playground/lesson-09"
 cd "$BASE" 2>/dev/null || { echo "FAIL: playground missing. Run setup.sh first."; exit 1; }
 pass=0; fail=0
 ck(){ if eval "$2"; then echo "PASS: $1"; pass=$((pass+1)); else echo "FAIL: $1 — $3"; fail=$((fail+1)); fi; }
-ck "Ruth's rate-change commit reached the shared remote"  'git -C hub/rates.git log --format=%s main 2>/dev/null | grep -qi "195"' "press Time Passes in the dashboard (or: bash ../../lesson-09-the-standoff/bot.sh)"
+ck "Ruth's rate-change commit reached the shared remote"  'git -C hub/rates.git log --format=%s main 2>/dev/null | grep -qi "195"' "press Time Passes in the dashboard (or: bash ../../../lesson-09-the-standoff/bot.sh)"
 ck "You committed your own rate change on the laptop"     'git -C laptop log --format=%s 2>/dev/null | grep -qi "200"' "edit the Standard crate line to 200, git add + git commit with '200' in the message"
 ck "History carries both sides of the standoff"           'git -C laptop log --format=%s 2>/dev/null | grep -qi "195" && git -C laptop log --format=%s 2>/dev/null | grep -qi "200"' "git pull (or fetch + merge), then resolve the conflict"
 ck "No conflict markers left in rates.txt"                '[ -f laptop/rates.txt ] && ! grep -qE "^(<<<<<<<|=======|>>>>>>>)" laptop/rates.txt' "open rates.txt, keep one clean version of the line, delete the marker lines"

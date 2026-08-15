@@ -60,7 +60,14 @@ git switch main
 git switch -c bad-idea
 ```
 
-Edit `index.html`: change the company name to something ridiculous. Commit it.
+Edit `index.html`: change the company name to something ridiculous. Save, then
+seal it the same way you always do:
+
+```
+git add index.html
+git commit -m "Rename company (bad idea)"
+```
+
 Then reject the whole candidate:
 
 ```
@@ -75,11 +82,13 @@ experiments are free because the trunk was never at risk.
 
 ```
 git switch main
-git merge new-tagline -m "Approve and adopt new tagline"
+git merge --no-ff new-tagline -m "Approve and adopt new tagline"
 ```
 
-`main` now carries the tagline commit. The candidate became truth by explicit
-decision — yours.
+`--no-ff` forces a real merge commit even though Git could have just slid the
+label forward — so your approval is a permanent, dated record with your message
+on it, not a silent shortcut. `main` now carries the tagline commit. The
+candidate became truth by explicit decision — yours.
 
 ## Grade yourself
 

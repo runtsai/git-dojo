@@ -5,6 +5,7 @@ rm -rf playground/lesson-04
 mkdir -p playground/lesson-04
 cd playground/lesson-04
 git init -q
+git symbolic-ref HEAD refs/heads/main
 git config user.name "Previous Operator"
 git config user.email "ops@example.com"
 cat > index.html <<'HTML'

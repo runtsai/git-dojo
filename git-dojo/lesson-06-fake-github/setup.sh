@@ -5,8 +5,10 @@ rm -rf playground/lesson-06
 mkdir -p playground/lesson-06/hub
 cd playground/lesson-06
 git init -q --bare hub/website.git
+git --git-dir=hub/website.git symbolic-ref HEAD refs/heads/main
 git clone -q hub/website.git laptop 2>/dev/null
 cd laptop
+git symbolic-ref HEAD refs/heads/main
 git config user.name "Adam Cornelius"
 git config user.email "owner@example.com"
 printf "RTS Freight — public site\nWe move regulated freight with clean records.\n" > site.txt
