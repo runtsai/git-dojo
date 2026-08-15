@@ -274,3 +274,4 @@ export interface CrisisSetupResult {
   /** Absolute path of the scenario's practice repository */
   path: string;
 }
+

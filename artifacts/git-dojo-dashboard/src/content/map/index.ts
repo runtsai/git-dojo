@@ -39,6 +39,17 @@ export type Journey = {
   steps: JourneyStep[];
 };
 
+/**
+ * Where a lesson, module, or breakthrough "lives" on the Map.
+ * Used by the MapPeek widget to light up the territory during a lesson.
+ */
+export type MapLocation = {
+  placeIds: string[];
+  flowIds: string[];
+  /** One-line "You are here: ..." caption. */
+  caption: string;
+};
+
 export const mapPlaces: MapPlace[] = [
   {
     id: "workbench",
@@ -322,6 +333,197 @@ export const mapFlows: MapFlow[] = [
     }
   }
 ];
+
+/**
+ * lessonId -> map location. Keys cover:
+ * - Test Center CLI lessons ("lesson-01"...)
+ * - Visual track modules ("1.1", "2.3", ...)
+ * - Breakthrough ids ("loading-dock", ...)
+ */
+export const lessonLocations: Record<string, MapLocation> = {
+  // --- Test Center (CLI) lessons ---
+  "lesson-01": {
+    placeIds: ["workbench", "dock", "sealed"],
+    flowIds: ["edit", "add", "commit"],
+    caption: "Your Computer — edit on the Workbench, stage at the Loading Dock, seal the record.",
+  },
+  "lesson-02": {
+    placeIds: ["sealed"],
+    flowIds: ["commit"],
+    caption: "Your Sealed Record — reading the permanent local ledger.",
+  },
+  "lesson-03": {
+    placeIds: ["workbench", "sealed"],
+    flowIds: ["inspect", "commit"],
+    caption: "Your Sealed Record — undoing by adding new records, never erasing.",
+  },
+  "lesson-04": {
+    placeIds: ["sealed"],
+    flowIds: ["branch"],
+    caption: "Your Sealed Record — branching into a safe parallel timeline.",
+  },
+  "lesson-05": {
+    placeIds: ["workbench", "sealed"],
+    flowIds: ["branch"],
+    caption: "Your Computer — merging two timelines and answering the conflict.",
+  },
+  "lesson-06": {
+    placeIds: ["sealed", "shared"],
+    flowIds: ["push", "fetch", "pull"],
+    caption: "Between your Sealed Record and the Shared Record — syncing two machines.",
+  },
+  "lesson-07": {
+    placeIds: ["pr-desk", "robot", "review", "shared"],
+    flowIds: ["open_pr", "checks", "do_review", "merge"],
+    caption: "The Website — a proposal travels from the Proposal Desk to the Shared Record.",
+  },
+  "lesson-08": {
+    placeIds: ["sealed", "shared"],
+    flowIds: ["push", "pull"],
+    caption: "Between your Sealed Record and the Shared Record — two histories collided.",
+  },
+  "lesson-09": {
+    placeIds: ["sealed", "shared"],
+    flowIds: ["fetch", "pull", "push"],
+    caption: "Between your Sealed Record and the Shared Record — resolving a standoff safely.",
+  },
+
+  // --- Visual track modules ---
+  "1.1": {
+    placeIds: ["shared", "front-office"],
+    flowIds: [],
+    caption: "The Website (GitHub) — the company's Shared Record and Front Office.",
+  },
+  "1.2": {
+    placeIds: ["shared"],
+    flowIds: [],
+    caption: "The Shared Record — a repository's home screen.",
+  },
+  "1.3": {
+    placeIds: ["shared"],
+    flowIds: ["commit"],
+    caption: "The Shared Record — reading sealed history visually.",
+  },
+  "1.4": {
+    placeIds: ["shared"],
+    flowIds: [],
+    caption: "The Shared Record — the settings behind the repository.",
+  },
+  "1.5": {
+    placeIds: ["shared", "front-office"],
+    flowIds: [],
+    caption: "The Website (GitHub) — finding your way around the whole site.",
+  },
+  "2.1": {
+    placeIds: ["pr-desk"],
+    flowIds: ["open_pr"],
+    caption: "The Proposal Desk — where a pull request formally proposes changes.",
+  },
+  "2.2": {
+    placeIds: ["pr-desk", "review"],
+    flowIds: ["do_review"],
+    caption: "The Review — reading every changed line of the proposal.",
+  },
+  "2.3": {
+    placeIds: ["review", "robot"],
+    flowIds: ["do_review", "merge"],
+    caption: "The Review — the human verdict before work joins the Shared Record.",
+  },
+
+  // --- Crisis Room scenarios ---
+  "crisis-01": {
+    placeIds: ["workbench", "sealed"],
+    flowIds: ["inspect", "branch"],
+    caption: "Your Sealed Record — stranded on a snapshot, a branch name tag makes it safe.",
+  },
+  "crisis-02": {
+    placeIds: ["workbench", "dock", "sealed"],
+    flowIds: ["add", "commit"],
+    caption: "Your Computer — untangling a pileup between the Workbench and the Loading Dock.",
+  },
+  "crisis-03": {
+    placeIds: ["sealed", "shared"],
+    flowIds: ["push"],
+    caption: "Between your Sealed Record and the Shared Record — a mistake already went public.",
+  },
+  "crisis-04": {
+    placeIds: ["dock", "sealed"],
+    flowIds: ["add", "commit"],
+    caption: "Your Sealed Record — a jumbled seal needs to be redone properly.",
+  },
+  "crisis-05": {
+    placeIds: ["workbench", "sealed"],
+    flowIds: ["inspect"],
+    caption: "Your Computer — recovering the Workbench from the Sealed Record.",
+  },
+  "crisis-06": {
+    placeIds: ["sealed"],
+    flowIds: ["commit"],
+    caption: "Your Sealed Record — a vanished week is still in there; nothing is lost.",
+  },
+
+  // --- Breakthroughs ---
+  "two-machines": {
+    placeIds: ["sealed", "shared"],
+    flowIds: ["push", "fetch"],
+    caption: "Two machines — your Sealed Record and GitHub's Shared Record are separate copies.",
+  },
+  "snapshots-not-diffs": {
+    placeIds: ["sealed"],
+    flowIds: ["commit"],
+    caption: "Your Sealed Record — every commit is a full photograph, not a diff.",
+  },
+  "branches-are-stickers": {
+    placeIds: ["sealed"],
+    flowIds: ["branch"],
+    caption: "Your Sealed Record — branches are movable stickers on the timeline.",
+  },
+  "loading-dock": {
+    placeIds: ["dock"],
+    flowIds: ["add", "commit"],
+    caption: "The Loading Dock — boxing up exactly what goes in the next sealed record.",
+  },
+  "fetch-is-looking": {
+    placeIds: ["sealed", "shared"],
+    flowIds: ["fetch"],
+    caption: "fetch — safely downloading from the Shared Record without touching your files.",
+  },
+  "merge-reveals": {
+    placeIds: ["sealed"],
+    flowIds: ["branch"],
+    caption: "Your Sealed Record — merging reveals how two timelines relate.",
+  },
+  "detached-head": {
+    placeIds: ["workbench", "sealed"],
+    flowIds: ["inspect"],
+    caption: "Your Computer — visiting an old snapshot on the Workbench.",
+  },
+  "conflicts-are-questions": {
+    placeIds: ["workbench", "sealed"],
+    flowIds: ["pull"],
+    caption: "Your Computer — a conflict is Git asking you a question on the Workbench.",
+  },
+  "nothing-is-lost": {
+    placeIds: ["sealed"],
+    flowIds: [],
+    caption: "Your Sealed Record — committed work is never truly lost.",
+  },
+  "three-ways-to-merge": {
+    placeIds: ["review", "shared"],
+    flowIds: ["merge"],
+    caption: "The merge — three ways a proposal can join the Shared Record.",
+  },
+  "secrets-never-heal": {
+    placeIds: ["sealed", "shared"],
+    flowIds: ["push"],
+    caption: "push — once a secret reaches the Shared Record, history remembers it.",
+  },
+  "the-robot-coworker": {
+    placeIds: ["robot"],
+    flowIds: ["checks"],
+    caption: "The Robot Coworker — automated checks guarding the Shared Record.",
+  },
+};
 
 export const mapJourneys: Journey[] = [
   {

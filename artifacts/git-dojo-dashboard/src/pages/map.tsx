@@ -1,46 +1,18 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { Link } from "wouter";
-import { ArrowLeft, Play, X, Map as MapIcon, Compass, PlayCircle, MousePointer2, ChevronDown } from "lucide-react";
-import { mapPlaces, mapFlows, mapJourneys, W5 } from "@/content/map";
-import { 
-  ComputerIcon, TrayIcon, SealedBoxIcon, CloudIcon, 
-  ProposalIcon, RobotIcon, UnlockIcon, LockIcon, StickerIcon
+import { ArrowLeft, Play, X, Map as MapIcon, Compass, PlayCircle, ChevronDown } from "lucide-react";
+import { mapPlaces, mapFlows, mapJourneys } from "@/content/map";
+import { MapDiagram, PLACE_ICONS } from "@/components/map-diagram";
+import {
+  ComputerIcon, TrayIcon, SealedBoxIcon, CloudIcon,
+  ProposalIcon, RobotIcon, UnlockIcon,
 } from "@/components/git-icons";
-
-// Diagram coordinates
-const PLACES = {
-  workbench: { cx: 300, cy: 240, width: 220, height: 64 },
-  dock: { cx: 300, cy: 480, width: 220, height: 64 },
-  sealed: { cx: 300, cy: 720, width: 220, height: 64 },
-  
-  "front-office": { cx: 1100, cy: 240, width: 220, height: 64 },
-  "pr-desk": { cx: 1100, cy: 400, width: 220, height: 64 },
-  robot: { cx: 900, cy: 560, width: 220, height: 64 },
-  review: { cx: 1300, cy: 560, width: 220, height: 64 },
-  shared: { cx: 1100, cy: 720, width: 220, height: 64 },
-};
-
-type FlowData = { d: string; labelPos: { x: number; y: number }; labelWidth?: number };
-const FLOWS: Record<string, FlowData> = {
-  edit: { d: "M 300,90 L 300,208", labelPos: { x: 350, y: 145 }, labelWidth: 60 },
-  add: { d: "M 300,272 L 300,448", labelPos: { x: 300, y: 360 }, labelWidth: 60 },
-  commit: { d: "M 300,512 L 300,688", labelPos: { x: 300, y: 600 }, labelWidth: 70 },
-  branch: { d: "M 250,752 C 250,830 350,830 350,752", labelPos: { x: 300, y: 810 }, labelWidth: 120 },
-  push: { d: "M 410,690 L 990,690", labelPos: { x: 700, y: 690 }, labelWidth: 60 },
-  fetch: { d: "M 990,720 L 410,720", labelPos: { x: 700, y: 720 }, labelWidth: 60 },
-  pull: { d: "M 990,750 L 410,750", labelPos: { x: 700, y: 750 }, labelWidth: 60 },
-  inspect: { d: "M 190,720 C 40,720 40,240 190,240", labelPos: { x: 80, y: 480 }, labelWidth: 80 },
-  issue: { d: "M 1060,208 C 800,40 500,40 360,208", labelPos: { x: 700, y: 70 }, labelWidth: 60 },
-  open_pr: { d: "M 1100,688 L 1100,432", labelPos: { x: 1100, y: 490 }, labelWidth: 80 },
-  checks: { d: "M 1020,432 L 960,528", labelPos: { x: 970, y: 460 }, labelWidth: 70 },
-  do_review: { d: "M 1010,560 L 1190,560", labelPos: { x: 1100, y: 560 }, labelWidth: 70 },
-  merge: { d: "M 1250,592 L 1150,688", labelPos: { x: 1240, y: 640 }, labelWidth: 70 },
-};
 
 export function MapView() {
   const [activePlace, setActivePlace] = useState<string | null>(null);
   const [activeFlow, setActiveFlow] = useState<string | null>(null);
   const [isZoomed, setIsZoomed] = useState(false);
+  const [legendOpen, setLegendOpen] = useState(false);
   
   // Journey state
   const [activeJourney, setActiveJourney] = useState<string | null>(null);
@@ -114,16 +86,9 @@ export function MapView() {
       ? mapFlows.find(f => f.id === activeFlow)?.label 
       : null;
 
-  const PLACE_ICONS: Record<string, React.ElementType> = {
-    workbench: ComputerIcon,
-    dock: TrayIcon,
-    sealed: SealedBoxIcon,
-    "front-office": CloudIcon,
-    "pr-desk": ProposalIcon,
-    robot: RobotIcon,
-    review: UnlockIcon,
-    shared: CloudIcon,
-  };
+  const litPlaceIds = mapPlaces.filter(p => isPlaceLit(p.id)).map(p => p.id);
+  const litFlowIds = mapFlows.filter(f => isFlowLit(f.id)).map(f => f.id);
+  const dim = !!(activePlace || activeFlow);
 
   return (
     <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 max-w-7xl mx-auto space-y-6 sm:space-y-8">
@@ -176,145 +141,55 @@ export function MapView() {
         </button>
       </div>
 
+      {/* Desktop Legend (Collapsible on Mobile via state, but initially shown on desktop) */}
+      <div className="hidden lg:flex w-full bg-[#161b22] border border-white/10 p-4 rounded-xl flex-wrap gap-x-8 gap-y-4 items-center justify-center text-sm text-muted-foreground mb-2">
+        <span className="font-bold text-foreground mr-2">Legend:</span>
+        <div className="flex items-center gap-2"><ComputerIcon className="w-5 h-5 text-primary" /> Working Folder</div>
+        <div className="flex items-center gap-2"><TrayIcon className="w-5 h-5 text-primary" /> Staging</div>
+        <div className="flex items-center gap-2"><SealedBoxIcon className="w-5 h-5 text-primary" /> Sealed Record</div>
+        <div className="flex items-center gap-2"><CloudIcon className="w-5 h-5 text-primary" /> Shared / Web</div>
+        <div className="flex items-center gap-2"><ProposalIcon className="w-5 h-5 text-primary" /> Proposal (PR)</div>
+        <div className="flex items-center gap-2"><RobotIcon className="w-5 h-5 text-primary" /> Automation</div>
+        <div className="flex items-center gap-2"><UnlockIcon className="w-5 h-5 text-primary" /> Approval</div>
+      </div>
+
+      <div className="flex flex-col lg:hidden w-full bg-[#161b22] border border-white/10 rounded-xl mb-4 overflow-hidden">
+        <button 
+          onClick={() => setLegendOpen(!legendOpen)}
+          className="w-full flex items-center justify-between p-4 font-bold text-foreground text-sm"
+        >
+          <span>Map Legend</span>
+          <ChevronDown className={`w-5 h-5 transition-transform ${legendOpen ? 'rotate-180' : ''}`} />
+        </button>
+        {legendOpen && (
+          <div className="p-4 pt-0 grid grid-cols-2 gap-4 text-sm text-muted-foreground border-t border-white/5 mt-2 pt-4">
+            <div className="flex items-center gap-2"><ComputerIcon className="w-5 h-5 text-primary" /> Working Folder</div>
+            <div className="flex items-center gap-2"><TrayIcon className="w-5 h-5 text-primary" /> Staging</div>
+            <div className="flex items-center gap-2"><SealedBoxIcon className="w-5 h-5 text-primary" /> Sealed Record</div>
+            <div className="flex items-center gap-2"><CloudIcon className="w-5 h-5 text-primary" /> Shared / Web</div>
+            <div className="flex items-center gap-2"><ProposalIcon className="w-5 h-5 text-primary" /> Proposal (PR)</div>
+            <div className="flex items-center gap-2"><RobotIcon className="w-5 h-5 text-primary" /> Automation</div>
+            <div className="flex items-center gap-2"><UnlockIcon className="w-5 h-5 text-primary" /> Approval</div>
+          </div>
+        )}
+      </div>
+
       <div className="flex flex-col w-full gap-6">
         
         {/* The SVG Map Area */}
         <div className={`w-full bg-[#0d1117] border border-white/10 rounded-xl p-4 sm:p-8 relative shadow-2xl flex items-center justify-center ${isZoomed ? 'overflow-x-auto overflow-y-auto' : 'overflow-hidden'}`}>
           
-          <svg 
-            viewBox="0 0 1400 860" 
-            className={`h-auto max-h-[80vh] overflow-visible select-none touch-manipulation transition-all duration-300 ${isZoomed ? 'w-[1400px] min-w-[1400px]' : 'w-full max-w-full'}`}
-            aria-hidden={!isZoomed && typeof window !== 'undefined' && window.innerWidth < 1024 ? "true" : "false"}
-          >
-            <defs>
-              <marker id="arrowhead" markerWidth="6" markerHeight="4" refX="5" refY="2" orient="auto">
-                <polygon points="0 0, 6 2, 0 4" fill="currentColor" className="text-white/40" />
-              </marker>
-              <marker id="arrowhead-lit" markerWidth="6" markerHeight="4" refX="5" refY="2" orient="auto">
-                <polygon points="0 0, 6 2, 0 4" fill="currentColor" className="text-primary" />
-              </marker>
-            </defs>
-
-            {/* Regions */}
-            <rect x="60" y="120" width="480" height="720" rx="24" className="fill-white/[0.02] stroke-white/10" strokeWidth="3" strokeDasharray="12 12" />
-            <text x="90" y="160" className="fill-white/30 text-sm font-bold uppercase tracking-widest" textAnchor="start">Your Computer</text>
-            
-            <rect x="860" y="120" width="480" height="720" rx="24" className="fill-white/[0.02] stroke-white/10" strokeWidth="3" strokeDasharray="12 12" />
-            <text x="890" y="160" className="fill-white/30 text-sm font-bold uppercase tracking-widest" textAnchor="start">The Website (GitHub)</text>
-
-            {/* Flows */}
-            {mapFlows.map(f => {
-              const flowData = FLOWS[f.id];
-              if (!flowData) return null;
-              
-              const isLit = isFlowLit(f.id);
-              const isDimmed = !isLit && (activePlace || activeFlow);
-              
-              return (
-                <g 
-                  key={f.id} 
-                  role="button"
-                  tabIndex={0}
-                  aria-label={`Flow: ${f.label}`}
-                  aria-pressed={isLit}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault();
-                      handleFlowClick(f.id);
-                    }
-                  }}
-                  className={`transition-all duration-500 cursor-pointer outline-none focus-visible:ring-4 focus-visible:ring-primary focus-visible:ring-offset-4 focus-visible:ring-offset-[#0d1117] rounded-xl ${isDimmed ? 'opacity-20' : 'opacity-100'}`}
-                  onClick={() => handleFlowClick(f.id)}
-                >
-                  <path 
-                    d={flowData.d} 
-                    fill="none" 
-                    className={`transition-colors duration-300 stroke-[6px] ${isLit ? 'stroke-primary drop-shadow-[0_0_12px_rgba(255,107,0,0.6)]' : 'stroke-white/20 hover:stroke-white/40'}`} 
-                    markerEnd={`url(#${isLit ? 'arrowhead-lit' : 'arrowhead'})`} 
-                  />
-                  {/* Invisible wider hit area for touch */}
-                  <path d={flowData.d} fill="none" stroke="transparent" strokeWidth="44" />
-                  
-                  {/* Animated pulse for active flow (respects reduced motion implicitly via CSS) */}
-                  {isLit && (
-                    <path 
-                      d={flowData.d} 
-                      fill="none" 
-                      className="stroke-primary stroke-[6px] opacity-60 dash-animate" 
-                      strokeDasharray="20 40" 
-                    />
-                  )}
-
-                  <rect 
-                    x={flowData.labelPos.x - (flowData.labelWidth || 80) / 2} 
-                    y={flowData.labelPos.y - 16} 
-                    width={flowData.labelWidth || 80} 
-                    height="32" 
-                    rx="16" 
-                    className={`transition-colors ${isLit ? 'fill-primary' : 'fill-[#161b22] stroke-white/10 hover:stroke-white/30'}`} 
-                  />
-                  <text 
-                    x={flowData.labelPos.x} 
-                    y={flowData.labelPos.y + 5} 
-                    className={`text-sm font-bold font-mono transition-colors ${isLit ? 'fill-primary-foreground' : 'fill-white/60'}`} 
-                    textAnchor="middle"
-                  >
-                    {f.label}
-                  </text>
-                </g>
-              );
-            })}
-
-            {/* Places */}
-            {mapPlaces.map(p => {
-              const pos = PLACES[p.id as keyof typeof PLACES];
-              if (!pos) return null;
-              
-              const isLit = isPlaceLit(p.id);
-              const isDimmed = !isLit && (activePlace || activeFlow);
-
-              return (
-                <g 
-                  key={p.id} 
-                  transform={`translate(${pos.cx - pos.width/2}, ${pos.cy - pos.height/2})`}
-                  role="button"
-                  tabIndex={0}
-                  aria-label={`Place: ${p.label}`}
-                  aria-pressed={isLit}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault();
-                      handlePlaceClick(p.id);
-                    }
-                  }}
-                  className={`transition-all duration-500 cursor-pointer outline-none focus-visible:ring-4 focus-visible:ring-primary focus-visible:ring-offset-4 focus-visible:ring-offset-[#0d1117] rounded-xl ${isDimmed ? 'opacity-30' : 'opacity-100'} ${isLit && activePlace === p.id ? 'scale-[1.05]' : 'scale-100'}`}
-                  style={{ transformOrigin: `${pos.cx}px ${pos.cy}px` }}
-                  onClick={() => handlePlaceClick(p.id)}
-                >
-                  <rect 
-                    width={pos.width} 
-                    height={pos.height} 
-                    rx="8" 
-                    className={`transition-all duration-300 ${
-                      isLit && activePlace === p.id 
-                        ? 'fill-primary stroke-primary drop-shadow-[0_0_15px_rgba(255,107,0,0.4)]' 
-                        : isLit 
-                          ? 'fill-[#21262d] stroke-primary stroke-2 drop-shadow-[0_0_8px_rgba(255,107,0,0.2)]'
-                          : 'fill-[#161b22] stroke-white/20 hover:stroke-white/40'
-                    }`} 
-                  />
-                  <text 
-                    x={pos.width/2} 
-                    y={pos.height/2 + 5} 
-                    className={`text-sm font-bold transition-colors ${isLit && activePlace === p.id ? 'fill-primary-foreground' : 'fill-white'}`} 
-                    textAnchor="middle"
-                  >
-                    {p.label}
-                  </text>
-                </g>
-              );
-            })}
-          </svg>
+          <MapDiagram
+            litPlaceIds={litPlaceIds}
+            litFlowIds={litFlowIds}
+            dim={dim}
+            emphasizedPlaceId={activePlace}
+            onPlaceClick={handlePlaceClick}
+            onFlowClick={handleFlowClick}
+            markerIdPrefix="mapview"
+            className={`h-auto max-h-[80vh] overflow-visible transition-all duration-300 ${isZoomed ? 'w-[1400px] min-w-[1400px]' : 'w-full max-w-full'}`}
+            ariaHidden={!isZoomed && typeof window !== 'undefined' && window.innerWidth < 1024}
+          />
 
           {/* Journey Overlay */}
           {activeJourney && journey && currentStep && (
@@ -411,11 +286,21 @@ export function MapView() {
           {activeW5 ? (
             <div className="bg-card border border-white/10 p-6 sm:p-8 rounded-xl shadow-xl flex-1 flex flex-col animate-in fade-in slide-in-from-right-4">
               <div className="flex justify-between items-start mb-6">
-                <div>
-                  <div className="text-primary text-xs font-bold uppercase tracking-widest mb-1">
-                    {activePlace ? 'Place' : 'Operation'}
+                <div className="flex items-center gap-3">
+                  {activePlace && PLACE_ICONS[activePlace] && (
+                    <div className="p-3 bg-primary/10 rounded-xl text-primary border border-primary/20">
+                      {(() => {
+                        const ActiveIcon = PLACE_ICONS[activePlace];
+                        return <ActiveIcon className="w-6 h-6" />;
+                      })()}
+                    </div>
+                  )}
+                  <div>
+                    <div className="text-primary text-xs font-bold uppercase tracking-widest mb-1">
+                      {activePlace ? 'Place' : 'Operation'}
+                    </div>
+                    <h2 className="text-2xl font-bold text-foreground capitalize-first">{activeTitle}</h2>
                   </div>
-                  <h2 className="text-2xl font-bold text-foreground capitalize-first">{activeTitle}</h2>
                 </div>
                 <button 
                   onClick={() => { setActivePlace(null); setActiveFlow(null); }}
@@ -469,10 +354,31 @@ export function MapView() {
               )}
             </div>
           ) : (
-            <div className="bg-[#161b22]/50 border border-white/5 border-dashed p-8 rounded-xl flex-1 flex flex-col items-center justify-center text-center text-muted-foreground">
-              <MousePointer2 className="w-10 h-10 mb-4 opacity-20" />
-              <p className="text-sm font-medium">
-                Tap any place or arrow on the map to see exactly how it works, why it exists, and how it connects to the rest of the company's records.
+            <div className="bg-[#161b22]/50 border border-white/5 border-dashed p-8 rounded-xl flex-1 flex flex-col items-center justify-center text-center text-muted-foreground animate-in fade-in">
+              <div className="w-full max-w-[280px] aspect-video relative flex items-center justify-between mb-8 opacity-80">
+                <div className="flex flex-col items-center gap-3">
+                  <div className="p-4 bg-white/5 rounded-2xl border border-white/10"><ComputerIcon className="w-8 h-8" /></div>
+                  <span className="font-bold text-xs uppercase tracking-widest">Local</span>
+                </div>
+                
+                <div className="flex-1 flex flex-col items-center justify-center gap-1.5 px-4">
+                  <div className="flex items-center gap-2 text-primary font-bold text-[10px] uppercase tracking-widest">
+                    Push <ArrowLeft className="w-3 h-3 rotate-180" />
+                  </div>
+                  <div className="w-full h-0.5 bg-gradient-to-r from-transparent via-primary/50 to-transparent" />
+                  <div className="flex items-center gap-2 text-primary font-bold text-[10px] uppercase tracking-widest">
+                    <ArrowLeft className="w-3 h-3" /> Pull
+                  </div>
+                </div>
+
+                <div className="flex flex-col items-center gap-3">
+                  <div className="p-4 bg-white/5 rounded-2xl border border-white/10"><CloudIcon className="w-8 h-8" /></div>
+                  <span className="font-bold text-xs uppercase tracking-widest">Remote</span>
+                </div>
+              </div>
+              <h3 className="text-xl font-bold text-foreground mb-3">Explore the Territory</h3>
+              <p className="text-sm font-medium leading-relaxed max-w-sm">
+                Tap any place or arrow on the map to see exactly how it works, why it exists, and how it connects to the rest of the company's records. Or use the Legend above to decode the icons.
               </p>
             </div>
           )}
@@ -481,16 +387,6 @@ export function MapView() {
       </div>
 
       <style>{`
-        @keyframes dash {
-          to {
-            stroke-dashoffset: -45;
-          }
-        }
-        @media (prefers-reduced-motion: no-preference) {
-          .dash-animate {
-            animation: dash 1s linear infinite;
-          }
-        }
         .capitalize-first {
           text-transform: capitalize;
         }

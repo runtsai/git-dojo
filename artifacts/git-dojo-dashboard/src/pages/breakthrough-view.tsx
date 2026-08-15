@@ -2,6 +2,7 @@ import { useParams, Link } from "wouter";
 import { breakthroughs } from "@/content/breakthroughs";
 import { ArrowLeft } from "lucide-react";
 import NotFound from "./not-found";
+import { MapPeek } from "@/components/map-peek";
 import { useEffect } from "react";
 
 import { TwoMachines } from "@/content/breakthroughs/two-machines";
@@ -54,9 +55,12 @@ export function BreakthroughView() {
   
   return (
     <div className="max-w-5xl mx-auto space-y-6 sm:space-y-8 enter-slide-up pb-12 sm:pb-20 px-2 sm:px-0">
-      <Link href="/breakthroughs" className="inline-flex items-center gap-2 text-xs font-bold text-muted-foreground hover:text-foreground mb-1 sm:mb-2 transition-all active:scale-95 uppercase tracking-wider bg-black/40 border border-white/5 shadow-inner px-3 py-1.5 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
-        <ArrowLeft className="w-3.5 h-3.5" /> Gallery
-      </Link>
+      <div className="flex items-center justify-between gap-3 flex-wrap">
+        <Link href="/breakthroughs" className="inline-flex items-center gap-2 text-xs font-bold text-muted-foreground hover:text-foreground mb-1 sm:mb-2 transition-all active:scale-95 uppercase tracking-wider bg-black/40 border border-white/5 shadow-inner px-3 py-1.5 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
+          <ArrowLeft className="w-3.5 h-3.5" /> Gallery
+        </Link>
+        <MapPeek locationId={id} />
+      </div>
       
       <div className="surface-card overflow-hidden flex flex-col">
         <div className="p-5 sm:p-6 md:p-8 bg-black/40 border-b border-white/5 space-y-2 sm:space-y-3 shrink-0">

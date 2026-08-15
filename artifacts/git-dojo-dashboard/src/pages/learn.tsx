@@ -10,6 +10,7 @@ import { Module2_3 } from "@/content/tier2/module-2-3";
 import { ArrowLeft, Construction } from "lucide-react";
 import { useEffect } from "react";
 import { WarmUpInterstitial } from "@/components/warm-up-interstitial";
+import { MapPeek } from "@/components/map-peek";
 
 export function LearnModuleView() {
   const { moduleId: rawModuleId } = useParams<{ moduleId: string }>();
@@ -33,12 +34,13 @@ export function LearnModuleView() {
     "2-3": Module2_3,
   };
   const ModuleComponent = moduleId ? modules[moduleId] : undefined;
-  if (ModuleComponent) {
+  if (ModuleComponent && moduleId) {
     return (
       <>
         {/* Optional warm-up offer — never gates the module below it */}
         <WarmUpInterstitial />
         <ModuleComponent />
+        <MapPeek locationId={moduleId.replace("-", ".")} variant="floating" />
       </>
     );
   }

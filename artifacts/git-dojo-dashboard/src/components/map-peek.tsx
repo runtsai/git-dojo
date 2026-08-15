@@ -1,0 +1,94 @@
+import { Link } from "wouter";
+import { Map as MapIcon, MapPin, ArrowRight } from "lucide-react";
+import { lessonLocations, mapPlaces } from "@/content/map";
+import { MapDiagram, PLACE_ICONS } from "@/components/map-diagram";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
+
+type MapPeekProps = {
+  /** Lesson / module / breakthrough id, matched against lessonLocations. */
+  locationId: string;
+  /** "inline" renders a normal button; "floating" pins a compact button bottom-right. */
+  variant?: "inline" | "floating";
+};
+
+/**
+ * "You are here" — a compact Map drawer that lights up the territory the
+ * current lesson lives in, with everything else dimmed.
+ */
+export function MapPeek({ locationId, variant = "inline" }: MapPeekProps) {
+  const location = lessonLocations[locationId];
+  if (!location) return null;
+
+  const litPlaces = mapPlaces.filter(p => location.placeIds.includes(p.id));
+
+  const triggerClasses =
+    variant === "floating"
+      ? "fixed bottom-5 right-5 z-40 inline-flex items-center gap-2 px-4 py-3 min-h-[44px] bg-[#161b22] text-foreground text-sm font-bold rounded-full border border-primary/40 shadow-lg shadow-black/40 hover:border-primary transition-all active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+      : "inline-flex items-center justify-center gap-2 px-4 py-2 min-h-[44px] bg-secondary text-secondary-foreground text-sm font-bold rounded-lg hover:bg-secondary/80 transition-all active:scale-95 border border-white/10 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary";
+
+  return (
+    <Sheet>
+      <SheetTrigger className={triggerClasses} aria-label="Open the Map: where am I?">
+        <MapIcon className="w-4 h-4 text-primary" />
+        <span>Where am I?</span>
+      </SheetTrigger>
+      <SheetContent
+        side="bottom"
+        className="bg-[#0d1117] border-white/10 rounded-t-2xl max-h-[85vh] overflow-y-auto p-4 sm:p-6"
+      >
+        <SheetHeader className="text-left mb-4 pr-8">
+          <SheetTitle className="flex items-center gap-2 text-foreground">
+            <span className="p-1.5 bg-primary/10 rounded-lg text-primary border border-primary/20">
+              <MapPin className="w-4 h-4" />
+            </span>
+            You are here
+          </SheetTitle>
+          <SheetDescription className="text-sm text-muted-foreground leading-relaxed">
+            {location.caption}
+          </SheetDescription>
+        </SheetHeader>
+
+        {/* Lit place chips — icon vocabulary, readable at 390px */}
+        <div className="flex flex-wrap gap-2 mb-4">
+          {litPlaces.map(p => {
+            const Icon = PLACE_ICONS[p.id];
+            return (
+              <span
+                key={p.id}
+                className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-primary/15 border border-primary/40 text-primary text-xs font-bold"
+              >
+                {Icon && <Icon className="w-3.5 h-3.5 shrink-0" />}
+                {p.label}
+              </span>
+            );
+          })}
+        </div>
+
+        <div className="bg-black/40 border border-white/10 rounded-xl p-2 sm:p-4 overflow-x-auto">
+          <MapDiagram
+            litPlaceIds={location.placeIds}
+            litFlowIds={location.flowIds}
+            dim
+            markerIdPrefix="peek"
+            className="w-full min-w-[560px] sm:min-w-0 h-auto"
+            ariaHidden
+          />
+        </div>
+
+        <Link
+          href="/map"
+          className="mt-4 inline-flex items-center gap-2 text-sm font-bold text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded"
+        >
+          Open the full Map <ArrowRight className="w-4 h-4" />
+        </Link>
+      </SheetContent>
+    </Sheet>
+  );
+}

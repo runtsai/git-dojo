@@ -392,3 +392,5 @@ export const VerifyCapstoneMissionResponse = zod.object({
   "badgeEarnedAt": zod.string().nullable().describe('Set only when every mission has been verified against GitHub')
 })
 })
+
+

@@ -25,6 +25,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { crises } from "@/content/crises";
 import NotFound from "@/pages/not-found";
+import { MapPeek } from "@/components/map-peek";
 
 const HINT_STEPS = [
   { key: "nudge", label: "Hint 1 — A nudge" },
@@ -100,6 +101,8 @@ export function CrisisView() {
           </div>
         </div>
 
+        <div className="flex items-center gap-3 flex-wrap">
+        <MapPeek locationId={crisis.id} />
         <button
           onClick={handleSetup}
           disabled={setup.isPending}
@@ -112,6 +115,7 @@ export function CrisisView() {
           )}
           {setup.isPending ? "Breaking things..." : live ? "Reset the Disaster" : "Trigger the Disaster"}
         </button>
+        </div>
       </div>
 
       {/* Briefing */}

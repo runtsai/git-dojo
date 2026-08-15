@@ -10,6 +10,7 @@ import { TeammateAction } from "@/components/repo-view/teammate-action";
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { CommandBlock } from "@/components/ui/command-block";
+import { MapPeek } from "@/components/map-peek";
 
 function WayfindingPanel({ lessonId }: { lessonId: string }) {
   const [expanded, setExpanded] = useState(false);
@@ -125,6 +126,8 @@ export function LessonView() {
           </div>
         </div>
         
+        <div className="flex items-center gap-3 flex-wrap">
+        {lessonId && <MapPeek locationId={lessonId} />}
         <button 
           onClick={handleRefresh}
           className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-secondary text-secondary-foreground text-sm font-bold rounded-lg hover:bg-secondary/80 transition-all active:scale-95 border border-white/10 shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
@@ -132,6 +135,7 @@ export function LessonView() {
           <RefreshCw className={`w-4 h-4 ${isFetching ? 'animate-spin' : ''}`} />
           Force Refresh
         </button>
+        </div>
       </div>
 
       {lessonId && <WayfindingPanel lessonId={lessonId} />}
