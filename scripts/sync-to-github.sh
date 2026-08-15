@@ -1,10 +1,16 @@
 #!/usr/bin/env bash
 # sync-to-github.sh — push the local main branch to the public GitHub mirror
 #
+# Auth strategy (tried in order):
+#   1. Replit GitHub connector token — works from agent shell and automated
+#      contexts where REPLIT_CONNECTORS_HOSTNAME + REPL_IDENTITY are available.
+#   2. replit-git-askpass — works from the interactive Replit workspace shell
+#      where the ASKPASS session is live (human-in-the-loop sessions only).
+#
 # Safety guarantees:
 #   - Never force-pushes; aborts loudly on divergence
-#   - Token is supplied by Replit's GIT_ASKPASS helper at push time — never
-#     written to git config, environment files, or log output
+#   - Token is used ephemerally in-memory — never written to git config,
+#     environment files, or log output
 #
 # When to run:
 #   After significant work lands on main (e.g. after a task merge) run:
@@ -16,13 +22,14 @@
 # Requirements:
 #   - GitHub must be connected in your Replit workspace
 #     (Settings → Integrations → GitHub, or via the Git panel).
-#   - Run from the workspace shell where REPLIT_ASKPASS_PID2_SESSION is set.
 
 set -euo pipefail
 
 REMOTE="origin"
 BRANCH="main"
 GITHUB_REPO="https://github.com/runtsai/git-dojo.git"
+GITHUB_HOST="github.com"
+GITHUB_PATH="runtsai/git-dojo.git"
 
 # ── 1. Sanity checks ─────────────────────────────────────────────────────────
 
@@ -37,14 +44,6 @@ if [ "$ACTUAL_URL" != "$GITHUB_REPO" ]; then
   exit 1
 fi
 
-# Confirm Replit's GitHub credential helper is available
-if ! command -v replit-git-askpass &>/dev/null; then
-  echo "ERROR: replit-git-askpass not found."
-  echo "       This script relies on Replit's built-in GitHub credential helper."
-  echo "       Run it from the Replit workspace shell with GitHub connected."
-  exit 1
-fi
-
 # Confirm we are on main (or HEAD matches main)
 CURRENT_BRANCH=$(git symbolic-ref --short HEAD 2>/dev/null || echo "DETACHED")
 if [ "$CURRENT_BRANCH" != "$BRANCH" ]; then
@@ -53,11 +52,43 @@ if [ "$CURRENT_BRANCH" != "$BRANCH" ]; then
   exit 1
 fi
 
-# ── 2. Fetch to see what GitHub has ──────────────────────────────────────────
+# ── 2. Resolve auth — connector token or askpass ──────────────────────────────
+
+# Try the Replit connector API first (works from agent shell + automated runs).
+# The token is fetched ephemerally and used only in git URLs; it is never logged.
+CONNECTOR_TOKEN=""
+if [ -n "${REPLIT_CONNECTORS_HOSTNAME:-}" ] && [ -n "${REPL_IDENTITY:-}" ] && command -v jq &>/dev/null; then
+  CONNECTOR_RESPONSE=$(curl -sf \
+    "https://${REPLIT_CONNECTORS_HOSTNAME}/api/v2/connection?include_secrets=true&connector_names=github" \
+    -H "X-Replit-Token: repl ${REPL_IDENTITY}" 2>/dev/null || echo "")
+  if [ -n "$CONNECTOR_RESPONSE" ]; then
+    CONNECTOR_TOKEN=$(echo "$CONNECTOR_RESPONSE" | jq -r '.items[0].settings.access_token // empty' 2>/dev/null || echo "")
+  fi
+fi
+
+if [ -n "$CONNECTOR_TOKEN" ]; then
+  echo "Auth: using Replit GitHub connector token."
+  # Build an authenticated remote URL — token never appears in git config or logs
+  AUTH_REMOTE="https://x-access-token:${CONNECTOR_TOKEN}@${GITHUB_HOST}/${GITHUB_PATH}"
+  GIT_FETCH() { git fetch "$AUTH_REMOTE" "$BRANCH":refs/remotes/"$REMOTE"/"$BRANCH" 2>&1; }
+  GIT_PUSH()  { git push  "$AUTH_REMOTE" "${BRANCH}:${BRANCH}" 2>&1; }
+elif command -v replit-git-askpass &>/dev/null; then
+  echo "Auth: using replit-git-askpass (interactive shell)."
+  GIT_FETCH() { GIT_ASKPASS=replit-git-askpass git fetch "$REMOTE" "$BRANCH" 2>&1; }
+  GIT_PUSH()  { GIT_ASKPASS=replit-git-askpass git push "$REMOTE" "${BRANCH}:${BRANCH}" 2>&1; }
+else
+  echo "ERROR: no GitHub auth method available."
+  echo "  • For automated/agent runs: ensure the GitHub connector is connected"
+  echo "    (REPLIT_CONNECTORS_HOSTNAME and REPL_IDENTITY must be set)."
+  echo "  • For interactive runs: open the Replit workspace shell where"
+  echo "    replit-git-askpass is available."
+  exit 1
+fi
+
+# ── 3. Fetch to see what GitHub has ──────────────────────────────────────────
 
 echo "Fetching ${REMOTE}/${BRANCH} ..."
-# Use GIT_ASKPASS so the token is obtained ephemerally — never stored
-GIT_ASKPASS=replit-git-askpass git fetch "$REMOTE" "$BRANCH" 2>&1
+GIT_FETCH
 
 LOCAL_SHA=$(git rev-parse "$BRANCH")
 REMOTE_SHA=$(git rev-parse "${REMOTE}/${BRANCH}" 2>/dev/null || echo "UNKNOWN")
@@ -88,11 +119,14 @@ else
   fi
 fi
 
-# ── 3. Push ───────────────────────────────────────────────────────────────────
+# ── 4. Push ───────────────────────────────────────────────────────────────────
 
 echo "Pushing ${LOCAL_SHA} → ${REMOTE}/${BRANCH} ..."
-GIT_ASKPASS=replit-git-askpass git push "$REMOTE" "${BRANCH}:${BRANCH}" 2>&1
+GIT_PUSH
 
 echo ""
 echo "✓ GitHub mirror synced: https://github.com/runtsai/git-dojo"
 echo "  Pushed: ${LOCAL_SHA}"
+
+# Clear the token from memory (belt-and-suspenders)
+CONNECTOR_TOKEN=""
