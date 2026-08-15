@@ -260,6 +260,10 @@ export function Layout({ children }: { children: React.ReactNode }) {
             This isn&apos;t a donation &mdash; RTS.AI is a company, not a nonprofit &mdash; just a
             way to say thanks and help fund what we build next, open source and otherwise.
           </p>
+          {/* Placeholder target: swap for the owner's Stripe Payment Link once created.
+              Until then this points at GitHub Sponsors (activates when runtsai enrolls).
+              Hard rules: outbound link only — never payment code, never the word "donate",
+              never gate course content behind payment. */}
           <a
             href="https://github.com/sponsors/runtsai"
             target="_blank"
