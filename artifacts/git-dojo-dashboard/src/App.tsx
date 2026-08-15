@@ -22,6 +22,7 @@ import { GoLive } from '@/pages/go-live';
 import { CrisisRoom } from '@/pages/crisis-room';
 import { WarmUp } from '@/pages/warm-up';
 import { CrisisView } from '@/pages/crisis';
+import { GettingStarted } from '@/pages/getting-started';
 
 const queryClient = new QueryClient();
 
@@ -32,6 +33,7 @@ function Router() {
         <Switch>
           <Route path="/" component={Home} />
           <Route path="/test-center" component={TestCenter} />
+          <Route path="/getting-started" component={GettingStarted} />
           <Route path="/test-center/:lessonId" component={LessonView} />
           <Route path="/learn/:moduleId" component={LearnModuleView} />
           <Route path="/crisis" component={CrisisRoom} />

@@ -1,6 +1,6 @@
 # GIT DOJO — learn Git by doing, in a sandbox that can't hurt anything
 
-Seven hands-on lessons, 15–30 minutes each. Every lesson happens inside a
+Nine hands-on lessons, 15–30 minutes each. Every lesson happens inside a
 throwaway `playground/` folder that the lessons create themselves. **Nothing
 here touches your real files, your real projects, or the internet** (except
 Lesson 6's optional last step, clearly marked). You can destroy and rebuild the
@@ -10,20 +10,89 @@ Built for: an owner/operator who runs an exact-object records system by hand
 and is about to discover Git does it automatically. The lessons use that
 vocabulary on purpose.
 
-## What you need (once)
+## Setup — do this once, in order
 
-1. **Git installed, version 2.23 or newer** (for `git switch`). Check with: `git --version`
-   - Windows: install "Git for Windows" (gitforwindows.org) and use the
-     **Git Bash** terminal it gives you for these lessons.
-   - Mac: `git --version` will offer to install it.
-   - Or do everything in the **Replit Shell** — Git is already there.
-2. **Tell Git who you are** (goes into every commit you seal):
-   ```
-   git config --global user.name  "Adam Cornelius"
-   git config --global user.email "you@yourdomain.com"
-   git config --global init.defaultBranch main
-   ```
-3. A terminal, opened in this `git-dojo` folder.
+Follow these six steps exactly. On a clean Windows machine this takes about
+five minutes.
+
+### Step 1: Install Git
+
+- **Windows:** download **Git for Windows** from
+  https://git-scm.com/download/win and run the installer with the default
+  settings. It installs a terminal called **Git Bash** — that's the one you'll
+  use for this whole course.
+- **Mac:** open Terminal and type `git --version` — macOS will offer to
+  install it.
+- **No install needed:** you can also do everything in the **Replit Shell**
+  or **GitHub Codespaces** — Git is already there.
+
+> **Windows: use Git Bash, NOT PowerShell.** The course uses Unix-style
+> paths (`~/git-dojo/...`) and commands (`ls`) that Git Bash understands
+> natively. PowerShell will half-work and then confuse you.
+>
+> **Pasting in Git Bash:** Ctrl+V does not paste by default. Use
+> **Shift+Insert** or **right-click** inside the terminal. (To enable
+> Ctrl+Shift+V: right-click the title bar → Options → Keys → check
+> "Ctrl+Shift+C/V".)
+
+### Step 2: Verify Git is installed
+
+```
+git --version
+```
+
+If you see a version number (2.23 or newer), proceed. If "command not
+found", close and reopen Git Bash, or reinstall.
+
+### Step 3: Download and extract the dojo
+
+- Download the zip of this repo from GitHub (green **Code** button →
+  **Download ZIP**).
+- Extract it to your home folder (`~`).
+- If the folder is named `git-dojo-main`, rename it to `git-dojo`.
+
+### Step 4: Verify the folder structure
+
+```
+ls ~/git-dojo
+```
+
+You should see the lesson folders (`lesson-01-first-snapshot`, etc.) and
+`setup.sh`. If instead you see a single `git-dojo` folder inside (a nested
+duplicate — this happens with some zip extractors), fix it with one command:
+
+```
+cd ~/git-dojo && bash git-dojo/setup.sh
+```
+
+Or run the setup script any time — it detects and flattens the nesting
+automatically, and checks your Git install:
+
+```
+cd ~/git-dojo && bash setup.sh
+```
+
+(PowerShell holdouts: `setup.ps1` does the same, then tells you to switch to
+Git Bash.)
+
+### Step 5: Tell Git who you are
+
+(Goes into every commit you seal.)
+
+```
+git config --global user.name  "Your Name"
+git config --global user.email "you@yourdomain.com"
+git config --global init.defaultBranch main
+```
+
+### Step 6: Start Lesson 1
+
+```
+cd ~/git-dojo/lesson-01-first-snapshot
+bash setup.sh
+```
+
+Then follow that lesson's README.
 
 ## How a lesson works
 

@@ -1,0 +1,116 @@
+Here's a comprehensive corrective prompt you can hand to your AI coder. You can copy this into a doc or send it directly:
+
+---
+
+## Corrective Build Prompt: Onboarding &amp; Setup Fix for git-dojo
+
+### Context
+Multiple users attempting to start the git-dojo course on Windows are hitting a wall during initial setup. The current onboarding flow assumes a working environment that does not exist out of the box. We need to fix the file structure, clarify terminal requirements, and add clear setup instructions so a brand-new user can go from "downloaded the zip" to "running their first git command" without friction.
+
+### Issues Identified (in order of user friction)
+
+**1. Nested folder problem on extraction**
+When the GitHub zip (`git-dojo-main.zip`) is extracted to the user's home directory, it creates a nested folder structure:
+```
+~/git-dojo/
+    └── git-dojo/          &lt;-- inner folder (the actual repo contents)
+            ├── playground/
+            ├── package.json
+            ├── lib/
+            └── etc.
+```
+The course instructions tell users to navigate to `~/git-dojo/playground/lesson-01`, but `playground` is actually one level deeper inside a nested `git-dojo/` subfolder. This is because GitHub appends the branch name (`-main`) to the zip, and when extracted, the outer folder was manually renamed to `git-dojo` while the inner folder retained its name.
+
+**Fix needed:**
+- Flatten the repo structure so that when the zip is extracted to the home directory, `playground/` lives directly under `~/git-dojo/` with no nested duplicate folder.
+- OR: Update the README and onboarding instructions to account for the actual extracted path and tell users to either move files up or navigate to the correct nested path.
+- Best option: Add a `setup.sh` / `setup.ps1` script that detects the nested folder and auto-flattens it.
+
+**2. No Git installation instructions**
+Users land on the lesson page and are told to run `git init`, `git status`, etc. with no indication that Git must be installed first. On a clean Windows machine, `git` is not recognized as a command.
+
+**Fix needed:**
+- Add a **Prerequisites** section to the onboarding/landing page and lesson-01 that explicitly states:
+  - "Git for Windows must be installed. Download it from https://git-scm.com/download/win"
+  - Include a version check step: `git --version` to confirm installation before proceeding
+  - Link to the installer directly
+
+**3. PowerShell vs. Git Bash confusion**
+The course commands use Unix-style paths (`~/git-dojo/playground/lesson-01`) and Unix commands (`ls`). These partially work in PowerShell but cause confusion. PowerShell also does not recognize `git` until installed and PATH is refreshed. Git Bash (bundled with Git for Windows) handles all of this natively.
+
+**Fix needed:**
+- Add a clear terminal recommendation in onboarding:
+  - "On Windows, use **Git Bash** (installed with Git for Windows). Do NOT use PowerShell for this course."
+  - Explain that Git Bash uses Unix-style paths and commands that match the course materials
+  - Optionally include a small comparison table showing why Git Bash is recommended over PowerShell
+- If PowerShell support is desired, provide translated PowerShell equivalents for every command used in the course
+
+**4. Git Bash paste shortcut not documented**
+Users coming from PowerShell/Windows expect Ctrl+V to paste. In Git Bash, the default paste shortcut is Shift+Insert or right-click. This causes immediate friction on the very first command.
+
+**Fix needed:**
+- Add a quick "Git Bash Tips" callout box on the lesson page or in onboarding:
+  - "To paste in Git Bash: press **Shift + Insert** or **right-click** inside the terminal"
+  - "To enable Ctrl+Shift+V: right-click title bar &gt; Options &gt; Keys &gt; check Ctrl+Shift+C/V"
+
+**5. No verification step after extraction**
+Users extract the zip but have no way to confirm the folder structure is correct before trying to `cd` into the lesson path.
+
+**Fix needed:**
+- Add a verification step in onboarding:
+  - After extraction, tell the user to run `ls ~/git-dojo/playground`
+  - If they see `lesson-01`, they're good to proceed
+  - If they get "No such file or directory", tell them to check for a nested folder and run the flatten command
+
+### Proposed Onboarding Checklist (to be built into the app/README)
+
+```
+Step 1: Install Git for Windows
+  - Download: https://git-scm.com/download/win
+  - Run installer with default settings
+  - Open Git Bash (not PowerShell)
+
+Step 2: Verify Git is installed
+  - Run: git --version
+  - If you see a version number, proceed. If not, restart Git Bash.
+
+Step 3: Download and extract the git-dojo zip
+  - Download the repo zip from GitHub
+  - Extract it to your home directory (~)
+  - The folder should be named "git-dojo" (rename if it says "git-dojo-main")
+
+Step 4: Verify the folder structure
+  - Run: ls ~/git-dojo/playground
+  - You should see "lesson-01"
+  - If not, check for a nested folder: ls ~/git-dojo/git-dojo
+  - If found, flatten it: mv ~/git-dojo/git-dojo/* ~/git-dojo/
+
+Step 5: Navigate to lesson-01
+  - Run: cd ~/git-dojo/playground/lesson-01
+
+Step 6: Start the lesson
+  - Run: git init
+  - Follow the lesson instructions
+```
+
+### Files to create or modify
+1. **README.md** (root) - Add full setup/prerequisites section
+2. **Onboarding page / lesson-00** - New "Getting Started" page with the checklist above
+3. **setup.sh** - Auto-detect and flatten nested folder, verify git is installed
+4. **setup.ps1** - PowerShell equivalent for users who insist on using PowerShell
+5. **Lesson pages** - Add a persistent callout: "Using Git Bash? Paste with Shift+Insert"
+6. **Replit/online fallback** - Mention that users can use Replit or GitHub Codespaces if local setup fails
+
+### Priority
+High - this blocks all new Windows users from starting the course.
+
+### Acceptance criteria
+- A user on a clean Windows machine with only Git for Windows installed can complete setup in under 5 minutes
+- No nested folder issue on extraction
+- Git Bash is clearly recommended over PowerShell
+- Paste instructions are visible on the first lesson page
+- A verification step exists between extraction and first git command
+
+---
+
+You can copy this and paste it directly to your AI coder. Want me to save this as a Google Doc for easy sharing?
