@@ -70,6 +70,22 @@ const REPO_TIMELINE: RepoLine[] = [
   { text: 'Release v1.0.0 published', tone: 'tag' },
 ];
 
+// Second act: after the repo finishes building, the background shifts to
+// what Git Dojo offers. These lines follow the repo timeline in one
+// continuous upward scroll -- no restart.
+const FEATURE_LINES: RepoLine[] = [
+  { text: 'Learn Git & GitHub like a pro', tone: 'tag' },
+  { text: 'The Map: watch your skills light up', tone: 'branch' },
+  { text: 'Real terminal practice, zero risk', tone: 'add' },
+  { text: 'Warm-up drills that adapt to you', tone: 'commit' },
+  { text: 'Open pull requests with a virtual teammate', tone: 'merge' },
+  { text: 'WHAT / WHERE / WHY / WHEN / HOW', tone: 'cmd' },
+  { text: 'No paywalls. No gating. Ever.', tone: 'tag' },
+  { text: 'Free and open source', tone: 'add' },
+];
+
+const FEED_LINES: RepoLine[] = [...REPO_TIMELINE, ...FEATURE_LINES];
+
 const TONE_COLORS: Record<RepoLine['tone'], string> = {
   cmd: 'rgba(139, 148, 158, 0.9)',
   add: 'rgba(63, 185, 80, 0.9)',
@@ -79,23 +95,66 @@ const TONE_COLORS: Record<RepoLine['tone'], string> = {
   tag: 'rgba(240, 180, 41, 0.95)',
 };
 
-const RepoBuildFeed = () => (
-  <div className="absolute inset-0 pointer-events-none z-[1] overflow-hidden" aria-hidden="true">
+const FEED_LINE_HEIGHT = 56;
+
+const RepoBuildFeed = () => {
+  const viewportH = typeof window !== 'undefined' ? window.innerHeight : 1080;
+  const contentH = FEED_LINES.length * FEED_LINE_HEIGHT;
+  // One continuous pass: enters from the bottom, fully exits the top
+  // exactly at the end of the video. Never restarts.
+  const travel = contentH + viewportH;
+
+  return (
+    <div className="absolute inset-0 pointer-events-none z-[1] overflow-hidden" aria-hidden="true">
+      <motion.div
+        className="absolute left-[6%] font-mono whitespace-nowrap"
+        style={{ top: '100%', fontSize: 24, lineHeight: `${FEED_LINE_HEIGHT}px`, opacity: 0.45 }}
+        initial={{ y: 0 }}
+        animate={{ y: -travel }}
+        transition={{ duration: TOTAL_RUNTIME_MS / 1000, ease: 'linear' }}
+      >
+        {FEED_LINES.map((line, i) => (
+          <div key={i} style={{ color: TONE_COLORS[line.tone] }}>
+            {line.text}
+          </div>
+        ))}
+      </motion.div>
+    </div>
+  );
+};
+
+// Company logo: fades in at the top right and drifts to center stage by
+// the very end of the video.
+const CompanyLogo = () => {
+  const t = TOTAL_RUNTIME_MS / 1000;
+  return (
     <motion.div
-      className="absolute left-[6%] font-mono whitespace-nowrap"
-      style={{ top: '100%', fontSize: 22, lineHeight: '52px', opacity: 0.28 }}
-      initial={{ y: 0 }}
-      animate={{ y: -(REPO_TIMELINE.length * 52 + 60) }}
-      transition={{ duration: TOTAL_RUNTIME_MS / 1000, ease: 'linear', repeat: Infinity }}
+      className="absolute z-[6] pointer-events-none flex flex-col items-center"
+      style={{ top: '6%', right: '4%' }}
+      initial={{ opacity: 0, x: 0, y: 0, scale: 0.7 }}
+      animate={{
+        opacity: [0, 0.35, 0.5, 0.65, 1],
+        x: [0, 0, 0, '-16vw', '-40vw'],
+        y: [0, 0, 0, '12vh', '58vh'],
+        scale: [0.7, 0.8, 0.85, 1, 1.5],
+      }}
+      transition={{ duration: t, times: [0, 0.25, 0.55, 0.82, 1], ease: 'easeInOut' }}
     >
-      {REPO_TIMELINE.map((line, i) => (
-        <div key={i} style={{ color: TONE_COLORS[line.tone] }}>
-          {line.text}
-        </div>
-      ))}
+      <div
+        className="font-mono font-bold tracking-widest"
+        style={{ fontSize: 30, color: 'var(--color-primary, #f0b429)', textShadow: '0 0 24px rgba(240, 180, 41, 0.35)' }}
+      >
+        RTS.AI
+      </div>
+      <div
+        className="tracking-[0.3em] uppercase"
+        style={{ fontSize: 11, color: 'rgba(139, 148, 158, 0.95)' }}
+      >
+        Run Trading Systems
+      </div>
     </motion.div>
-  </div>
-);
+  );
+};
 
 // Persistent grid background outside AnimatePresence
 const PersistentBackground = ({ currentScene }: { currentScene: number }) => {
@@ -170,6 +229,7 @@ export default function VideoTemplate({
     >
       <PersistentBackground currentScene={sceneIndex} />
       <RepoBuildFeed />
+      <CompanyLogo />
 
       <AnimatePresence mode="popLayout">
         {SceneComponent && <SceneComponent key={currentSceneKey} />}
