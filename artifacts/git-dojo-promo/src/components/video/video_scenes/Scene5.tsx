@@ -78,19 +78,19 @@ export const Scene5 = () => {
         animate={{ scale: 1, opacity: 1 }}
         transition={{ type: 'spring', stiffness: 320, damping: 22, mass: 0.9 }}
       >
-        <div
-          className="font-mono font-bold tracking-widest"
+        <img
+          src={`${import.meta.env.BASE_URL}rts-logo.png`}
+          alt="RTS"
           style={{
-            fontSize: 110,
-            color: 'var(--color-primary, #f0b429)',
-            textShadow: '0 0 60px rgba(240, 180, 41, 0.45)',
+            width: 380,
+            height: 380,
+            borderRadius: 32,
+            boxShadow: '0 0 120px rgba(88, 166, 255, 0.25)',
           }}
-        >
-          RTS.AI
-        </div>
+        />
         <div
-          className="tracking-[0.5em] uppercase mt-2"
-          style={{ fontSize: 22, color: 'rgba(230, 237, 243, 0.9)' }}
+          className="tracking-[0.5em] uppercase mt-6"
+          style={{ fontSize: 20, color: 'rgba(230, 237, 243, 0.9)' }}
         >
           Run Trading Systems
         </div>

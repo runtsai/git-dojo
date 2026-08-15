@@ -137,18 +137,16 @@ const CompanyLogo = ({ hidden }: { hidden: boolean }) => {
       animate={{ opacity: hidden ? 0 : 0.85 }}
       transition={{ duration: hidden ? 0.15 : 1.5, ease: 'easeOut' }}
     >
-      <div
-        className="font-mono font-bold tracking-widest"
-        style={{ fontSize: 30, color: 'var(--color-primary, #f0b429)', textShadow: '0 0 24px rgba(240, 180, 41, 0.35)' }}
-      >
-        RTS.AI
-      </div>
-      <div
-        className="tracking-[0.3em] uppercase"
-        style={{ fontSize: 11, color: 'rgba(139, 148, 158, 0.95)' }}
-      >
-        Run Trading Systems
-      </div>
+      <img
+        src={`${import.meta.env.BASE_URL}rts-logo.png`}
+        alt="RTS"
+        style={{
+          width: 110,
+          height: 110,
+          borderRadius: 16,
+          boxShadow: '0 0 40px rgba(88, 166, 255, 0.12)',
+        }}
+      />
     </motion.div>
   );
 };
