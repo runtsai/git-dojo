@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { useVideoPlayer } from '@/lib/video';
 import { AnimatePresence, motion } from 'framer-motion';
 
@@ -254,68 +254,17 @@ export default function VideoTemplate({
     audio.play().catch(() => {});
   }, [currentSceneKey, baseSceneKey, muted]);
 
-  // ── Smooth loop: fade to black between last scene and scene 0 ──────────────
-  // Strategy: start fading to black 600 ms before s5 ends so the screen is
-  // already opaque by the time s0 replaces s5. On s0 entry, reset the feed
-  // scroll (invisible under the overlay) and fade back out.
-  //
-  // 'idle' = overlay fully transparent
-  // 'in'   = fading to black (0 → 1 over 500 ms)
-  // 'out'  = fading back to clear (1 → 0 over 600 ms)
-  const [loopFading, setLoopFading] = useState<'idle' | 'in' | 'out'>('idle');
-  // Bumped each loop so RepoBuildFeed remounts (resets scroll) while hidden
-  const [feedKey, setFeedKey] = useState(0);
-  const prevSceneKeyRef = useRef<string | null>(null);
-
-  useEffect(() => {
-    const prev = prevSceneKeyRef.current;
-    prevSceneKeyRef.current = currentSceneKey;
-
-    const baseKey = currentSceneKey.replace(/_r[12]$/, '');
-    const prevBase = prev?.replace(/_r[12]$/, '') ?? null;
-
-    // --- Phase 1: entering the last scene — schedule the fade-in so it peaks
-    //     just before the scene timer fires and advances to s0.
-    if (baseKey === 's5') {
-      const fadeInDelay = Math.max(0, SCENE_DURATIONS.s5 - 600); // 900 ms
-      const t1 = setTimeout(() => setLoopFading('in'), fadeInDelay);
-      return () => clearTimeout(t1);
-    }
-
-    // --- Phase 2: s0 has just started (overlay is already black from Phase 1)
-    //     Reset the scroll feed while hidden, then fade back out.
-    if (baseKey === 's0' && prevBase !== null && prevBase !== 's0') {
-      setFeedKey((k) => k + 1);
-      setLoopFading('out');
-      const t1 = setTimeout(() => setLoopFading('idle'), 700);
-      return () => clearTimeout(t1);
-    }
-
-    return undefined;
-  }, [currentSceneKey]);
-  // ──────────────────────────────────────────────────────────────────────────
-
   return (
     <div
       className="w-full h-screen overflow-hidden relative flex items-center justify-center bg-[#050914]"
     >
       <PersistentBackground currentScene={sceneIndex} />
-      <RepoBuildFeed key={feedKey} hidden={sceneIndex === 5} />
+      <RepoBuildFeed hidden={sceneIndex === 5} />
       <BrandCorner hidden={sceneIndex === 5} />
 
       <AnimatePresence mode="popLayout">
         {SceneComponent && <SceneComponent key={currentSceneKey} />}
       </AnimatePresence>
-
-      {/* Fade-to-black overlay for smooth looping */}
-      <motion.div
-        className="absolute inset-0 z-50 bg-black pointer-events-none"
-        animate={{ opacity: loopFading === 'in' ? 1 : 0 }}
-        transition={{
-          duration: loopFading === 'in' ? 0.5 : 0.6,
-          ease: 'easeInOut',
-        }}
-      />
 
       <audio
         ref={audioRef}
