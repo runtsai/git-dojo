@@ -58,12 +58,20 @@ ls ~/git-dojo
 ```
 
 You should see the lesson folders (`lesson-01-first-snapshot`, etc.) and
-`setup.sh`. If instead you see a single `git-dojo` folder inside (a nested
-duplicate — this happens with some zip extractors), fix it with one command:
+`setup.sh`.
+
+**More likely, you won't — and that's normal.** The GitHub download contains
+the whole Git Dojo project (the app's code: `artifacts`, `package.json`, and
+so on), with the course sitting in a `git-dojo` folder inside it. If your
+`ls` shows that pile of files instead of lesson folders, one command fixes
+everything — it moves the lessons up to where the course expects them:
 
 ```
 cd ~/git-dojo && bash git-dojo/setup.sh
 ```
+
+(The same command also fixes the "folder inside a folder" quirk some zip
+extractors create.)
 
 Or run the setup script any time — it detects and flattens the nesting
 automatically, and checks your Git install:

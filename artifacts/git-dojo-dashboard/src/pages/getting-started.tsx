@@ -107,15 +107,22 @@ export function GettingStarted() {
       </StepCard>
 
       <StepCard number={4} title="Verify the folder structure" icon={<CheckCircle2 className="w-5 h-5" />}>
-        <p>Some zip extractors create a folder inside a folder. Check yours:</p>
+        <p>Check what your download actually contains:</p>
         <CommandBlock command="ls ~/git-dojo" />
         <p>
-          You should see the lesson folders and{" "}
-          <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded">setup.sh</code>. Either way,
-          run the setup script — it detects and fixes the nested-folder problem
-          automatically and double-checks your Git install:
+          If you see the lesson folders and{" "}
+          <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded">setup.sh</code>, run:
         </p>
         <CommandBlock command="cd ~/git-dojo && bash setup.sh" />
+        <p>
+          <strong className="text-foreground">More likely you'll see a pile of app files instead</strong>{" "}
+          (<code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded">artifacts</code>,{" "}
+          <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded">package.json</code>, and a{" "}
+          <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded">git-dojo</code> folder) — that's
+          normal. The GitHub download is the whole Git Dojo project, with the course inside. One command
+          moves the lessons up to where they belong and double-checks your Git install:
+        </p>
+        <CommandBlock command="cd ~/git-dojo && bash git-dojo/setup.sh" />
       </StepCard>
 
       <StepCard number={5} title="Tell Git who you are" icon={<Terminal className="w-5 h-5" />}>
