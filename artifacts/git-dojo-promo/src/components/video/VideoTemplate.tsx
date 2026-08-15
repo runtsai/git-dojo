@@ -87,12 +87,12 @@ const FEATURE_LINES: RepoLine[] = [
 const FEED_LINES: RepoLine[] = [...REPO_TIMELINE, ...FEATURE_LINES];
 
 const TONE_COLORS: Record<RepoLine['tone'], string> = {
-  cmd: 'rgba(139, 148, 158, 0.7)',
-  add: 'rgba(63, 185, 80, 0.7)',
-  commit: 'rgba(88, 166, 255, 0.7)',
-  branch: 'rgba(210, 168, 255, 0.7)',
-  merge: 'rgba(163, 113, 247, 0.7)',
-  tag: 'rgba(240, 180, 41, 0.8)',
+  cmd: 'rgba(139, 148, 158, 0.88)',
+  add: 'rgba(63, 185, 80, 0.88)',
+  commit: 'rgba(88, 166, 255, 0.88)',
+  branch: 'rgba(210, 168, 255, 0.88)',
+  merge: 'rgba(163, 113, 247, 0.88)',
+  tag: 'rgba(240, 180, 41, 0.95)',
 };
 
 const FEED_LINE_HEIGHT = 72;
@@ -124,7 +124,7 @@ const RepoBuildFeed = ({ hidden }: { hidden: boolean }) => {
             fontSize: 42, 
             lineHeight: `${FEED_LINE_HEIGHT}px`,
             fontWeight: 700,
-            textShadow: '0 0 15px currentColor'
+            textShadow: '0 0 22px currentColor, 0 0 8px currentColor'
           }}
           initial={{ y: 0 }}
           animate={{ y: -(contentH + viewportH * 1.5) }}
@@ -142,6 +142,35 @@ const RepoBuildFeed = ({ hidden }: { hidden: boolean }) => {
     </motion.div>
   );
 };
+
+// Brand corner: RTS mark + destination URL, visible the whole video so
+// it always reads as an ad for git-dojo.com. Hidden during the stinger.
+const BrandCorner = ({ hidden }: { hidden: boolean }) => (
+  <motion.div
+    className="absolute z-[6] pointer-events-none flex flex-col items-end gap-2"
+    style={{ top: '5%', right: '4%' }}
+    initial={{ opacity: 0 }}
+    animate={{ opacity: hidden ? 0 : 1 }}
+    transition={{ duration: hidden ? 0.15 : 1.2, ease: 'easeOut' }}
+  >
+    <img
+      src={`${import.meta.env.BASE_URL}rts-logo.png`}
+      alt="RTS"
+      style={{ width: 92, height: 92, borderRadius: 14, objectFit: 'contain', opacity: 0.9 }}
+    />
+    <div
+      className="font-mono font-bold"
+      style={{
+        fontSize: 24,
+        letterSpacing: '0.05em',
+        color: 'rgba(240, 180, 41, 0.95)',
+        textShadow: '0 0 20px rgba(240, 180, 41, 0.5)',
+      }}
+    >
+      git-dojo.com
+    </div>
+  </motion.div>
+);
 
 // Persistent grid background outside AnimatePresence
 const PersistentBackground = ({ currentScene }: { currentScene: number }) => {
@@ -231,6 +260,7 @@ export default function VideoTemplate({
     >
       <PersistentBackground currentScene={sceneIndex} />
       <RepoBuildFeed hidden={sceneIndex === 5} />
+      <BrandCorner hidden={sceneIndex === 5} />
 
       <AnimatePresence mode="popLayout">
         {SceneComponent && <SceneComponent key={currentSceneKey} />}

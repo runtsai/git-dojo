@@ -82,13 +82,29 @@ export const Scene5 = () => {
         transition={{ duration: 1.2, ease: 'linear' }}
       />
 
+      {/* Impact flash when the logo lands */}
+      <motion.div
+        className="absolute inset-0 bg-white z-30 pointer-events-none"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: [0, 0, 0.35, 0] }}
+        transition={{ duration: 0.6, times: [0, 0.5, 0.6, 1] }}
+      />
+
       <motion.div
         className="relative flex flex-col items-center z-10"
-        initial={{ scale: 0.8, opacity: 0, filter: 'blur(30px)' }}
+        initial={{ scale: 1.6, opacity: 0, filter: 'blur(30px)' }}
         animate={{ scale: 1, opacity: 1, filter: 'blur(0px)' }}
-        transition={{ type: 'spring', stiffness: 200, damping: 20, mass: 1 }}
+        transition={{ type: 'spring', stiffness: 340, damping: 22, mass: 0.9 }}
       >
         <div className="relative">
+          {/* Shockwave ring on landing */}
+          <motion.div
+            className="absolute left-1/2 top-1/2 rounded-full border-2 border-primary pointer-events-none"
+            style={{ width: 300, height: 300, x: '-50%', y: '-50%' }}
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 2.4, opacity: [0, 0.7, 0] }}
+            transition={{ duration: 0.9, delay: 0.25, ease: 'easeOut' }}
+          />
           <img
             src={`${import.meta.env.BASE_URL}rts-logo.png`}
             alt="RTS"
@@ -114,10 +130,11 @@ export const Scene5 = () => {
           </motion.div>
 
           <motion.div
-            className="font-mono text-primary tracking-widest bg-primary/10 border border-primary/30 px-6 py-2 rounded shadow-[0_0_20px_rgba(88,166,255,0.2)]"
-            initial={{ y: 20, opacity: 0 }}
-            animate={{ y: 0, opacity: 1 }}
-            transition={{ delay: 0.6 }}
+            className="font-mono font-bold text-primary bg-primary/10 border-2 border-primary/50 px-10 py-3 rounded-lg shadow-[0_0_40px_rgba(88,166,255,0.35)]"
+            style={{ fontSize: 44, letterSpacing: '0.08em', textShadow: '0 0 24px rgba(88,166,255,0.5)' }}
+            initial={{ y: 24, opacity: 0, scale: 0.9 }}
+            animate={{ y: 0, opacity: 1, scale: 1 }}
+            transition={{ delay: 0.5, type: 'spring', stiffness: 300, damping: 20 }}
           >
             git-dojo.com
           </motion.div>
