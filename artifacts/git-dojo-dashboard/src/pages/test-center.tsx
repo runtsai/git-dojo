@@ -33,11 +33,15 @@ export function TestCenter() {
         <div className="surface-card p-8 text-left mt-10 relative overflow-hidden">
           <div className="absolute top-0 left-0 w-2 h-full bg-primary shadow-[0_0_15px_rgba(255,107,0,0.5)]"></div>
           <p className="font-bold text-lg mb-4 text-foreground">To begin your journey, open your terminal and run:</p>
-          <div className="max-w-md w-full min-w-0">
-            <CommandBlock command="bash setup.sh" />
+          <div className="max-w-md w-full min-w-0 space-y-4">
+            <CommandBlock command="cd ~/git-dojo/lesson-01-first-snapshot" step={1} />
+            <CommandBlock command="bash setup.sh" step={2} />
           </div>
           <p className="text-muted-foreground mt-5 reading-text">
-            This script will scaffold the sandbox repositories you need for the lessons. Come back to this dashboard once it finishes!
+            Each lesson builds its own practice folder when you run its setup script. Come back to this dashboard once it finishes!
+          </p>
+          <p className="text-muted-foreground mt-4 reading-text">
+            Setting up on your own computer for the first time? Follow the <Link href="/getting-started" className="text-primary font-bold hover:underline">Getting Started checklist</Link>.
           </p>
         </div>
       </div>
@@ -58,7 +62,7 @@ export function TestCenter() {
             <Info className="w-5 h-5" />
           </div>
           <div className="text-sm text-muted-foreground">
-            <span className="font-bold text-foreground">How it works:</span> Open your terminal, navigate to the specific lesson folder, and type the commands. This screen watches the folder and updates automatically. If you're on a phone, skip this track and stick to <Link href="/" className="text-primary font-bold hover:underline">Track A</Link>.
+            <span className="font-bold text-foreground">How it works:</span> Open your terminal, navigate to the specific lesson folder, and type the commands. This screen watches the folder and updates automatically. First time on your own computer? Follow the <Link href="/getting-started" className="text-primary font-bold hover:underline">Getting Started checklist</Link>. If you're on a phone, skip this track and stick to <Link href="/" className="text-primary font-bold hover:underline">Track A</Link>.
           </div>
         </div>
       </div>

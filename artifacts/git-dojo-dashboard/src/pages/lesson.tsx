@@ -56,8 +56,15 @@ function WayfindingPanel({ lessonId }: { lessonId: string }) {
           
           <ul className="space-y-2 list-disc pl-5">
             <li><strong className="text-foreground">On Replit:</strong> open the Shell tab in this workspace.</li>
-            <li><strong className="text-foreground">On a computer:</strong> Terminal (Mac) or PowerShell/Git Bash (Windows).</li>
+            <li><strong className="text-foreground">On a computer:</strong> Terminal (Mac) or <strong className="text-foreground">Git Bash</strong> (Windows — not PowerShell). First time? Follow the <Link href="/getting-started" className="text-primary font-bold hover:underline">Getting Started checklist</Link>.</li>
           </ul>
+
+          <div className="bg-secondary/30 border border-white/5 p-4 rounded-xl flex items-start gap-3">
+            <Info className="w-5 h-5 text-secondary-foreground shrink-0 mt-0.5" />
+            <p className="text-sm">
+              <strong className="text-foreground">Using Git Bash?</strong> Paste with <strong className="text-foreground">Shift+Insert</strong> or right-click — Ctrl+V doesn't paste there.
+            </p>
+          </div>
 
           <div className="space-y-3 min-w-0 w-full">
             <p className="break-words">The practice folder for this lesson lives at <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded break-all whitespace-pre-wrap">~/git-dojo/playground/{lessonId}</code>. Always navigate there first:</p>
@@ -146,11 +153,14 @@ export function LessonView() {
             <Terminal className="w-8 h-8" />
           </div>
           <h2 className="text-2xl font-bold mb-3 text-foreground tracking-tight">Playground Not Found</h2>
-          <p className="text-muted-foreground mb-8 reading-text mx-auto">You haven't generated the files for this mission yet.</p>
+          <p className="text-muted-foreground mb-8 reading-text mx-auto">You haven't generated the files for this mission yet. Each lesson builds its own practice folder — run this lesson's setup script:</p>
           <div className="max-w-md mx-auto space-y-4 w-full min-w-0">
-            <CommandBlock command="cd ~/git-dojo" step={1} />
+            <CommandBlock command={`cd ~/git-dojo/${lessonId}-*`} step={1} />
             <CommandBlock command="bash setup.sh" step={2} />
           </div>
+          <p className="text-sm text-muted-foreground mt-6 reading-text mx-auto">
+            (The <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded">*</code> fills in the lesson's full folder name — that works in Git Bash and the Replit Shell.)
+          </p>
         </div>
       ) : !repo.initialized ? (
         <div className="surface-card p-10 text-center max-w-2xl mx-auto border-primary/30 shadow-[0_0_30px_rgba(255,107,0,0.1)]">
