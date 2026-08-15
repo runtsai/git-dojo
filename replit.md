@@ -67,7 +67,7 @@ _Populate as you build — explicit user instructions worth remembering across s
 The public mirror lives at https://github.com/runtsai/git-dojo (main branch).
 
 **Automatic sync on task merge:**
-`scripts/post-merge.sh` calls `scripts/sync-to-github.sh` automatically after every Replit task merge (`pnpm install` + DB push + GitHub sync). Sync is best-effort — a failure is logged clearly but never blocks the merge itself.
+`scripts/post-merge.sh` calls `scripts/sync-to-github.sh` automatically after every Replit task merge (`pnpm install` + DB push + GitHub sync). Sync is a **hard-failing step** — any auth or divergence error exits non-zero and blocks the post-merge, so failures surface immediately.
 
 **Manual sync (after ad-hoc work on main):**
 ```bash

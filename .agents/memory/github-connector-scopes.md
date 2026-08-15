@@ -7,4 +7,4 @@ Observed August 2026: the Replit GitHub connector token had `repo` scope but NOT
 **How to apply:** never promise automatic repo deletion in UX or API docs; any teardown affordance must reset local state and direct the user to delete the repo manually in the repo's GitHub settings.
 
 ## Pushing to GitHub from this workspace
-- `replit-git-askpass` (GIT_ASKPASS helper) fails with "Invalid username or token" when run from agent shell — use the connector token path in `sync-to-github.sh` instead (requires `REPLIT_CONNECTORS_HOSTNAME` + `REPL_IDENTITY`, which are present in agent and post-merge contexts).
+- `replit-git-askpass` fails in agent/automated shell — use the connector token path instead (`REPLIT_CONNECTORS_HOSTNAME` + `REPL_IDENTITY`).
