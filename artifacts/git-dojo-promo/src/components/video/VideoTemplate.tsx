@@ -42,7 +42,7 @@ const AUDIO_SEEK_EPSILON_SEC = 0.18;
 const TOTAL_RUNTIME_MS = Object.values(SCENE_DURATIONS).reduce((a, b) => a + b, 0);
 
 // A repo being built start-to-finish, scrolling up behind the scenes
-// over the full runtime of the video.
+// over the full runtime of the video in a Star Wars perspective crawl.
 type RepoLine = { text: string; tone: 'cmd' | 'add' | 'commit' | 'branch' | 'merge' | 'tag' };
 
 const REPO_TIMELINE: RepoLine[] = [
@@ -73,9 +73,6 @@ const REPO_TIMELINE: RepoLine[] = [
   { text: 'Release v1.0.0 published', tone: 'tag' },
 ];
 
-// Second act: after the repo finishes building, the background shifts to
-// what Git Dojo offers. These lines follow the repo timeline in one
-// continuous upward scroll -- no restart.
 const FEATURE_LINES: RepoLine[] = [
   { text: 'Learn Git & GitHub like a pro', tone: 'tag' },
   { text: 'The Map: watch your skills light up', tone: 'branch' },
@@ -90,63 +87,58 @@ const FEATURE_LINES: RepoLine[] = [
 const FEED_LINES: RepoLine[] = [...REPO_TIMELINE, ...FEATURE_LINES];
 
 const TONE_COLORS: Record<RepoLine['tone'], string> = {
-  cmd: 'rgba(139, 148, 158, 0.9)',
-  add: 'rgba(63, 185, 80, 0.9)',
-  commit: 'rgba(88, 166, 255, 0.9)',
-  branch: 'rgba(210, 168, 255, 0.9)',
-  merge: 'rgba(163, 113, 247, 0.9)',
-  tag: 'rgba(240, 180, 41, 0.95)',
+  cmd: 'rgba(139, 148, 158, 0.7)',
+  add: 'rgba(63, 185, 80, 0.7)',
+  commit: 'rgba(88, 166, 255, 0.7)',
+  branch: 'rgba(210, 168, 255, 0.7)',
+  merge: 'rgba(163, 113, 247, 0.7)',
+  tag: 'rgba(240, 180, 41, 0.8)',
 };
 
-const FEED_LINE_HEIGHT = 56;
+const FEED_LINE_HEIGHT = 72;
 
-const RepoBuildFeed = () => {
+const RepoBuildFeed = ({ hidden }: { hidden: boolean }) => {
   const viewportH = typeof window !== 'undefined' ? window.innerHeight : 1080;
   const contentH = FEED_LINES.length * FEED_LINE_HEIGHT;
-  // One continuous pass: enters from the bottom, fully exits the top
-  // exactly at the end of the video. Never restarts.
-  const travel = contentH + viewportH;
 
   return (
-    <div className="absolute inset-0 pointer-events-none z-[1] overflow-hidden" aria-hidden="true">
-      <motion.div
-        className="absolute left-[6%] font-mono whitespace-nowrap"
-        style={{ top: '100%', fontSize: 24, lineHeight: `${FEED_LINE_HEIGHT}px`, opacity: 0.45 }}
-        initial={{ y: 0 }}
-        animate={{ y: -travel }}
-        transition={{ duration: TOTAL_RUNTIME_MS / 1000, ease: 'linear' }}
-      >
-        {FEED_LINES.map((line, i) => (
-          <div key={i} style={{ color: TONE_COLORS[line.tone] }}>
-            {line.text}
-          </div>
-        ))}
-      </motion.div>
-    </div>
-  );
-};
-
-// Company logo: fades in and stays in the blank top-right corner.
-// Hidden during the final stinger scene, which shows it big and centered.
-const CompanyLogo = ({ hidden }: { hidden: boolean }) => {
-  return (
-    <motion.div
-      className="absolute z-[6] pointer-events-none flex flex-col items-center"
-      style={{ top: '6%', right: '4%' }}
-      initial={{ opacity: 0 }}
-      animate={{ opacity: hidden ? 0 : 0.85 }}
-      transition={{ duration: hidden ? 0.15 : 1.5, ease: 'easeOut' }}
+    <motion.div 
+      className="absolute inset-0 pointer-events-none z-[1] overflow-hidden flex justify-center" 
+      aria-hidden="true"
+      style={{ perspective: '800px' }}
+      animate={{ opacity: hidden ? 0 : 1 }}
+      transition={{ duration: 1 }}
     >
-      <img
-        src={`${import.meta.env.BASE_URL}rts-logo.png`}
-        alt="RTS"
-        style={{
-          width: 110,
-          height: 110,
-          borderRadius: 16,
-          boxShadow: '0 0 40px rgba(88, 166, 255, 0.12)',
-        }}
-      />
+      {/* 
+        This div does the 3D rotation to lay it flat like Star Wars.
+        We position it near the bottom so it crawls "away" and "up".
+      */}
+      <div 
+        className="absolute bottom-[-20%] w-full h-[150%] flex justify-center origin-bottom"
+        style={{ transform: 'rotateX(50deg)' }}
+      >
+        <motion.div
+          className="absolute font-mono whitespace-nowrap text-center flex flex-col items-center"
+          style={{ 
+            top: '100%', 
+            fontSize: 42, 
+            lineHeight: `${FEED_LINE_HEIGHT}px`,
+            fontWeight: 700,
+            textShadow: '0 0 15px currentColor'
+          }}
+          initial={{ y: 0 }}
+          animate={{ y: -(contentH + viewportH * 1.5) }}
+          transition={{ duration: TOTAL_RUNTIME_MS / 1000, ease: 'linear' }}
+        >
+          {FEED_LINES.map((line, i) => (
+            <div key={i} style={{ color: TONE_COLORS[line.tone] }} className="my-2">
+              {line.text}
+            </div>
+          ))}
+        </motion.div>
+      </div>
+      {/* Gradient fade out at the top to make it disappear into space */}
+      <div className="absolute inset-x-0 top-0 h-[40%] bg-gradient-to-b from-bg-light to-transparent z-[2]" />
     </motion.div>
   );
 };
@@ -155,30 +147,45 @@ const CompanyLogo = ({ hidden }: { hidden: boolean }) => {
 const PersistentBackground = ({ currentScene }: { currentScene: number }) => {
   return (
     <motion.div
-      className="absolute inset-0 pointer-events-none z-0 overflow-hidden bg-bg-light"
+      className="absolute inset-0 pointer-events-none z-0 overflow-hidden bg-[#050914]"
       animate={{
-        scale: currentScene === 3 ? 1.05 : 1,
-        filter: currentScene === 3 ? 'hue-rotate(-10deg) brightness(0.8)' : 'hue-rotate(0deg) brightness(1)',
+        filter: currentScene === 3 ? 'hue-rotate(20deg) brightness(0.9)' : 'hue-rotate(0deg) brightness(1)',
       }}
-      transition={{ duration: 1.2, ease: [0.16, 1, 0.3, 1] }}
+      transition={{ duration: 1.5, ease: 'easeInOut' }}
     >
+      {/* High-tech radial grid */}
       <div 
-        className="absolute inset-0 opacity-10"
+        className="absolute inset-0 opacity-[0.15]"
         style={{
-          backgroundImage: 'linear-gradient(var(--color-bg-border) 1px, transparent 1px), linear-gradient(90deg, var(--color-bg-border) 1px, transparent 1px)',
+          backgroundImage: 'radial-gradient(circle at center, var(--color-primary) 1px, transparent 1px)',
           backgroundSize: '40px 40px',
         }}
       />
-      {/* Drifting gradient glow */}
+      {/* HUD-like corner accents */}
+      <div className="absolute top-8 left-8 w-16 h-16 border-t-2 border-l-2 border-primary/40 rounded-tl-lg" />
+      <div className="absolute bottom-8 right-8 w-16 h-16 border-b-2 border-r-2 border-primary/40 rounded-br-lg" />
+      
+      {/* Drifting gradient glow for depth */}
       <motion.div
-        className="absolute w-[80vw] h-[80vw] rounded-full blur-[120px] opacity-10"
+        className="absolute w-[60vw] h-[60vw] rounded-full blur-[100px] opacity-20"
         animate={{
-          x: currentScene % 2 === 0 ? '-20%' : '20%',
-          y: currentScene % 3 === 0 ? '-20%' : '10%',
-          backgroundColor: currentScene === 3 ? 'var(--color-error)' : 'var(--color-primary)',
+          x: currentScene % 2 === 0 ? '-30%' : '10%',
+          y: currentScene % 3 === 0 ? '-20%' : '20%',
+          scale: currentScene === 3 ? 1.2 : 1,
+          backgroundColor: currentScene === 3 ? 'var(--color-accent)' : 'var(--color-primary)',
         }}
-        transition={{ duration: 3, ease: 'easeInOut' }}
-        style={{ top: '10%', left: '10%' }}
+        transition={{ duration: 4, ease: 'easeInOut' }}
+        style={{ top: '0%', left: '20%' }}
+      />
+      <motion.div
+        className="absolute w-[50vw] h-[50vw] rounded-full blur-[100px] opacity-[0.15]"
+        animate={{
+          x: currentScene % 2 === 0 ? '40%' : '-10%',
+          y: currentScene % 3 === 0 ? '40%' : '-10%',
+          backgroundColor: 'var(--color-success)',
+        }}
+        transition={{ duration: 5, ease: 'easeInOut', delay: 0.5 }}
+        style={{ bottom: '-10%', right: '-10%' }}
       />
     </motion.div>
   );
@@ -220,11 +227,10 @@ export default function VideoTemplate({
 
   return (
     <div
-      className="w-full h-screen overflow-hidden relative flex items-center justify-center bg-bg-light"
+      className="w-full h-screen overflow-hidden relative flex items-center justify-center bg-[#050914]"
     >
       <PersistentBackground currentScene={sceneIndex} />
-      <RepoBuildFeed />
-      <CompanyLogo hidden={sceneIndex === 5} />
+      <RepoBuildFeed hidden={sceneIndex === 5} />
 
       <AnimatePresence mode="popLayout">
         {SceneComponent && <SceneComponent key={currentSceneKey} />}

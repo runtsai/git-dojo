@@ -8,4 +8,5 @@ Observed August 2026: the Replit GitHub connector token had `repo` scope but NOT
 
 ## Pushing to GitHub from this workspace
 - `replit-git-askpass` (GIT_ASKPASS helper) fails with "Invalid username or token" when run from agent shell — do not rely on it in sync scripts run by me.
+- The `sync-github` validation step hangs forever in the task-completion validation runner (no interactive askpass → git prompts for a username and polls exhaust). If review + other checks pass, complete with skip_validation_reason citing this, or run the sync via the working pattern below first.
 - Working pattern: inside CodeExecution "use impure", fetch connector token from $REPLIT_CONNECTORS_HOSTNAME /api/v2/connection?include_secrets=true&connector_names=github (X_REPLIT_TOKEN: "repl "+$REPL_IDENTITY), then `git push https://x-access-token:TOKEN@github.com/runtsai/git-dojo.git main:main`. Never log or store the token; tokenless `origin` remote stays configured.
