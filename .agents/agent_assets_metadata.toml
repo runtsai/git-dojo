@@ -7,3 +7,10 @@ uri = "file://artifacts/git-dojo-promo/public/audio/bg_music.mp3"
 type = "audio"
 title = "background music"
 description = "Generated music: Driving synthwave instrumental background music scoring a developer-tool promo video. Analog synth arps, punchy electronic drums, warm bass, 120 BPM, focused and confident mood. Pati…"
+
+[[outputs]]
+id = "spF2M-_G-4NaXx8JsNeOf"
+uri = "file://artifacts/git-dojo-promo/public/audio/bg_music_2.mp3"
+type = "audio"
+title = "background music (23s)"
+description = "Generated music: Driving synthwave instrumental background music scoring a developer-tool promo video. Analog synth arps, punchy electronic drums, warm bass, 120 BPM, focused and confident mood. Pati…"

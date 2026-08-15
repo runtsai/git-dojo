@@ -7,6 +7,7 @@ import { Scene1 } from './video_scenes/Scene1';
 import { Scene2 } from './video_scenes/Scene2';
 import { Scene3 } from './video_scenes/Scene3';
 import { Scene4 } from './video_scenes/Scene4';
+import { Scene5 } from './video_scenes/Scene5';
 
 export const SCENE_DURATIONS: Record<string, number> = {
   s0: 4000,
@@ -14,6 +15,7 @@ export const SCENE_DURATIONS: Record<string, number> = {
   s2: 4500,
   s3: 4000,
   s4: 4000,
+  s5: 1500,
 };
 
 const SCENE_COMPONENTS: Record<string, React.ComponentType> = {
@@ -22,6 +24,7 @@ const SCENE_COMPONENTS: Record<string, React.ComponentType> = {
   s2: Scene2,
   s3: Scene3,
   s4: Scene4,
+  s5: Scene5,
 };
 
 const SCENE_START_SEC: Record<string, number> = (() => {
@@ -123,22 +126,16 @@ const RepoBuildFeed = () => {
   );
 };
 
-// Company logo: fades in at the top right and drifts to center stage by
-// the very end of the video.
-const CompanyLogo = () => {
-  const t = TOTAL_RUNTIME_MS / 1000;
+// Company logo: fades in and stays in the blank top-right corner.
+// Hidden during the final stinger scene, which shows it big and centered.
+const CompanyLogo = ({ hidden }: { hidden: boolean }) => {
   return (
     <motion.div
       className="absolute z-[6] pointer-events-none flex flex-col items-center"
       style={{ top: '6%', right: '4%' }}
-      initial={{ opacity: 0, x: 0, y: 0, scale: 0.7 }}
-      animate={{
-        opacity: [0, 0.35, 0.5, 0.65, 1],
-        x: [0, 0, 0, '-16vw', '-40vw'],
-        y: [0, 0, 0, '12vh', '58vh'],
-        scale: [0.7, 0.8, 0.85, 1, 1.5],
-      }}
-      transition={{ duration: t, times: [0, 0.25, 0.55, 0.82, 1], ease: 'easeInOut' }}
+      initial={{ opacity: 0 }}
+      animate={{ opacity: hidden ? 0 : 0.85 }}
+      transition={{ duration: hidden ? 0.15 : 1.5, ease: 'easeOut' }}
     >
       <div
         className="font-mono font-bold tracking-widest"
@@ -229,7 +226,7 @@ export default function VideoTemplate({
     >
       <PersistentBackground currentScene={sceneIndex} />
       <RepoBuildFeed />
-      <CompanyLogo />
+      <CompanyLogo hidden={sceneIndex === 5} />
 
       <AnimatePresence mode="popLayout">
         {SceneComponent && <SceneComponent key={currentSceneKey} />}
