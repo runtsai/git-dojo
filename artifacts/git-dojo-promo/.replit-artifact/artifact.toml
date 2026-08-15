@@ -1,0 +1,28 @@
+kind = "video"
+previewPath = "/git-dojo-promo/"
+title = "Git Dojo Promo Video"
+description = "A short animated promotional video for Git Dojo: The GitHub Mastery Path — a motion-graphics piece showcasing the app's visual learning tracks, real-git grading, and free open-source ethos, for sharing on social media and the GitHub repo."
+version = "1.0.0"
+id = "artifacts/git-dojo-promo"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/git-dojo-promo/" ]
+localPort = 21193
+
+[services.development]
+run = "pnpm --filter @workspace/git-dojo-promo run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/git-dojo-promo", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/git-dojo-promo/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "21193"
+BASE_PATH = "/git-dojo-promo/"
