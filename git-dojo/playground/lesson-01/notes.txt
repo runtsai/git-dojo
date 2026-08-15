@@ -1,3 +1,0 @@
-RTS.AI working notes
-Day one of learning Git for real.
-made my first commit, and this message in notes today.

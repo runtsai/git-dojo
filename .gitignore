@@ -47,3 +47,7 @@ Thumbs.db
 # Replit
 .cache/
 .local/
+git-dojo/playground/
+
+# runtime state (user progress, live capstone repo state)
+data/
