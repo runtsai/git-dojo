@@ -252,8 +252,26 @@ export function Layout({ children }: { children: React.ReactNode }) {
         {children}
       </main>
 
-      <footer className="border-t border-white/5 py-8 mt-auto text-center text-sm text-muted-foreground/60 font-medium">
-        <p>An open-source learning project by RUN Trading Systems (RTS.AI) LLC</p>
+      <footer className="border-t border-white/5 py-10 mt-auto px-4">
+        <div className="max-w-2xl mx-auto text-center space-y-4">
+          <h2 className="text-sm font-bold text-foreground tracking-wide">Support the Dojo</h2>
+          <p className="text-sm text-muted-foreground/80 leading-relaxed">
+            If Git Dojo saved you time or helped it click, you can support the team building it.
+            This isn&apos;t a donation &mdash; RTS.AI is a company, not a nonprofit &mdash; just a
+            way to say thanks and help fund what we build next, open source and otherwise.
+          </p>
+          <a
+            href="https://github.com/sponsors/runtsai"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-block py-2.5 px-5 bg-primary/10 hover:bg-primary/20 border border-primary/30 text-primary font-bold text-sm rounded-lg transition-all active:scale-95"
+          >
+            Support this project &rarr;
+          </a>
+          <p className="text-sm text-muted-foreground/60 font-medium pt-2">
+            An open-source learning project by RUN Trading Systems (RTS.AI) LLC
+          </p>
+        </div>
       </footer>
     </div>
   )
