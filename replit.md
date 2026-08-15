@@ -62,6 +62,23 @@ _Describe the high-level user-facing capabilities of this app once they exist._
 
 _Populate as you build — explicit user instructions worth remembering across sessions._
 
+## Syncing to GitHub
+
+The public mirror lives at https://github.com/runtsai/git-dojo (main branch).
+
+**Run after significant work lands on main:**
+```bash
+bash scripts/sync-to-github.sh
+```
+Or trigger the **`sync-github`** step in the Replit validation panel.
+
+**Safety rules built into the script:**
+- Refuses to push if GitHub has commits that local `main` doesn't — prints the diverging SHAs and exits non-zero.
+- No `--force` ever used.
+- The GitHub OAuth token is supplied ephemerally by Replit's built-in `GIT_ASKPASS` helper (`replit-git-askpass`) — it is never written to git config, env files, or log output.
+
+**Requirement:** GitHub must be connected in your Replit workspace (Settings → Integrations → GitHub, or via the Git panel). The script runs in the same shell session where `REPLIT_ASKPASS_PID2_SESSION` is active.
+
 ## Gotchas
 
 _Populate as you build — sharp edges, "always run X before Y" rules._
