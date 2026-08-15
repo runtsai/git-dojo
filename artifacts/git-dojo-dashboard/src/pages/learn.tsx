@@ -9,6 +9,7 @@ import { Module2_2 } from "@/content/tier2/module-2-2";
 import { Module2_3 } from "@/content/tier2/module-2-3";
 import { ArrowLeft, Construction } from "lucide-react";
 import { useEffect } from "react";
+import { WarmUpInterstitial } from "@/components/warm-up-interstitial";
 
 export function LearnModuleView() {
   const { moduleId: rawModuleId } = useParams<{ moduleId: string }>();
@@ -21,14 +22,26 @@ export function LearnModuleView() {
     }
   }, [moduleId]);
 
-  if (moduleId === "1-1") return <Module1_1 />;
-  if (moduleId === "1-2") return <Module1_2 />;
-  if (moduleId === "1-3") return <Module1_3 />;
-  if (moduleId === "1-4") return <Module1_4 />;
-  if (moduleId === "1-5") return <Module1_5 />;
-  if (moduleId === "2-1") return <Module2_1 />;
-  if (moduleId === "2-2") return <Module2_2 />;
-  if (moduleId === "2-3") return <Module2_3 />;
+  const modules: Record<string, React.ComponentType> = {
+    "1-1": Module1_1,
+    "1-2": Module1_2,
+    "1-3": Module1_3,
+    "1-4": Module1_4,
+    "1-5": Module1_5,
+    "2-1": Module2_1,
+    "2-2": Module2_2,
+    "2-3": Module2_3,
+  };
+  const ModuleComponent = moduleId ? modules[moduleId] : undefined;
+  if (ModuleComponent) {
+    return (
+      <>
+        {/* Optional warm-up offer — never gates the module below it */}
+        <WarmUpInterstitial />
+        <ModuleComponent />
+      </>
+    );
+  }
 
   // Placeholder for others
   return (

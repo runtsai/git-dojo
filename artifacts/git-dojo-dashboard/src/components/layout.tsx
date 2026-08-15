@@ -1,11 +1,13 @@
 import { Link, useLocation } from "wouter";
 import { useHealthCheck, getHealthCheckQueryKey } from "@workspace/api-client-react";
-import { Activity, ShieldCheck, ShieldAlert, Terminal, Lightbulb, Rocket, Siren } from "lucide-react";
+import { Activity, ShieldCheck, ShieldAlert, Terminal, Lightbulb, Rocket, Siren, Dumbbell } from "lucide-react";
 import { useEffect } from "react";
+import { useDrillStatus } from "@/hooks/use-drills";
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const { data: health, isError } = useHealthCheck({ query: { queryKey: getHealthCheckQueryKey(), refetchInterval: 10000 } });
   const [location] = useLocation();
+  const { dueCount } = useDrillStatus();
 
   // Scroll to top on navigation
   useEffect(() => {
@@ -74,6 +76,27 @@ export function Layout({ children }: { children: React.ReactNode }) {
               <Siren className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${location.startsWith('/crisis') ? 'text-destructive' : ''}`} />
               <span className="hidden sm:inline">Crisis Room</span>
               <span className="sm:hidden">Crisis</span>
+            </Link>
+
+            <Link
+              href="/warm-up"
+              className={`relative flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 rounded-md font-bold text-xs sm:text-sm transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary active:scale-95 ${
+                location.startsWith('/warm-up')
+                  ? 'bg-secondary text-foreground shadow-sm'
+                  : 'text-muted-foreground hover:text-foreground hover:bg-secondary/50'
+              }`}
+            >
+              <Dumbbell className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${location.startsWith('/warm-up') ? 'text-primary' : ''}`} />
+              <span className="hidden sm:inline">Warm Up</span>
+              <span className="sr-only sm:hidden">Warm Up</span>
+              {dueCount > 0 && (
+                <span
+                  className="absolute -top-1 -right-1 min-w-[1.1rem] h-[1.1rem] px-1 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center shadow"
+                  aria-label={`${dueCount} drills due`}
+                >
+                  {dueCount > 9 ? '9+' : dueCount}
+                </span>
+              )}
             </Link>
 
             <div className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-full bg-secondary/50 border border-white/5 text-xs font-medium ml-2 shadow-inner">

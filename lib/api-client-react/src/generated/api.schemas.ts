@@ -158,6 +158,58 @@ export interface CapstoneMission {
   verifiedAt: string | null;
 }
 
+export interface DrillCandidate {
+  /** Drill item id from the client-side drill bank */
+  id: string;
+  /**
+     * Lesson/crisis id whose grader friction should boost this item's priority
+     * @nullable
+     */
+  sourceId?: string | null;
+}
+
+export interface DrillCandidateSet {
+  candidates: DrillCandidate[];
+}
+
+export interface DrillItemStats {
+  id: string;
+  /** How many times this item has been attempted */
+  seenCount: number;
+  correctCount: number;
+  /**
+     * Whether the most recent attempt was correct (null if never attempted)
+     * @nullable
+     */
+  lastCorrect: boolean | null;
+  /**
+     * ISO 8601 timestamp of the most recent attempt
+     * @nullable
+     */
+  lastSeenAt: string | null;
+  /**
+     * When this item comes due again (null means due now / never attempted)
+     * @nullable
+     */
+  dueAt: string | null;
+  dueNow: boolean;
+  /** Scheduling priority; grader friction on the item's source raises it */
+  priority: number;
+}
+
+export interface DrillDueResult {
+  /** All candidates with stats, due items first in priority order */
+  items: DrillItemStats[];
+  dueCount: number;
+}
+
+export interface DrillAttemptInput {
+  itemId: string;
+  correct: boolean;
+  /** @nullable */
+  sourceId?: string | null;
+}
+
 export interface CapstoneStatus {
   githubConnected: boolean;
   /**

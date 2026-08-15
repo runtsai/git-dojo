@@ -20,6 +20,7 @@ import { BreakthroughView } from '@/pages/breakthrough-view';
 import { MapView } from '@/pages/map';
 import { GoLive } from '@/pages/go-live';
 import { CrisisRoom } from '@/pages/crisis-room';
+import { WarmUp } from '@/pages/warm-up';
 import { CrisisView } from '@/pages/crisis';
 
 const queryClient = new QueryClient();
@@ -37,6 +38,7 @@ function Router() {
           <Route path="/crisis/:crisisId" component={CrisisView} />
           <Route path="/breakthroughs" component={BreakthroughsIndex} />
           <Route path="/breakthroughs/:id" component={BreakthroughView} />
+          <Route path="/warm-up" component={WarmUp} />
           <Route path="/map" component={MapView} />
           <Route path="/go-live" component={GoLive} />
           <Route component={NotFound} />

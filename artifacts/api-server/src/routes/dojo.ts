@@ -12,6 +12,7 @@ import {
   RunBotActionResponse,
 } from "@workspace/api-zod";
 import { recordCompletion } from "../lib/progress-store";
+import { recordGraderResult } from "../lib/drill-store";
 import { readRepoState, buildSummary, isRepo, commitCount } from "../lib/repo-state";
 
 const run = promisify(execFile);
@@ -189,6 +190,9 @@ router.post("/dojo/lessons/:lessonId/check", async (req, res) => {
   const hasFail = /\bFAIL\b/.test(output);
   const hasPass = /\bPASS\b/.test(output);
   const passed = hasFail ? false : hasPass ? exitOk : exitOk ? null : false;
+  // Every graded run feeds friction metrics so warm-up drills can target
+  // the lessons the learner actually struggles with.
+  if (passed !== null) recordGraderResult(lesson.id, passed);
   // Track B badge is granted here, server-side, only on a genuine grader pass.
   if (passed === true) recordCompletion(lesson.id, "cli");
   res.json(RunLessonCheckResponse.parse({ ran: true, passed, output }));

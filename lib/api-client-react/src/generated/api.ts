@@ -29,6 +29,10 @@ import type {
   CrisisScenario,
   CrisisSetupResult,
   DojoOverview,
+  DrillAttemptInput,
+  DrillCandidateSet,
+  DrillDueResult,
+  DrillItemStats,
   HealthStatus,
   Lesson,
   Progress,
@@ -966,6 +970,150 @@ export const useCompleteModule = <TError = ErrorType<unknown>,
         TContext
       > => {
       return useMutation(getCompleteModuleMutationOptions(options));
+    }
+
+export const getGetDueDrillsUrl = () => {
+
+
+
+
+  return `/api/drills/due`
+}
+
+/**
+ * Given the drill items the learner has unlocked, returns per-item practice stats and a schedule-ordered due list. POST because the eligible candidate set lives client-side.
+ * @summary Which drill items are due for review
+ */
+export const getDueDrills = async (drillCandidateSet: DrillCandidateSet, options?: Parameters<typeof customFetch>[1]): Promise<DrillDueResult> => {
+
+  return customFetch<DrillDueResult>(getGetDueDrillsUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(drillCandidateSet)
+  }
+);}
+
+
+
+
+
+export const getGetDueDrillsMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof getDueDrills>>, TError,{data: BodyType<DrillCandidateSet>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof getDueDrills>>, TError,{data: BodyType<DrillCandidateSet>}, TContext> => {
+
+const mutationKey = ['getDueDrills'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof getDueDrills>>, {data: BodyType<DrillCandidateSet>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  getDueDrills(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type GetDueDrillsMutationResult = NonNullable<Awaited<ReturnType<typeof getDueDrills>>>
+    export type GetDueDrillsMutationBody = BodyType<DrillCandidateSet>
+    export type GetDueDrillsMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Which drill items are due for review
+ */
+export const useGetDueDrills = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof getDueDrills>>, TError,{data: BodyType<DrillCandidateSet>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof getDueDrills>>,
+        TError,
+        {data: BodyType<DrillCandidateSet>},
+        TContext
+      > => {
+      return useMutation(getGetDueDrillsMutationOptions(options));
+    }
+
+export const getRecordDrillAttemptUrl = () => {
+
+
+
+
+  return `/api/drills/attempt`
+}
+
+/**
+ * Persists one attempt and reschedules the item (correct -> longer interval, wrong -> soon)
+ * @summary Record a drill answer
+ */
+export const recordDrillAttempt = async (drillAttemptInput: DrillAttemptInput, options?: Parameters<typeof customFetch>[1]): Promise<DrillItemStats> => {
+
+  return customFetch<DrillItemStats>(getRecordDrillAttemptUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...options?.headers },
+    body: JSON.stringify(drillAttemptInput)
+  }
+);}
+
+
+
+
+
+export const getRecordDrillAttemptMutationOptions = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof recordDrillAttempt>>, TError,{data: BodyType<DrillAttemptInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof recordDrillAttempt>>, TError,{data: BodyType<DrillAttemptInput>}, TContext> => {
+
+const mutationKey = ['recordDrillAttempt'];
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof recordDrillAttempt>>, {data: BodyType<DrillAttemptInput>}> = (props) => {
+          const {data} = props ?? {};
+
+          return  recordDrillAttempt(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type RecordDrillAttemptMutationResult = NonNullable<Awaited<ReturnType<typeof recordDrillAttempt>>>
+    export type RecordDrillAttemptMutationBody = BodyType<DrillAttemptInput>
+    export type RecordDrillAttemptMutationError = ErrorType<unknown>
+
+    /**
+ * @summary Record a drill answer
+ */
+export const useRecordDrillAttempt = <TError = ErrorType<unknown>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof recordDrillAttempt>>, TError,{data: BodyType<DrillAttemptInput>}, TContext>, request?: SecondParameter<typeof customFetch>}
+ ): UseMutationResult<
+        Awaited<ReturnType<typeof recordDrillAttempt>>,
+        TError,
+        {data: BodyType<DrillAttemptInput>},
+        TContext
+      > => {
+      return useMutation(getRecordDrillAttemptMutationOptions(options));
     }
 
 export const getGetCapstoneStatusUrl = () => {

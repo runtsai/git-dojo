@@ -230,6 +230,54 @@ export const CompleteModuleResponse = zod.object({
 
 
 /**
+ * Given the drill items the learner has unlocked, returns per-item practice stats and a schedule-ordered due list. POST because the eligible candidate set lives client-side.
+ * @summary Which drill items are due for review
+ */
+export const GetDueDrillsBody = zod.object({
+  "candidates": zod.array(zod.object({
+  "id": zod.string().describe('Drill item id from the client-side drill bank'),
+  "sourceId": zod.string().nullish().describe('Lesson\/crisis id whose grader friction should boost this item\'s priority')
+}))
+})
+
+export const GetDueDrillsResponse = zod.object({
+  "items": zod.array(zod.object({
+  "id": zod.string(),
+  "seenCount": zod.number().describe('How many times this item has been attempted'),
+  "correctCount": zod.number(),
+  "lastCorrect": zod.boolean().nullable().describe('Whether the most recent attempt was correct (null if never attempted)'),
+  "lastSeenAt": zod.string().nullable().describe('ISO 8601 timestamp of the most recent attempt'),
+  "dueAt": zod.string().nullable().describe('When this item comes due again (null means due now \/ never attempted)'),
+  "dueNow": zod.boolean(),
+  "priority": zod.number().describe('Scheduling priority; grader friction on the item\'s source raises it')
+})).describe('All candidates with stats, due items first in priority order'),
+  "dueCount": zod.number()
+})
+
+
+/**
+ * Persists one attempt and reschedules the item (correct -> longer interval, wrong -> soon)
+ * @summary Record a drill answer
+ */
+export const RecordDrillAttemptBody = zod.object({
+  "itemId": zod.string(),
+  "correct": zod.boolean(),
+  "sourceId": zod.string().nullish()
+})
+
+export const RecordDrillAttemptResponse = zod.object({
+  "id": zod.string(),
+  "seenCount": zod.number().describe('How many times this item has been attempted'),
+  "correctCount": zod.number(),
+  "lastCorrect": zod.boolean().nullable().describe('Whether the most recent attempt was correct (null if never attempted)'),
+  "lastSeenAt": zod.string().nullable().describe('ISO 8601 timestamp of the most recent attempt'),
+  "dueAt": zod.string().nullable().describe('When this item comes due again (null means due now \/ never attempted)'),
+  "dueNow": zod.boolean(),
+  "priority": zod.number().describe('Scheduling priority; grader friction on the item\'s source raises it')
+})
+
+
+/**
  * GitHub connection state, practice repo, and mission verification results
  * @summary Go Live capstone status
  */

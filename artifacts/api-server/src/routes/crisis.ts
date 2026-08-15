@@ -11,6 +11,7 @@ import {
   RunCrisisCheckResponse,
 } from "@workspace/api-zod";
 import { recordCompletion, loadEntries } from "../lib/progress-store";
+import { recordGraderResult } from "../lib/drill-store";
 import { readRepoState, buildSummary, isRepo, git } from "../lib/repo-state";
 
 const run = promisify(execFile);
@@ -485,6 +486,8 @@ router.post("/crisis/scenarios/:crisisId/check", async (req, res) => {
     }
   }
   const passed = fails === 0;
+  // Friction metric: failed recoveries make this scenario's drills higher priority.
+  recordGraderResult(scenario.id, passed);
   lines.push("", `Score: ${scenario.checks.length - fails} PASS / ${fails} FAIL`);
   if (passed) lines.push(scenario.passLine);
   // Crisis badge is granted here, server-side, only on a genuine grader pass.

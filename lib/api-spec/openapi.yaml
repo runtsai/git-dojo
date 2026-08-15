@@ -18,6 +18,8 @@ tags:
     description: Go Live capstone against the learner's real GitHub account
   - name: crisis
     description: Crisis Room disaster-recovery scenarios
+  - name: drills
+    description: Warm-up recall drills with spaced-repetition scheduling
 paths:
   /healthz:
     get:
@@ -257,6 +259,44 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Progress"
+  /drills/due:
+    post:
+      operationId: getDueDrills
+      tags: [drills]
+      summary: Which drill items are due for review
+      description: Given the drill items the learner has unlocked, returns per-item practice stats and a schedule-ordered due list. POST because the eligible candidate set lives client-side.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DrillCandidateSet"
+      responses:
+        "200":
+          description: Due items and stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DrillDueResult"
+  /drills/attempt:
+    post:
+      operationId: recordDrillAttempt
+      tags: [drills]
+      summary: Record a drill answer
+      description: Persists one attempt and reschedules the item (correct -> longer interval, wrong -> soon)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DrillAttemptInput"
+      responses:
+        "200":
+          description: Updated item stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DrillItemStats"
   /capstone/status:
     get:
       operationId: getCapstoneStatus
@@ -558,6 +598,70 @@ components:
           type: ["string", "null"]
           description: ISO 8601 timestamp of first verified pass
       required: [id, title, verified, verifiedAt]
+    DrillCandidate:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Drill item id from the client-side drill bank
+        sourceId:
+          type: ["string", "null"]
+          description: Lesson/crisis id whose grader friction should boost this item's priority
+      required: [id]
+    DrillCandidateSet:
+      type: object
+      properties:
+        candidates:
+          type: array
+          items:
+            $ref: "#/components/schemas/DrillCandidate"
+      required: [candidates]
+    DrillItemStats:
+      type: object
+      properties:
+        id:
+          type: string
+        seenCount:
+          type: number
+          description: How many times this item has been attempted
+        correctCount:
+          type: number
+        lastCorrect:
+          type: ["boolean", "null"]
+          description: Whether the most recent attempt was correct (null if never attempted)
+        lastSeenAt:
+          type: ["string", "null"]
+          description: ISO 8601 timestamp of the most recent attempt
+        dueAt:
+          type: ["string", "null"]
+          description: When this item comes due again (null means due now / never attempted)
+        dueNow:
+          type: boolean
+        priority:
+          type: number
+          description: Scheduling priority; grader friction on the item's source raises it
+      required: [id, seenCount, correctCount, lastCorrect, lastSeenAt, dueAt, dueNow, priority]
+    DrillDueResult:
+      type: object
+      properties:
+        items:
+          type: array
+          description: All candidates with stats, due items first in priority order
+          items:
+            $ref: "#/components/schemas/DrillItemStats"
+        dueCount:
+          type: number
+      required: [items, dueCount]
+    DrillAttemptInput:
+      type: object
+      properties:
+        itemId:
+          type: string
+        correct:
+          type: boolean
+        sourceId:
+          type: ["string", "null"]
+      required: [itemId, correct]
     CapstoneStatus:
       type: object
       properties:

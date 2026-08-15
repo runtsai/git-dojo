@@ -8,6 +8,8 @@ Build spec: `attached_assets/PROMPT_GitHub_Mastery_Path_Replit_Build_v1_1_*.md` 
 
 Progress persistence: single-user JSON file at `data/progress.json` via `/api/progress`. **No fake completion:** CLI badges are recorded server-side only when a lesson's grader passes; the completion endpoint only accepts allowlisted visual module ids.
 
+Retention layer — **Warm Up drills** (`/warm-up`): optional spaced-repetition recall drills (concept cards + tolerant command recall) built from completed content. Drill bank is authored client-side in `artifacts/git-dojo-dashboard/src/content/drills.ts`; the server owns attempt history, scheduling, and grader-friction priority in `data/drills.json` (`artifacts/api-server/src/lib/drill-store.ts`, `/api/drills/*`). Every dojo/crisis grader run also records pass/fail friction there. Honest stats only ("seen 4 times, last correct") — no streaks, no gating (the pre-module banner is dismissible and never blocks).
+
 ## Design doctrine (hard rules — every tier and feature is built to these)
 
 Our three structural advantages. Never dilute them; every new module must express all three:
