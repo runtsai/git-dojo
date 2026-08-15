@@ -91,6 +91,7 @@ GitHub and this course). The lesson scripts work either way, but without it
 Git prints a long "hint: Using 'master'..." notice every time — set it and
 you'll never see that.
 
+
 ### Step 6: Start Lesson 1
 
 ```

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useVideoPlayer } from '@/lib/video';
 import { AnimatePresence, motion } from 'framer-motion';
+import { useEffect, useRef } from 'react';
 
 import { Scene0 } from './video_scenes/Scene0';
 import { Scene1 } from './video_scenes/Scene1';
