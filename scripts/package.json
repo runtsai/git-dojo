@@ -5,7 +5,12 @@
   "type": "module",
   "scripts": {
     "hello": "tsx ./src/hello.ts",
+    "api-smoke": "tsx ./src/api-smoke.ts",
     "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@workspace/api-zod": "workspace:*",
+    "zod": "catalog:"
   },
   "devDependencies": {
     "@types/node": "catalog:",

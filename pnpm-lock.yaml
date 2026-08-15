@@ -642,6 +642,13 @@ importers:
         version: 0.31.10
 
   scripts:
+    dependencies:
+      '@workspace/api-zod':
+        specifier: workspace:*
+        version: link:../lib/api-zod
+      zod:
+        specifier: 'catalog:'
+        version: 3.25.76
     devDependencies:
       '@types/node':
         specifier: 'catalog:'
