@@ -13,6 +13,7 @@ import {
 import { recordCompletion, loadEntries } from "../lib/progress-store";
 import { recordGraderResult } from "../lib/drill-store";
 import { readRepoState, buildSummary, isRepo, git } from "../lib/repo-state";
+import { requireOwner } from "../middlewares/require-owner";
 
 const run = promisify(execFile);
 
@@ -410,8 +411,8 @@ router.get("/crisis/scenarios", async (_req, res) => {
   );
 });
 
-router.post("/crisis/scenarios/:crisisId/setup", async (req, res) => {
-  const scenario = findScenario(req.params.crisisId ?? "");
+router.post("/crisis/scenarios/:crisisId/setup", requireOwner, async (req, res) => {
+  const scenario = findScenario(String(req.params.crisisId ?? ""));
   if (!scenario) {
     res.status(404).json({ error: `Scenario not found: ${req.params.crisisId}` });
     return;
@@ -438,7 +439,7 @@ router.post("/crisis/scenarios/:crisisId/setup", async (req, res) => {
 });
 
 router.get("/crisis/scenarios/:crisisId/state", async (req, res) => {
-  const scenario = findScenario(req.params.crisisId ?? "");
+  const scenario = findScenario(String(req.params.crisisId ?? ""));
   if (!scenario) {
     res.status(404).json({ error: `Scenario not found: ${req.params.crisisId}` });
     return;
@@ -448,13 +449,14 @@ router.get("/crisis/scenarios/:crisisId/state", async (req, res) => {
     GetCrisisRepoStateResponse.parse({
       lessonId: scenario.id,
       ...state,
+      hasBot: false,
       summary: buildSummary(state),
     }),
   );
 });
 
-router.post("/crisis/scenarios/:crisisId/check", async (req, res) => {
-  const scenario = findScenario(req.params.crisisId ?? "");
+router.post("/crisis/scenarios/:crisisId/check", requireOwner, async (req, res) => {
+  const scenario = findScenario(String(req.params.crisisId ?? ""));
   if (!scenario) {
     res.status(404).json({ error: `Scenario not found: ${req.params.crisisId}` });
     return;

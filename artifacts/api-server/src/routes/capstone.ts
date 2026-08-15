@@ -14,6 +14,7 @@ import {
   clearCapstone,
 } from "../lib/capstone-store";
 import { recordCompletion } from "../lib/progress-store";
+import { requireOwner } from "../middlewares/require-owner";
 
 const router: IRouter = Router();
 
@@ -106,7 +107,7 @@ function statusPayload(login: string | null, state: CapstoneState | null) {
   };
 }
 
-router.get("/capstone/status", async (req, res): Promise<void> => {
+router.get("/capstone/status", requireOwner, async (req, res): Promise<void> => {
   if (isPublicDeployment()) {
     // Never expose the owner's GitHub identity or repo state to public
     // visitors; the UI renders its graceful "not connected" state.
@@ -128,7 +129,7 @@ router.get("/capstone/status", async (req, res): Promise<void> => {
   res.json(GetCapstoneStatusResponse.parse(statusPayload(login, state)));
 });
 
-router.post("/capstone/repo", async (req, res): Promise<void> => {
+router.post("/capstone/repo", requireOwner, async (req, res): Promise<void> => {
   if (isPublicDeployment()) {
     res.status(409).json({ error: "The Go Live capstone only runs in the owner's private workspace." });
     return;
@@ -325,7 +326,7 @@ router.post("/capstone/repo", async (req, res): Promise<void> => {
   res.json(CreateCapstoneRepoResponse.parse(statusPayload(login, state)));
 });
 
-router.delete("/capstone/repo", async (req, res): Promise<void> => {
+router.delete("/capstone/repo", requireOwner, async (req, res): Promise<void> => {
   if (isPublicDeployment()) {
     res.status(409).json({ error: "The Go Live capstone only runs in the owner's private workspace." });
     return;
@@ -376,7 +377,7 @@ router.delete("/capstone/repo", async (req, res): Promise<void> => {
   res.json(GetCapstoneStatusResponse.parse(statusPayload(login, null)));
 });
 
-router.post("/capstone/verify/:missionId", async (req, res): Promise<void> => {
+router.post("/capstone/verify/:missionId", requireOwner, async (req, res): Promise<void> => {
   const raw = req.params.missionId;
   const missionId = (Array.isArray(raw) ? raw[0] : raw) ?? "";
   if (!MISSIONS.some((m) => m.id === missionId)) {

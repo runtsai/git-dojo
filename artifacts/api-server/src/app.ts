@@ -25,7 +25,9 @@ app.use(
     },
   }),
 );
-app.use(cors());
+// The dashboard is served same-origin through Replit's path-routed proxy, so
+// no cross-origin access is needed; don't emit permissive CORS headers.
+app.use(cors({ origin: false }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
