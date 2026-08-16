@@ -1,5 +1,5 @@
 /**
- * Unit/integration tests for the /export/promo-video route.
+ * Integration tests for the /export/promo-video route.
  *
  * Verifies that two concurrent requests to the export endpoint:
  *   (a) both receive a 200 response with a non-empty body
@@ -25,7 +25,7 @@ let renderCallCount = 0;
 // ---------------------------------------------------------------------------
 // Mock heavy dependencies.
 // vi.mock() calls are hoisted before imports by vitest, so they apply to the
-// router module when it is dynamically imported inside beforeEach.
+// router module when it is imported below.
 // ---------------------------------------------------------------------------
 
 vi.mock("puppeteer-core", () => {
@@ -64,7 +64,8 @@ vi.mock("puppeteer-core", () => {
 
 // findChromium() calls execSync; renderMp4 calls execFileAsync (= promisify(execFile)).
 vi.mock("node:child_process", async (importOriginal) => {
-  const original = await importOriginal<typeof import("node:child_process")>();
+  const original =
+    await importOriginal<typeof import("node:child_process")>();
   return {
     ...original,
     execSync: vi.fn(() => "/usr/bin/chromium"),
@@ -84,7 +85,8 @@ vi.mock("node:child_process", async (importOriginal) => {
 
 // Avoid all real disk I/O inside the route module.
 vi.mock("node:fs/promises", async (importOriginal) => {
-  const original = await importOriginal<typeof import("node:fs/promises")>();
+  const original =
+    await importOriginal<typeof import("node:fs/promises")>();
   return {
     ...original,
     // hashDir iterates source files; returning [] keeps the hash stable.
@@ -118,6 +120,14 @@ vi.mock("node:fs", async (importOriginal) => {
 });
 
 // ---------------------------------------------------------------------------
+// Static import of the router — mocks above are hoisted and applied before
+// this import runs, so the module-level bindings get the mock versions.
+// Module state is reset between tests via resetRenderCacheForTest() rather
+// than vi.resetModules() (which breaks built-in module mock re-application).
+// ---------------------------------------------------------------------------
+import exportRouter, { resetRenderCacheForTest } from "./export.js";
+
+// ---------------------------------------------------------------------------
 // HTTP helper — collect status + full body from a GET request.
 // ---------------------------------------------------------------------------
 
@@ -146,14 +156,9 @@ describe("GET /export/promo-video", () => {
   let port: number;
 
   beforeEach(async () => {
-    // Reset the render counter before each test.
+    // Reset the render counter and module state before each test.
     renderCallCount = 0;
-
-    // Reset the module registry so the route's module-level variables
-    // (renderCache, renderPromise) start as null for every test.
-    vi.resetModules();
-
-    const { default: exportRouter } = await import("./export.js");
+    resetRenderCacheForTest(); // clears renderCache + renderPromise
 
     const app = express();
 

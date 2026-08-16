@@ -1,4 +1,4 @@
-import type { TierDef } from "@workspace/api-client-react";
+import type { TierDef } from "@workspace/course-content";
 import type { CrisisMeta } from "@/content/crises";
 import type { Lesson } from "@workspace/api-client-react";
 
