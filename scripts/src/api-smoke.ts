@@ -24,15 +24,22 @@ import {
   GetDojoOverviewResponse,
   ListLessonsResponse,
   GetRepoStateResponse,
+  RunLessonCheckResponse,
+  RunBotActionResponse,
   ListCrisisScenariosResponse,
   GetCrisisRepoStateResponse,
+  SetupCrisisScenarioResponse,
+  RunCrisisCheckResponse,
   GetCapstoneStatusResponse,
+  CreateCapstoneRepoResponse,
+  DeleteCapstoneRepoResponse,
+  VerifyCapstoneMissionResponse,
   GetProgressResponse,
   CompleteModuleResponse,
   GetDueDrillsResponse,
+  RecordDrillAttemptResponse,
   GetCommitDiffResponse,
   GetWorkingFileDiffResponse,
-  RecordDrillAttemptResponse,
 } from "@workspace/api-zod";
 import { z } from "zod";
 import type { ZodTypeAny, ZodIssue } from "zod";
@@ -132,6 +139,59 @@ async function smokePost(
   return parsed.data;
 }
 
+/**
+ * Like smokePost/smokeDelete but accepts a 409 response as a graceful skip.
+ * Used for write endpoints that require GitHub connectivity or an existing
+ * capstone state — prerequisites that may not be satisfied in all environments.
+ * Any 2xx is validated against the schema; any other non-2xx is a failure.
+ */
+async function smokeWriteOrSkip409(
+  method: "POST" | "DELETE",
+  path: string,
+  schema: ZodTypeAny,
+  payload?: unknown,
+): Promise<unknown> {
+  const label = `${method} ${path}`;
+  let result: { status: number; body: unknown };
+  try {
+    result = await request(method, path, payload);
+  } catch (err) {
+    fail(label, `Network error: ${String(err)}`);
+    return undefined;
+  }
+
+  // 409 means a prerequisite is unmet (GitHub not connected, no capstone state,
+  // or public deployment guard).  Treat it as a skip rather than a failure so
+  // the smoke check stays green in environments without GitHub.
+  if (result.status === 409) {
+    const reason =
+      typeof result.body === "object" &&
+      result.body !== null &&
+      "error" in result.body
+        ? String((result.body as { error: unknown }).error)
+        : "prerequisite not met";
+    console.log(`  -  ${label}  (skipped — ${reason})`);
+    return undefined;
+  }
+
+  if (result.status < 200 || result.status >= 300) {
+    fail(label, `HTTP ${result.status} — ${JSON.stringify(result.body).slice(0, 200)}`);
+    return undefined;
+  }
+
+  const parsed = schema.safeParse(result.body);
+  if (!parsed.success) {
+    const issues = parsed.error.issues
+      .slice(0, 5)
+      .map((i: ZodIssue) => `${i.path.join(".")}: ${i.message}`)
+      .join("; ");
+    fail(label, `Schema mismatch — ${issues}`);
+    return undefined;
+  }
+
+  ok(label);
+  return parsed.data;
+}
 async function smoke(path: string, schema: ZodTypeAny): Promise<unknown> {
   const label = `GET ${path}`;
   let result: { status: number; body: unknown };
@@ -388,6 +448,28 @@ async function main(): Promise<void> {
     );
   }
 
+  // 4c. Lesson check — skip if no lessons exist yet
+  if (firstLesson) {
+    await smokePost(
+      `/api/dojo/lessons/${firstLesson.id}/check`,
+      {},
+      RunLessonCheckResponse,
+    );
+  } else {
+    console.log(`  -  POST /api/dojo/lessons/:id/check  (skipped — no lessons found)`);
+  }
+
+  // 4d. Lesson bot — skip if no lessons exist yet
+  if (firstLesson) {
+    await smokePost(
+      `/api/dojo/lessons/${firstLesson.id}/bot`,
+      {},
+      RunBotActionResponse,
+    );
+  } else {
+    console.log(`  -  POST /api/dojo/lessons/:id/bot  (skipped — no lessons found)`);
+  }
+
   // 5. Crisis scenarios list — also extracts a crisisId
   const scenarios = await smoke("/api/crisis/scenarios", ListCrisisScenariosResponse);
   const firstScenario = Array.isArray(scenarios)
@@ -401,8 +483,71 @@ async function main(): Promise<void> {
     console.log(`  -  GET /api/crisis/scenarios/:id/state  (skipped — no scenarios found)`);
   }
 
+  // 6a. Crisis setup — (re-)initialises the practice playground; idempotent
+  if (firstScenario) {
+    await smokePost(
+      `/api/crisis/scenarios/${firstScenario.id}/setup`,
+      {},
+      SetupCrisisScenarioResponse,
+    );
+  } else {
+    console.log(`  -  POST /api/crisis/scenarios/:id/setup  (skipped — no scenarios found)`);
+  }
+
+  // 6b. Crisis check — runs the grader against the just-set-up playground
+  if (firstScenario) {
+    await smokePost(
+      `/api/crisis/scenarios/${firstScenario.id}/check`,
+      {},
+      RunCrisisCheckResponse,
+    );
+  } else {
+    console.log(`  -  POST /api/crisis/scenarios/:id/check  (skipped — no scenarios found)`);
+  }
+
   // 7. Capstone status
   await smoke("/api/capstone/status", GetCapstoneStatusResponse);
+
+  // 7a–7c. Capstone write endpoints — POST /capstone/repo creates a real public
+  //     GitHub repository and DELETE requires delete_repo scope that tokens
+  //     typically lack, so these are opt-in only.  Set SMOKE_CAPSTONE_WRITES=1
+  //     to run them in a controlled environment with a dedicated test account.
+  //     Without the flag the response schemas (CreateCapstoneRepoResponse,
+  //     VerifyCapstoneMissionResponse, DeleteCapstoneRepoResponse) are not
+  //     exercised here; they remain validated by the server's own .parse() call
+  //     on every real request.
+  if (process.env["SMOKE_CAPSTONE_WRITES"] === "1") {
+    const capstoneState = await smokeWriteOrSkip409(
+      "POST",
+      "/api/capstone/repo",
+      CreateCapstoneRepoResponse,
+    );
+    const firstMissionId = "push-commit";
+    await smokeWriteOrSkip409(
+      "POST",
+      `/api/capstone/verify/${firstMissionId}`,
+      VerifyCapstoneMissionResponse,
+    );
+    // Deletion must succeed (not 409) after a successful create; a lingering
+    // orphaned repo means cleanup failed and the run should be treated as a
+    // partial success at best.
+    void capstoneState;
+    await smokeWriteOrSkip409(
+      "DELETE",
+      "/api/capstone/repo",
+      DeleteCapstoneRepoResponse,
+    );
+  } else {
+    console.log(
+      `  -  POST /api/capstone/repo  (skipped — set SMOKE_CAPSTONE_WRITES=1 to enable)`,
+    );
+    console.log(
+      `  -  POST /api/capstone/verify/:missionId  (skipped — set SMOKE_CAPSTONE_WRITES=1 to enable)`,
+    );
+    console.log(
+      `  -  DELETE /api/capstone/repo  (skipped — set SMOKE_CAPSTONE_WRITES=1 to enable)`,
+    );
+  }
 
   // 8. Progress
   await smoke("/api/progress", GetProgressResponse);
