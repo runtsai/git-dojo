@@ -1,6 +1,7 @@
 // Video player hook - handles recording lifecycle, scene advancement, and looping
 
 import { useEffect, useRef, useState } from 'react';
+import type { MutableRefObject } from 'react';
 
 declare global {
   interface Window {
@@ -26,6 +27,10 @@ export interface UseVideoPlayerReturn {
   totalScenes: number;
   currentSceneKey: string;
   hasEnded: boolean;
+  /** True only when the current scene became scene 0 because the final scene's
+   *  timer expired naturally.  False for every other scene advancement,
+   *  including the initial mount and any externally-triggered remount. */
+  isNaturalLoopRef: MutableRefObject<boolean>;
 }
 
 export function useVideoPlayer(
@@ -40,6 +45,13 @@ export function useVideoPlayer(
 
   const [currentScene, setCurrentScene] = useState(0);
   const [hasEnded, setHasEnded] = useState(false);
+
+  // Set to true only when the final scene's timer fires and the video loops
+  // back to scene 0 naturally.  False on every other advancement, including
+  // initial mount and any externally-triggered remount (jumpTo / toggleLock).
+  // Consumers read this ref synchronously inside the same effect cycle that
+  // responds to a currentSceneKey change, so no stale-closure risk.
+  const isNaturalLoopRef = useRef(false);
 
   // Start recording on mount
   useEffect(() => {
@@ -64,6 +76,19 @@ export function useVideoPlayer(
     const currentDuration = durationsArray[currentScene];
 
     const timer = setTimeout(() => {
+      // Mark the outgoing scene key BEFORE the state update so that
+      // VideoTemplate's fade effect can read this flag in the same render
+      // cycle where currentSceneKey flips to the incoming scene.
+      //
+      // The flag is true whenever the outgoing scene is 's5', regardless of
+      // whether the advance is a regular step (rotated sequence) or a
+      // last-index wrap.  It is false on every fresh mount / remount because
+      // useRef() reinitialises to false on each component instance.  Phase 2
+      // of VideoTemplate's fade effect combines this with the prevBase check
+      // (null after a remount) so that a manual jumpTo(0) is never mistaken
+      // for a natural s5→s0 transition.
+      isNaturalLoopRef.current = sceneKeys[currentScene] === 's5';
+
       // Last scene just finished playing
       if (currentScene >= totalScenes - 1) {
         if (!hasEnded) {
@@ -73,6 +98,9 @@ export function useVideoPlayer(
         }
         if (loop) {
           setCurrentScene(0);
+        } else {
+          // Not looping: no s0 entry will follow, clear the flag.
+          isNaturalLoopRef.current = false;
         }
       } else {
         setCurrentScene((prev) => prev + 1);
@@ -87,6 +115,7 @@ export function useVideoPlayer(
     totalScenes,
     currentSceneKey: sceneKeys[currentScene],
     hasEnded,
+    isNaturalLoopRef,
   };
 }
 

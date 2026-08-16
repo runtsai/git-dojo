@@ -231,7 +231,7 @@ export default function VideoTemplate({
   muted?: boolean;
   onSceneChange?: (sceneKey: string) => void;
 } = {}) {
-  const { currentSceneKey } = useVideoPlayer({ durations, loop });
+  const { currentSceneKey, isNaturalLoopRef } = useVideoPlayer({ durations, loop });
 
   useEffect(() => {
     onSceneChange?.(currentSceneKey);
@@ -282,9 +282,17 @@ export default function VideoTemplate({
       return () => clearTimeout(t1);
     }
 
-    // --- Phase 2: s0 has just started (overlay is already black from Phase 1)
-    //     Reset the scroll feed while hidden, then fade back out.
-    if (baseKey === 's0' && prevBase !== null && prevBase !== 's0') {
+    // --- Phase 2: s0 has just started (overlay is already black from Phase 1).
+    //     Only fire the fade-out when the transition came from the natural scene
+    //     timer (isNaturalLoopRef.current === true).  Manual jumps to scene 0
+    //     always remount VideoTemplate via mountKey, which resets the ref to its
+    //     initial false value, so this guard prevents spurious fades on seeks.
+    if (
+      baseKey === 's0' &&
+      prevBase !== null &&
+      prevBase !== 's0' &&
+      isNaturalLoopRef.current
+    ) {
       setFeedKey((k) => k + 1);
       setLoopFading('out');
       const t1 = setTimeout(() => setLoopFading('idle'), 700);
