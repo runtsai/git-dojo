@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import type { VisualModuleProps } from "@/types/visual-module";
 import { useCompleteModule, getGetProgressQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -70,6 +70,45 @@ export function Module1_1({ onStepChange }: VisualModuleProps = {}) {
     );
   };
 
+  const stepHints: Record<number, ReactNode> = {
+    1: (
+      <span>
+        <strong className="text-foreground">Concept:</strong> No interface yet — this step covers the mental model before we open a browser.
+        Git lives on your machine; GitHub lives at <strong className="text-foreground">github.com</strong> in the cloud.
+      </span>
+    ),
+    2: (
+      <span>
+        <strong className="text-foreground">Interface location →</strong>{" "}
+        <span className="inline-flex items-center gap-1 font-mono text-xs bg-white/5 border border-white/10 px-2 py-0.5 rounded">github.com</span>
+        {" / "}
+        <span className="inline-flex items-center gap-1 font-mono text-xs bg-white/5 border border-white/10 px-2 py-0.5 rounded">rts-records / company-handbook</span>
+        {" "}— this is the <strong className="text-foreground">repository home page</strong>. The numbered callouts on the screen match the legend below.
+      </span>
+    ),
+    3: (
+      <span>
+        <strong className="text-foreground">Concept:</strong> Three reasons why this matters for your business — no interface navigation required.
+      </span>
+    ),
+    4: (
+      <span>
+        <strong className="text-foreground">Concept:</strong> The decision rule for when to move from a local Git folder to GitHub.
+      </span>
+    ),
+    5: (
+      <span>
+        <strong className="text-foreground">Hands-on location →</strong>{" "}
+        <span className="inline-flex items-center gap-1 font-mono text-xs bg-white/5 border border-white/10 px-2 py-0.5 rounded">repo home</span>
+        {" → "}
+        <span className="inline-flex items-center gap-1 font-mono text-xs bg-primary/10 border border-primary/20 text-primary px-2 py-0.5 rounded">42 Commits ↗</span>
+        {" → "}
+        <span className="inline-flex items-center gap-1 font-mono text-xs bg-white/5 border border-white/10 px-2 py-0.5 rounded">click a commit row</span>
+        {" "}— click through the sim above to trace John's commit.
+      </span>
+    ),
+  };
+
   return (
     <VisualModuleShell
       title="What GitHub actually is"
@@ -83,6 +122,7 @@ export function Module1_1({ onStepChange }: VisualModuleProps = {}) {
       submitLabel="Complete Task"
       isPending={completeModule.isPending}
       error={showError}
+      stepHints={stepHints}
     >
       {step === 1 && (
         <>

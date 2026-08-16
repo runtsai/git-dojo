@@ -57,6 +57,13 @@ export type VisualModuleShellProps = {
   /** Error message rendered above the nav row. */
   error?: string | null;
   /**
+   * Per-step map hints. Keyed by 1-based step number.
+   * When a hint is present for the current step it renders in a collapsible
+   * panel between the title/dots row and the surface-card, giving learners a
+   * spatial anchor for where in the GitHub UI the lesson lives.
+   */
+  stepHints?: Record<number, ReactNode>;
+  /**
    * Step content – everything except the outer padding wrapper, nav row,
    * error banner, and completion screen.
    */
@@ -81,6 +88,7 @@ export function VisualModuleShell({
   isPending = false,
   isSubmitDisabled = false,
   error,
+  stepHints,
   children,
 }: VisualModuleShellProps) {
   const isCompletion = step === completionStep;
@@ -113,6 +121,18 @@ export function VisualModuleShell({
           ))}
         </div>
       </div>
+
+      {stepHints?.[step] && !isCompletion && (
+        <div className="flex items-start gap-3 px-4 py-3 bg-black/40 border border-white/5 rounded-xl shadow-inner enter-fade text-sm">
+          <div className="shrink-0 mt-0.5 w-4 h-4 text-primary/70">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true">
+              <path d="M8 1.5C5.1 1.5 2.5 4 2.5 7c0 3.7 5.5 8 5.5 8s5.5-4.3 5.5-8c0-3-2.6-5.5-5.5-5.5z" />
+              <circle cx="8" cy="7" r="1.5" />
+            </svg>
+          </div>
+          <div className="text-muted-foreground leading-relaxed">{stepHints[step]}</div>
+        </div>
+      )}
 
       <div className="surface-card overflow-hidden">
         {isCompletion ? (

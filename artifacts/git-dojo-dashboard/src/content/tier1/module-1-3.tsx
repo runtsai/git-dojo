@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import type { VisualModuleProps } from "@/types/visual-module";
 import { useCompleteModule, getGetProgressQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -87,6 +87,46 @@ export function Module1_3({ onStepChange }: VisualModuleProps = {}) {
     <div className="absolute -left-3 -top-3 w-6 h-6 bg-primary text-primary-foreground font-bold rounded-full flex items-center justify-center text-xs shadow-[0_0_10px_rgba(255,107,0,0.5)] z-10">{num}</div>
   );
 
+  const stepHints: Record<number, ReactNode> = {
+    1: (
+      <span>
+        <strong className="text-foreground">Concept:</strong> Every commit is a sealed snapshot. This step explains what that history looks like before you open the interface.
+      </span>
+    ),
+    2: (
+      <span>
+        <strong className="text-foreground">Interface location →</strong>{" "}
+        <span className="inline-flex items-center gap-1 font-mono text-xs bg-white/5 border border-white/10 px-2 py-0.5 rounded">repo home</span>
+        {" → "}
+        <span className="inline-flex items-center gap-1 font-mono text-xs bg-white/5 border border-white/10 px-2 py-0.5 rounded">Commits</span>
+        {" → "}
+        <span className="inline-flex items-center gap-1 font-mono text-xs bg-primary/10 border border-primary/20 text-primary px-2 py-0.5 rounded">commit detail / diff view</span>
+        {" "}— callouts 1–4 identify every zone in the diff screen.
+      </span>
+    ),
+    3: (
+      <span>
+        <strong className="text-foreground">Concept:</strong> Why the diff view matters for accountability — no navigation, just two key principles to absorb.
+      </span>
+    ),
+    4: (
+      <span>
+        <strong className="text-foreground">Concept:</strong> The decision rule — reach for commit history the moment something breaks and you need to know who touched a file last.
+      </span>
+    ),
+    5: (
+      <span>
+        <strong className="text-foreground">Hands-on location →</strong>{" "}
+        <span className="inline-flex items-center gap-1 font-mono text-xs bg-white/5 border border-white/10 px-2 py-0.5 rounded">Commits list</span>
+        {" → click a row → "}
+        <span className="inline-flex items-center gap-1 font-mono text-xs bg-primary/10 border border-primary/20 text-primary px-2 py-0.5 rounded">diff view</span>
+        {" "}— find the commit that changed the pricing policy and read the red{" "}
+        <span className="font-mono text-xs text-red-400 bg-red-950/30 px-1 rounded">−</span>
+        {" "}line to get the old rate.
+      </span>
+    ),
+  };
+
   return (
     <VisualModuleShell
       title="Reading history visually"
@@ -102,6 +142,7 @@ export function Module1_3({ onStepChange }: VisualModuleProps = {}) {
       submitLabel="Submit Answer"
       isPending={completeModule.isPending}
       error={showError}
+      stepHints={stepHints}
     >
       {step === 1 && (
         <>

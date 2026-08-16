@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import type { VisualModuleProps } from "@/types/visual-module";
 import { useCompleteModule, getGetProgressQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -48,6 +48,46 @@ export function Module1_2({ onStepChange }: VisualModuleProps = {}) {
     <div className="absolute -left-3 -top-3 w-6 h-6 bg-primary text-primary-foreground font-bold rounded-full flex items-center justify-center text-xs shadow-[0_0_10px_rgba(255,107,0,0.5)] z-10">{num}</div>
   );
 
+  const stepHints: Record<number, ReactNode> = {
+    1: (
+      <span>
+        <strong className="text-foreground">Concept:</strong> Before navigating any buttons, we establish what a stranger sees the moment they land on your project's page.
+      </span>
+    ),
+    2: (
+      <span>
+        <strong className="text-foreground">Interface location →</strong>{" "}
+        <span className="inline-flex items-center gap-1 font-mono text-xs bg-white/5 border border-white/10 px-2 py-0.5 rounded">github.com</span>
+        {" / "}
+        <span className="inline-flex items-center gap-1 font-mono text-xs bg-white/5 border border-white/10 px-2 py-0.5 rounded">owner / repo</span>
+        {" "}— this is the <strong className="text-foreground">repository home page</strong>. Five numbered callouts mark every zone you need to know.
+      </span>
+    ),
+    3: (
+      <span>
+        <strong className="text-foreground">Concept:</strong> Two design principles explain why GitHub lays information out the way it does — no navigation required.
+      </span>
+    ),
+    4: (
+      <span>
+        <strong className="text-foreground">Concept:</strong> The decision rule — reach for the home screen any time you need a quick pulse-check on a project's state.
+      </span>
+    ),
+    5: (
+      <span>
+        <strong className="text-foreground">Hands-on location →</strong>{" "}
+        <span className="inline-flex items-center gap-1 font-mono text-xs bg-white/5 border border-white/10 px-2 py-0.5 rounded">repo home page</span>
+        {" "}— click the{" "}
+        <span className="inline-flex items-center gap-1 font-mono text-xs bg-primary/10 border border-primary/20 text-primary px-2 py-0.5 rounded">main branch</span>
+        {", "}
+        <span className="inline-flex items-center gap-1 font-mono text-xs bg-primary/10 border border-primary/20 text-primary px-2 py-0.5 rounded">42 Commits</span>
+        {", and "}
+        <span className="inline-flex items-center gap-1 font-mono text-xs bg-primary/10 border border-primary/20 text-primary px-2 py-0.5 rounded">README.md</span>
+        {" "}in the sim above to complete the scavenger hunt.
+      </span>
+    ),
+  };
+
   return (
     <VisualModuleShell
       title="The repository home screen"
@@ -63,6 +103,7 @@ export function Module1_2({ onStepChange }: VisualModuleProps = {}) {
       submitLabel="Complete Task"
       isPending={completeModule.isPending}
       error={showError}
+      stepHints={stepHints}
     >
       {step === 1 && (
         <>
