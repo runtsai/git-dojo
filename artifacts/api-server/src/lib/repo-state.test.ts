@@ -122,6 +122,50 @@ describe("parseUnifiedDiff", () => {
     expect(file!.removed).toBe(1);
   });
 
+  it("parses a renamed binary file — keeps renamedFrom and sets changeKind to binary", () => {
+    // Real git output when a binary file is renamed (similarity < 100%):
+    //   diff --git a/old.png b/new.png
+    //   similarity index 89%
+    //   rename from old.png
+    //   rename to new.png
+    //   index abc1234..def5678 100644
+    //   Binary files a/old.png and b/new.png differ
+    const diff = [
+      "diff --git a/old.png b/new.png",
+      "similarity index 89%",
+      "rename from old.png",
+      "rename to new.png",
+      "index abc1234..def5678 100644",
+      "Binary files a/old.png and b/new.png differ",
+    ].join("\n");
+
+    const [file] = parseUnifiedDiff(diff);
+    expect(file).toBeDefined();
+    expect(file!.changeKind).toBe("binary");
+    expect(file!.renamedFrom).toBe("old.png");
+    expect(file!.path).toBe("new.png");
+    expect(file!.added).toBe(0);
+    expect(file!.removed).toBe(0);
+    expect(file!.lines).toHaveLength(0);
+  });
+
+  it("parses a renamed binary file with a subdirectory path", () => {
+    const diff = [
+      "diff --git a/assets/old-logo.png b/assets/new-logo.png",
+      "similarity index 72%",
+      "rename from assets/old-logo.png",
+      "rename to assets/new-logo.png",
+      "index aaa1111..bbb2222 100644",
+      "Binary files a/assets/old-logo.png and b/assets/new-logo.png differ",
+    ].join("\n");
+
+    const [file] = parseUnifiedDiff(diff);
+    expect(file).toBeDefined();
+    expect(file!.changeKind).toBe("binary");
+    expect(file!.renamedFrom).toBe("assets/old-logo.png");
+    expect(file!.path).toBe("assets/new-logo.png");
+  });
+
   it("parses a binary file change", () => {
     const diff = [
       "diff --git a/image.png b/image.png",
