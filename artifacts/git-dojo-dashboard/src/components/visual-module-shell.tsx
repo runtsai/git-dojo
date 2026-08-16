@@ -74,7 +74,7 @@ export function VisualModuleShell({
   title,
   step,
   totalDots = 5,
-  completionStep = 6,
+  completionStep,
   completionTitle = "Module Complete",
   completionText,
   nextModuleHref,
@@ -91,7 +91,26 @@ export function VisualModuleShell({
   stepHints,
   children,
 }: VisualModuleShellProps) {
-  const isCompletion = step === completionStep;
+  // Derive completionStep from totalDots when the prop is omitted, so the
+  // default is always correct regardless of how many dots a module uses.
+  const effectiveCompletionStep = completionStep ?? totalDots + 1;
+
+  if (process.env.NODE_ENV !== "production") {
+    if (effectiveCompletionStep <= totalDots) {
+      console.warn(
+        `[VisualModuleShell] completionStep (${effectiveCompletionStep}) is <= totalDots (${totalDots}). ` +
+          `The completion screen would appear mid-module. Set completionStep > totalDots.`
+      );
+    }
+    if (effectiveCompletionStep > totalDots + 2) {
+      console.warn(
+        `[VisualModuleShell] completionStep (${effectiveCompletionStep}) is > totalDots+2 (${totalDots + 2}). ` +
+          `The completion screen may never be reachable. Check totalDots and completionStep.`
+      );
+    }
+  }
+
+  const isCompletion = step === effectiveCompletionStep;
   const hasNav = Boolean(onPrev || onNext || onSubmit);
   const primaryDisabled = isPending || isSubmitDisabled;
 

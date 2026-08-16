@@ -182,7 +182,6 @@ export function Module2_4() {
       title="Ruth's fix: close the loop"
       step={step}
       totalDots={3}
-      completionStep={4}
       completionSlot={completionSlot}
       onPrev={step > 1 ? handlePrev : undefined}
       onNext={step < 3 ? handleNext : undefined}
