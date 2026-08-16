@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query";
 import { useGetProgress, getDueDrills } from "@workspace/api-client-react";
-import type { DrillDueResult } from "@workspace/api-client-react";
+import type { DrillDueResult, DrillFrictionEntry } from "@workspace/api-client-react";
 import { useMemo } from "react";
 import { eligibleDrills, type DrillItem } from "@/content/drills";
 
@@ -34,6 +34,7 @@ export function useDrillStatus() {
     eligible,
     stats: dueQuery.data?.items ?? [],
     dueCount: dueQuery.data?.dueCount ?? 0,
+    friction: dueQuery.data?.friction ?? ([] as DrillFrictionEntry[]),
     refetchDue: dueQuery.refetch,
   };
 }

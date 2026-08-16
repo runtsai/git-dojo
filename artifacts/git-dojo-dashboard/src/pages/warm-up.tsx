@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "wouter";
 import { recordDrillAttempt } from "@workspace/api-client-react";
-import type { DrillItemStats } from "@workspace/api-client-react";
+import type { DrillItemStats, DrillFrictionEntry } from "@workspace/api-client-react";
 import {
   ArrowLeft,
   ArrowRight,
@@ -10,16 +10,33 @@ import {
   Terminal,
   X,
   Sparkles,
+  AlertTriangle,
 } from "lucide-react";
 import { useDrillStatus } from "@/hooks/use-drills";
 import {
   checkCommandAnswer,
+  drillBank,
   type CommandDrill,
   type ConceptDrill,
   type DrillItem,
 } from "@/content/drills";
 
 const SESSION_SIZE = 8;
+
+// ── Weak-spot helpers ────────────────────────────────────────────────
+/** Build a map of sourceId → sourceLabel from the drill bank. */
+const sourceLabelMap: Map<string, string> = new Map(
+  drillBank
+    .filter((d) => d.sourceId)
+    .map((d) => [d.sourceId as string, d.sourceLabel]),
+);
+
+/** Return the in-app link for a sourceId (lesson or crisis). */
+function sourceLink(sourceId: string): string {
+  if (sourceId.startsWith("crisis-")) return `/crisis/${sourceId}`;
+  if (sourceId.startsWith("lesson-")) return `/test-center/${sourceId}`;
+  return "/";
+}
 
 function timeAgo(iso: string | null): string | null {
   if (!iso) return null;
@@ -52,7 +69,7 @@ interface AttemptOutcome {
 }
 
 export function WarmUp() {
-  const { isLoading, eligible, stats, dueCount, refetchDue } = useDrillStatus();
+  const { isLoading, eligible, stats, dueCount, friction, refetchDue } = useDrillStatus();
 
   useEffect(() => {
     document.title = "Warm Up | Git Dojo";
@@ -255,12 +272,60 @@ export function WarmUp() {
         )}
       </div>
 
+      <WeakSpotsPanel friction={friction} />
+
       <div className="text-sm text-muted-foreground space-y-1">
         <p>
           {eligible.length} drill{eligible.length === 1 ? "" : "s"} unlocked from your
           completed lessons. New lessons unlock more.
         </p>
         <p>Correct answers push items further out; wrong ones bring them back soon.</p>
+      </div>
+    </div>
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────
+function WeakSpotsPanel({ friction }: { friction: DrillFrictionEntry[] }) {
+  if (friction.length === 0) return null;
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+        <AlertTriangle className="w-4 h-4 shrink-0 text-amber-500/80" />
+        <span>Where you've struggled</span>
+      </div>
+      <div className="surface-card divide-y divide-white/5">
+        {friction.map((entry) => {
+          const label = sourceLabelMap.get(entry.sourceId) ?? entry.sourceId;
+          const href = sourceLink(entry.sourceId);
+          const totalRuns = entry.failures + entry.passes;
+          return (
+            <div key={entry.sourceId} className="flex items-center justify-between gap-4 p-4">
+              <div className="min-w-0">
+                <Link
+                  href={href}
+                  className="text-sm font-medium text-foreground hover:text-primary transition-colors truncate block"
+                >
+                  {label}
+                </Link>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {entry.failures} failed check{entry.failures === 1 ? "" : "s"}
+                  {totalRuns > 0 && (
+                    <> · {entry.passes} of {totalRuns} passed</>
+                  )}
+                </p>
+              </div>
+              <Link
+                href={href}
+                className="shrink-0 text-xs px-3 py-1.5 rounded-md bg-secondary text-foreground hover:bg-secondary/70 transition-colors font-medium"
+                aria-label={`Review ${label}`}
+              >
+                Review
+              </Link>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

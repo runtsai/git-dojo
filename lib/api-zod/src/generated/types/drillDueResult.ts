@@ -5,10 +5,13 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { DrillFrictionEntry } from './drillFrictionEntry';
 import type { DrillItemStats } from './drillItemStats';
 
 export interface DrillDueResult {
   /** All candidates with stats, due items first in priority order */
   items: DrillItemStats[];
   dueCount: number;
+  /** Per-source grader friction for sources referenced by the candidates, sorted by failures descending. Only sources with at least one failure are included. */
+  friction: DrillFrictionEntry[];
 }

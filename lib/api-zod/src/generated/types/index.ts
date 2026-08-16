@@ -25,6 +25,7 @@ export * from './drillAttemptInput';
 export * from './drillCandidate';
 export * from './drillCandidateSet';
 export * from './drillDueResult';
+export * from './drillFrictionEntry';
 export * from './drillItemStats';
 export * from './fileDiff';
 export * from './fileDiffChangeKind';

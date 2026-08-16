@@ -119,10 +119,17 @@ export interface DueQueryCandidate {
   sourceId?: string | null;
 }
 
+export interface DrillFrictionEntry {
+  sourceId: string;
+  failures: number;
+  passes: number;
+}
+
 /** Stats for every candidate, due items first (highest priority first). */
 export function queryDue(candidates: DueQueryCandidate[]): {
   items: DrillItemStats[];
   dueCount: number;
+  friction: DrillFrictionEntry[];
 } {
   const data = load();
   const now = Date.now();
@@ -134,7 +141,23 @@ export function queryDue(candidates: DueQueryCandidate[]): {
     if (a.dueNow) return b.priority - a.priority;
     return (Date.parse(a.dueAt ?? "") || 0) - (Date.parse(b.dueAt ?? "") || 0);
   });
-  return { items, dueCount: items.filter((i) => i.dueNow).length };
+
+  // Collect unique sourceIds from candidates and return friction for any that
+  // have at least one failure, sorted by failures descending.
+  const seenSourceIds = new Set<string>();
+  for (const c of candidates) {
+    if (c.sourceId) seenSourceIds.add(c.sourceId);
+  }
+  const friction: DrillFrictionEntry[] = [];
+  for (const sourceId of seenSourceIds) {
+    const rec = data.friction[sourceId];
+    if (rec && rec.failures > 0) {
+      friction.push({ sourceId, failures: rec.failures, passes: rec.passes });
+    }
+  }
+  friction.sort((a, b) => b.failures - a.failures);
+
+  return { items, dueCount: items.filter((i) => i.dueNow).length, friction };
 }
 
 /** Records one attempt and reschedules the item. */

@@ -903,6 +903,20 @@ components:
           type: number
           description: Scheduling priority; grader friction on the item's source raises it
       required: [id, seenCount, correctCount, lastCorrect, lastSeenAt, dueAt, dueNow, priority]
+    DrillFrictionEntry:
+      type: object
+      description: Grader friction for one lesson or crisis source
+      properties:
+        sourceId:
+          type: string
+          description: Lesson or crisis id (e.g. "lesson-01", "crisis-03")
+        failures:
+          type: number
+          description: Number of failed grader runs on this source
+        passes:
+          type: number
+          description: Number of passed grader runs on this source
+      required: [sourceId, failures, passes]
     DrillDueResult:
       type: object
       properties:
@@ -913,7 +927,12 @@ components:
             $ref: "#/components/schemas/DrillItemStats"
         dueCount:
           type: number
-      required: [items, dueCount]
+        friction:
+          type: array
+          description: Per-source grader friction for sources referenced by the candidates, sorted by failures descending. Only sources with at least one failure are included.
+          items:
+            $ref: "#/components/schemas/DrillFrictionEntry"
+      required: [items, dueCount, friction]
     DrillAttemptInput:
       type: object
       properties:

@@ -423,7 +423,12 @@ export const GetDueDrillsResponse = zod.object({
   "dueNow": zod.boolean(),
   "priority": zod.number().describe('Scheduling priority; grader friction on the item\'s source raises it')
 })).describe('All candidates with stats, due items first in priority order'),
-  "dueCount": zod.number()
+  "dueCount": zod.number(),
+  "friction": zod.array(zod.object({
+  "sourceId": zod.string().describe('Lesson or crisis id (e.g. \"lesson-01\", \"crisis-03\")'),
+  "failures": zod.number().describe('Number of failed grader runs on this source'),
+  "passes": zod.number().describe('Number of passed grader runs on this source')
+}).describe('Grader friction for one lesson or crisis source')).describe('Per-source grader friction for sources referenced by the candidates, sorted by failures descending. Only sources with at least one failure are included.')
 })
 
 

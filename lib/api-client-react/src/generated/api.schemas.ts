@@ -307,10 +307,24 @@ export interface DrillItemStats {
   priority: number;
 }
 
+/**
+ * Grader friction for one lesson or crisis source
+ */
+export interface DrillFrictionEntry {
+  /** Lesson or crisis id (e.g. "lesson-01", "crisis-03") */
+  sourceId: string;
+  /** Number of failed grader runs on this source */
+  failures: number;
+  /** Number of passed grader runs on this source */
+  passes: number;
+}
+
 export interface DrillDueResult {
   /** All candidates with stats, due items first in priority order */
   items: DrillItemStats[];
   dueCount: number;
+  /** Per-source grader friction for sources referenced by the candidates, sorted by failures descending. Only sources with at least one failure are included. */
+  friction: DrillFrictionEntry[];
 }
 
 export interface DrillAttemptInput {
