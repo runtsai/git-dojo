@@ -28,6 +28,7 @@ flatten_into() {
 }
 
 FLATTENED=""
+FAILS=0
 
 # --- 1a. This script itself may be inside the nested duplicate ---------------
 # Layout: ~/git-dojo/git-dojo/setup.sh (outer folder holds only the inner repo)
@@ -74,6 +75,7 @@ else
   echo "[FAIL] Can't find the lesson folders. Run 'ls' here — if you see a"
   echo "       single folder containing the lessons, move its contents up one"
   echo "       level, or re-extract the zip directly into your home folder."
+  FAILS=$((FAILS + 1))
 fi
 
 # --- 3. Verify Git is installed and new enough --------------------------------
@@ -86,11 +88,16 @@ if command -v git >/dev/null 2>&1; then
   else
     echo "[FAIL] Git $GIT_VERSION is too old — this course needs 2.23 or newer"
     echo "       (for 'git switch'). Please update Git."
+    FAILS=$((FAILS + 1))
   fi
 else
   echo "[FAIL] Git is not installed (or this terminal can't see it)."
   echo "       Windows: install Git for Windows from https://git-scm.com/download/win"
   echo "       then close this window and open Git Bash."
+  echo
+  echo "One or more checks failed — run this for a full diagnosis:"
+  echo "  bash ~/git-dojo/doctor.sh"
+  echo "(Windows Git Bash: Shift+Insert to paste)"
   exit 1
 fi
 
@@ -107,4 +114,10 @@ else
 fi
 
 echo
+if [ "$FAILS" -gt 0 ]; then
+  echo "One or more checks failed — run this for a full diagnosis:"
+  echo "  bash ~/git-dojo/doctor.sh"
+  echo "(Windows Git Bash: Shift+Insert to paste)"
+  echo
+fi
 echo "Next: cd lesson-01-first-snapshot && bash setup.sh"
