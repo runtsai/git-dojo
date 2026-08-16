@@ -13,6 +13,7 @@
   "dependencies": {
     "@replit/connectors-sdk": "^0.4.1",
     "@workspace/api-zod": "workspace:*",
+    "@workspace/course-content": "workspace:*",
     "@workspace/promo-config": "workspace:*",
     "@workspace/db": "workspace:*",
     "cookie-parser": "^1.4.7",

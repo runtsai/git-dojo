@@ -4,6 +4,7 @@ import {
   CompleteModuleBody,
   CompleteModuleResponse,
 } from "@workspace/api-zod";
+import { MODULE_PREREQUISITES } from "@workspace/course-content";
 import { loadEntries, recordCompletion } from "../lib/progress-store";
 
 const router: IRouter = Router();
@@ -23,14 +24,6 @@ const VISUAL_MODULE_IDS = new Set([
   "6.1", "6.2", "6.3",
 ]);
 
-/**
- * Server-side prerequisite gate — mirrors the `prerequisite` field in
- * artifacts/git-dojo-dashboard/src/content/tiers.ts.
- * Maps moduleId → the moduleId that must already be complete (visual track).
- */
-const MODULE_PREREQUISITES: Record<string, string> = {
-  "2.4": "2.3",
-};
 
 router.get("/progress", (_req, res) => {
   res.json(GetProgressResponse.parse({ entries: loadEntries() }));
