@@ -677,12 +677,13 @@ describe("readWorkingFileDiff — integration", () => {
 
   it("crisis-02: conflicted file mid-merge returns valid WorkingFileDiffData shape", async () => {
     // Reproduces the state crisis-02 leaves: a merge was started but left open
-    // with conflicts. rates.txt has conflict markers — both sides changed the
-    // fuel-surcharge line to different values.
+    // with conflicts. rates.txt and drivers.txt both have conflict markers —
+    // both sides changed distinct lines in each file.
     const dir = makeRepo();
     reposToClean.push(dir);
 
     const RATES = "RTS Freight rates\nStandard load: $500\nRush load: $750\nFuel surcharge: $40\n";
+    const DRIVERS = "Active drivers\nM. Alvarez\nJ. Okafor\nT. Singh\n";
     const env = {
       ...process.env,
       GIT_AUTHOR_NAME: "Test",
@@ -695,22 +696,25 @@ describe("readWorkingFileDiff — integration", () => {
     };
     const g = (...args: string[]) => execFileSync("git", args, { cwd: dir, env });
 
-    // Base commit with original rates
+    // Base commit with original rates and drivers
     writeFileSync(path.join(dir, "rates.txt"), RATES);
+    writeFileSync(path.join(dir, "drivers.txt"), DRIVERS);
     g("add", ".");
     g("commit", "-m", "Open the books");
 
-    // Feature branch: change surcharge to $80
+    // Feature branch: change surcharge to $80 and remove a driver
     g("checkout", "-b", "rate-overhaul");
     writeFileSync(path.join(dir, "rates.txt"), RATES.replace("Fuel surcharge: $40", "Fuel surcharge: $80"));
+    writeFileSync(path.join(dir, "drivers.txt"), DRIVERS.replace("T. Singh\n", "T. Singh\nR. Patel\n"));
     g("add", ".");
-    g("commit", "-m", "Overhaul: raise fuel surcharge");
+    g("commit", "-m", "Overhaul: raise fuel surcharge, add driver");
 
-    // Back to main: change surcharge to $65 (conflict!)
+    // Back to main: change surcharge to $65 and also edit drivers (conflict!)
     g("checkout", "main");
     writeFileSync(path.join(dir, "rates.txt"), RATES.replace("Fuel surcharge: $40", "Fuel surcharge: $65"));
+    writeFileSync(path.join(dir, "drivers.txt"), DRIVERS.replace("T. Singh\n", "T. Singh\nK. Nwosu\n"));
     g("add", ".");
-    g("commit", "-m", "Mainline: raise fuel surcharge");
+    g("commit", "-m", "Mainline: raise fuel surcharge, add different driver");
 
     // Start merge — it will conflict; ignore the non-zero exit
     try {
@@ -719,7 +723,7 @@ describe("readWorkingFileDiff — integration", () => {
       /* expected conflict */
     }
 
-    // The file must now be in conflict (UU status)
+    // rates.txt must be in conflict (UU status)
     const diff = await readWorkingFileDiff(dir, "rates.txt");
 
     // Shape checks — must never return null for a conflicted file
@@ -733,6 +737,19 @@ describe("readWorkingFileDiff — integration", () => {
     // — the important thing is the shape is present and not throwing
     expect("staged" in diff!).toBe(true);
     expect("unstaged" in diff!).toBe(true);
+
+    // drivers.txt must also be in conflict and return a valid WorkingFileDiffData shape
+    const driversDiff = await readWorkingFileDiff(dir, "drivers.txt");
+
+    expect(driversDiff).not.toBeNull();
+    expect(driversDiff!.path).toBe("drivers.txt");
+    expect(driversDiff!.status).toBe("conflicted");
+    // summary must be a non-empty string
+    expect(typeof driversDiff!.summary).toBe("string");
+    expect(driversDiff!.summary.length).toBeGreaterThan(0);
+    // shape fields must be present regardless of diff content
+    expect("staged" in driversDiff!).toBe(true);
+    expect("unstaged" in driversDiff!).toBe(true);
   });
 
   it("crisis-05: staged-only file has staged diff and no unstaged diff", async () => {
