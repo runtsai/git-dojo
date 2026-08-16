@@ -18,3 +18,8 @@ export const CLI_LESSON_IDS = [
 ] as const;
 
 export type CliLessonId = (typeof CLI_LESSON_IDS)[number];
+
+/** Returns true only when `id` is a known CLI lesson from the manifest. */
+export function isValidLessonId(id: string): id is CliLessonId {
+  return (CLI_LESSON_IDS as readonly string[]).includes(id);
+}

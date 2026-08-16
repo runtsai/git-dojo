@@ -1,5 +1,7 @@
 import { useGetRepoState, getGetRepoStateQueryKey, useListLessons } from "@workspace/api-client-react";
 import { useParams, Link } from "wouter";
+import NotFound from "@/pages/not-found";
+import { isValidLessonId } from "@/content/lessons";
 import { ArrowLeft, ChevronDown, ChevronUp, Map, RefreshCw, Terminal, GitBranch, Info } from "lucide-react";
 import { SummaryPanel } from "@/components/repo-view/summary-panel";
 import { FileStatus } from "@/components/repo-view/file-status";
@@ -85,8 +87,25 @@ function WayfindingPanel({ lessonId }: { lessonId: string }) {
   );
 }
 
+/**
+ * Wrapper that validates the URL param against the manifest before mounting
+ * the hook-heavy implementation.  This keeps all hooks in LessonContent so
+ * the Rules of Hooks are never violated by the early-return guard.
+ */
 export function LessonView() {
   const { lessonId } = useParams<{ lessonId: string }>();
+
+  // Guard: only serve lessons that are declared in the manifest.
+  // An unknown id (typo, stale bookmark, removed lesson) gets a 404 instead of
+  // a broken data-fetch loop.
+  if (!lessonId || !isValidLessonId(lessonId)) {
+    return <NotFound />;
+  }
+
+  return <LessonContent lessonId={lessonId} />;
+}
+
+function LessonContent({ lessonId }: { lessonId: string }) {
   const queryClient = useQueryClient();
   const [diffSelection, setDiffSelection] = useState<DiffSelection | null>(null);
 
