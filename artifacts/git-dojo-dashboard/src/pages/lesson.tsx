@@ -10,12 +10,12 @@ import { BranchList } from "@/components/repo-view/branch-list";
 import { CheckRunner } from "@/components/repo-view/check-runner";
 import { TeammateAction } from "@/components/repo-view/teammate-action";
 import { useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
 import { CommandBlock } from "@/components/ui/command-block";
 import { MapPeek } from "@/components/map-peek";
 import { TerritoryStrip } from "@/components/repo-view/territory-strip";
 import { DiffViewer, DiffSelection } from "@/components/repo-view/diff-viewer";
 import { safeStorage } from "@/lib/safe-storage";
+import { useEffect, useRef, useState } from "react";
 
 function WayfindingPanel({ lessonId }: { lessonId: string }) {
   const [expanded, setExpanded] = useState(false);
@@ -130,6 +130,23 @@ function LessonContent({ lessonId }: { lessonId: string }) {
     }
   });
 
+  // Persist the last successfully-fetched repo so the UI can stay visible
+  // (dimmed) while the API is unreachable, instead of going blank.
+  const lastKnownRepoRef = useRef<typeof repo>(undefined);
+  if (repo) {
+    lastKnownRepoRef.current = repo;
+  }
+  const displayRepo = repo ?? lastKnownRepoRef.current;
+
+  // Show the strip as dimmed whenever we are retrying after a failure — React
+  // Query keeps `repo` alive while the observer is mounted, so `!repo` alone
+  // is not a reliable outage signal.  `lostContact` (isFetching + failureCount)
+  // fires within ~4–8 s of the first missed poll and clears the moment a
+  // successful fetch completes, giving a tight freeze/resume cycle.
+  // The lastKnownRepoRef still guards against the rare case where the cache IS
+  // evicted (e.g. query disabled or observer unmounted/remounted mid-outage).
+  const showingStale = lostContact;
+
   // Show a reconnecting banner as soon as the second poll cycle begins after a
   // failure: isFetching fires when the retry starts, failureCount >= 1 means at
   // least one attempt already failed.  Together they surface the banner within
@@ -150,7 +167,7 @@ function LessonContent({ lessonId }: { lessonId: string }) {
     );
   }
 
-  if (!repo) return null;
+  if (!displayRepo) return null;
 
   return (
     <div className="space-y-8 pb-12 enter-slide-up max-w-7xl mx-auto w-full min-w-0">
@@ -195,7 +212,7 @@ function LessonContent({ lessonId }: { lessonId: string }) {
 
       {lessonId && <WayfindingPanel lessonId={lessonId} />}
 
-      {!repo.hasPlayground ? (
+      {!displayRepo.hasPlayground ? (
         <div className="surface-card p-10 text-center max-w-2xl mx-auto">
           <div className="w-16 h-16 bg-black/50 border border-white/5 shadow-inner text-muted-foreground rounded-xl flex items-center justify-center mx-auto mb-6">
             <Terminal className="w-8 h-8" />
@@ -218,7 +235,7 @@ function LessonContent({ lessonId }: { lessonId: string }) {
             </div>
           )}
         </div>
-      ) : !repo.initialized ? (
+      ) : !displayRepo.initialized ? (
         <div className="surface-card p-10 text-center max-w-2xl mx-auto border-primary/30 shadow-[0_0_30px_rgba(255,107,0,0.1)]">
           <div className="w-16 h-16 bg-primary/10 text-primary rounded-xl flex items-center justify-center mx-auto mb-6 border border-primary/30 shadow-sm">
             <GitBranch className="w-8 h-8" />
@@ -235,11 +252,12 @@ function LessonContent({ lessonId }: { lessonId: string }) {
         </div>
       ) : (
         <>
-          <SummaryPanel summary={repo.summary} isDetached={repo.detachedHead} currentBranch={repo.currentBranch} />
+          <SummaryPanel summary={displayRepo.summary} isDetached={displayRepo.detachedHead} currentBranch={displayRepo.currentBranch} />
 
           <TerritoryStrip
-            repo={repo}
+            repo={displayRepo}
             lastFetchedAt={dataUpdatedAt}
+            dimmed={showingStale}
             onFileClick={(path) => setDiffSelection({ kind: "file", path })}
             onCommitClick={(hash, shortHash) => setDiffSelection({ kind: "commit", hash, shortHash })}
           />
@@ -247,22 +265,22 @@ function LessonContent({ lessonId }: { lessonId: string }) {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <div className="lg:col-span-2 space-y-8">
               <FileStatus
-                files={repo.files}
+                files={displayRepo.files}
                 onFileClick={(f) => setDiffSelection({ kind: "file", path: f.path })}
               />
               <CommitTimeline
-                commits={repo.commits}
-                branches={repo.branches}
-                remoteBranches={repo.remoteBranches}
-                currentBranch={repo.currentBranch}
-                syncStatus={repo.syncStatus}
+                commits={displayRepo.commits}
+                branches={displayRepo.branches}
+                remoteBranches={displayRepo.remoteBranches}
+                currentBranch={displayRepo.currentBranch}
+                syncStatus={displayRepo.syncStatus}
                 onCommitClick={(c) => setDiffSelection({ kind: "commit", hash: c.hash, shortHash: c.shortHash })}
               />
             </div>
             <div className="space-y-8">
-              {repo.hasBot && <TeammateAction lessonId={lessonId!} />}
+              {displayRepo.hasBot && <TeammateAction lessonId={lessonId!} />}
               <CheckRunner lessonId={lessonId!} />
-              <BranchList branches={repo.branches} />
+              <BranchList branches={displayRepo.branches} />
             </div>
           </div>
         </>

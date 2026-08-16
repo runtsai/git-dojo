@@ -363,6 +363,7 @@ export function isStaleGap(prevFetchedAt: number, currentFetchedAt: number): boo
 export function TerritoryStrip({
   repo,
   lastFetchedAt,
+  dimmed = false,
   onFileClick,
   onCommitClick,
 }: {
@@ -374,6 +375,12 @@ export function TerritoryStrip({
    * cadence and lets the strip detect a connectivity gap.
    */
   lastFetchedAt: number;
+  /**
+   * When true, the strip renders last-known data in a dimmed/frozen state
+   * to indicate the API is currently unreachable.  Movement narration is
+   * suppressed while dimmed; live updates resume automatically on reconnect.
+   */
+  dimmed?: boolean;
   /** When provided, clicking a file chip reveals its working-copy changes. */
   onFileClick?: (path: string) => void;
   /** When provided, clicking a commit chip reveals what that snapshot changed. */
@@ -413,7 +420,11 @@ export function TerritoryStrip({
   const fresh = new Set(latest?.freshKeys ?? []);
 
   return (
-    <div className="surface-card p-5 md:p-6 overflow-hidden" data-testid="territory-strip">
+    <div
+      className={`surface-card p-5 md:p-6 overflow-hidden transition-opacity duration-500 ${dimmed ? "opacity-50 pointer-events-none select-none" : ""}`}
+      data-testid="territory-strip"
+      aria-live="polite"
+    >
       <div className="flex flex-wrap items-center gap-3 mb-4">
         <h3 className="text-base font-bold text-foreground tracking-tight">Where your work is right now</h3>
         {repo.repoFolder && (
@@ -421,7 +432,11 @@ export function TerritoryStrip({
             <FolderOpen className="w-3.5 h-3.5" /> standing in: {repo.repoFolder}/
           </span>
         )}
-        <span className="hidden sm:block ml-auto text-[11px] text-muted-foreground">same places as the Map</span>
+        {dimmed ? (
+          <span className="ml-auto text-[11px] font-medium text-amber-400/80">last known state</span>
+        ) : (
+          <span className="hidden sm:block ml-auto text-[11px] text-muted-foreground">same places as the Map</span>
+        )}
       </div>
 
       <div className="flex flex-col md:flex-row gap-2 md:items-stretch">

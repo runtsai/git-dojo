@@ -160,7 +160,7 @@ describe("GET /export/promo-video", () => {
     // Attach a minimal req.log shim so the route's req.log.* calls don't throw
     // when pino-http middleware is absent in the test harness.
     app.use((req, _res, next) => {
-      (req as Record<string, unknown>)["log"] = {
+      (req as unknown as Record<string, unknown>)["log"] = {
         info: () => {},
         warn: () => {},
         error: () => {},
