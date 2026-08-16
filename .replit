@@ -35,17 +35,6 @@ args = "API_URL=http://localhost:8080 pnpm --filter @workspace/scripts run api-s
 [workflows.workflow.metadata]
 isValidation = true
 
-[[workflows.workflow]]
-name = "sync-github"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "bash scripts/sync-to-github.sh"
-
-[workflows.workflow.metadata]
-isValidation = true
-
 [agent]
 stack = "PNPM_WORKSPACE"
 expertMode = true
