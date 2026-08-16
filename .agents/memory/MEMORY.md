@@ -3,3 +3,4 @@
 - [Clean-machine git simulation](clean-machine-git-simulation.md) — HOME override alone leaks workspace git config; unset GIT_CONFIG_GLOBAL + XDG_CONFIG_HOME and test master-world too.
 - [GitHub connector scope limits](github-connector-scopes.md) — connector token lacks delete_repo; repo deletion must fall back to manual, branch deletion works.
 - [OpenAPI shared-schema merges](openapi-shared-schema-merges.md) — after merging spec changes + codegen, curl every endpoint sharing a touched schema; new required fields break sibling routes at runtime only.
+- [OpenAPI integer types break codegen](openapi-integer-types.md) — use `type: number`, never `type: integer`; orval emits z.int() which zod 3.25 lacks.

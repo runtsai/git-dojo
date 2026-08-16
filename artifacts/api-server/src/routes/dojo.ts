@@ -148,6 +148,7 @@ router.get("/dojo/lessons/:lessonId/state", async (req, res) => {
       lessonId: lesson.id,
       hasBot: existsSync(path.join(root, lesson.folderName, "bot.sh")),
       ...state,
+      repoFolder: repoDir && repoDir !== pgRoot ? path.basename(repoDir) : null,
       summary: buildSummary(state),
     }),
   );

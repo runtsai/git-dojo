@@ -57,6 +57,13 @@ export interface RepoCommitInfo {
   authorName: string;
   date: string;
   refs: string[];
+  parents: string[];
+}
+
+export interface SyncStatusInfo {
+  remoteBranch: string;
+  ahead: number;
+  behind: number;
 }
 
 export interface RepoStateData {
@@ -69,6 +76,9 @@ export interface RepoStateData {
   commits: RepoCommitInfo[];
   branches: { name: string; isCurrent: boolean; headHash: string }[];
   remotes: string[];
+  remoteBranches: { name: string; headHash: string }[];
+  syncStatus: SyncStatusInfo | null;
+  repoFolder: string | null;
 }
 
 /** Read the full git state of a practice repository directory. */
@@ -83,6 +93,8 @@ export async function readRepoState(pg: string): Promise<RepoStateData> {
   let commits: RepoCommitInfo[] = [];
   let branches: { name: string; isCurrent: boolean; headHash: string }[] = [];
   let remotes: string[] = [];
+  let remoteBranches: { name: string; headHash: string }[] = [];
+  let syncStatus: SyncStatusInfo | null = null;
 
   if (initialized) {
     const head = await git(pg, ["symbolic-ref", "--short", "-q", "HEAD"]);
@@ -111,13 +123,17 @@ export async function readRepoState(pg: string): Promise<RepoStateData> {
 
     const SEP = "\x1f";
     const REC = "\x1e";
+    // --all walks refs only; include HEAD explicitly so a detached commit
+    // reachable from nowhere else (e.g. crisis-01) still shows up.
+    const headResolves = !!(await git(pg, ["rev-parse", "-q", "--verify", "HEAD"]));
     const log = await git(pg, [
       "log",
       "--all",
+      ...(headResolves ? ["HEAD"] : []),
       "-n",
       "100",
       "--date-order",
-      `--format=%H${SEP}%h${SEP}%s${SEP}%an${SEP}%aI${SEP}%D${REC}`,
+      `--format=%H${SEP}%h${SEP}%s${SEP}%an${SEP}%aI${SEP}%P${SEP}%D${REC}`,
     ]);
     if (log) {
       commits = log
@@ -125,7 +141,7 @@ export async function readRepoState(pg: string): Promise<RepoStateData> {
         .map((r) => r.trim())
         .filter(Boolean)
         .map((r) => {
-          const [hash = "", shortHash = "", subject = "", authorName = "", date = "", refs = ""] =
+          const [hash = "", shortHash = "", subject = "", authorName = "", date = "", parents = "", refs = ""] =
             r.split(SEP);
           return {
             hash,
@@ -133,6 +149,7 @@ export async function readRepoState(pg: string): Promise<RepoStateData> {
             subject,
             authorName,
             date,
+            parents: parents.split(" ").filter(Boolean),
             refs: refs
               .split(",")
               .map((s) => s.trim().replace(/^HEAD -> /, ""))
@@ -159,6 +176,54 @@ export async function readRepoState(pg: string): Promise<RepoStateData> {
 
     const remoteOut = await git(pg, ["remote"]);
     if (remoteOut) remotes = remoteOut.split("\n").filter(Boolean);
+
+    const remoteRefOut = await git(pg, [
+      "for-each-ref",
+      "refs/remotes",
+      "--format=%(refname:short) %(objectname)",
+    ]);
+    if (remoteRefOut) {
+      remoteBranches = remoteRefOut
+        .split("\n")
+        .filter(Boolean)
+        .filter((line) => !line.split(" ")[0]?.endsWith("/HEAD"))
+        .map((line) => {
+          const idx = line.lastIndexOf(" ");
+          return { name: line.slice(0, idx), headHash: line.slice(idx + 1) };
+        });
+    }
+
+    // Ahead/behind for the current branch vs its remote counterpart:
+    // prefer the configured upstream, fall back to <remote>/<branch>.
+    if (currentBranch && !detachedHead && remoteBranches.length > 0) {
+      let remoteBranch: string | null = null;
+      const upstream = await git(pg, [
+        "rev-parse",
+        "--abbrev-ref",
+        "--symbolic-full-name",
+        `${currentBranch}@{upstream}`,
+      ]);
+      if (upstream && upstream.trim()) remoteBranch = upstream.trim();
+      else {
+        const candidate = remoteBranches.find((rb) => {
+          const slash = rb.name.indexOf("/");
+          return slash > 0 && rb.name.slice(slash + 1) === currentBranch;
+        });
+        if (candidate) remoteBranch = candidate.name;
+      }
+      if (remoteBranch) {
+        const counts = await git(pg, [
+          "rev-list",
+          "--left-right",
+          "--count",
+          `${currentBranch}...${remoteBranch}`,
+        ]);
+        if (counts) {
+          const [ahead = "0", behind = "0"] = counts.trim().split(/\s+/);
+          syncStatus = { remoteBranch, ahead: Number(ahead) || 0, behind: Number(behind) || 0 };
+        }
+      }
+    }
   }
 
   return {
@@ -171,6 +236,9 @@ export async function readRepoState(pg: string): Promise<RepoStateData> {
     commits,
     branches,
     remotes,
+    remoteBranches,
+    syncStatus,
+    repoFolder: null,
   };
 }
 

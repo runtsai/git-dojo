@@ -20,4 +20,6 @@ export interface RepoCommit {
      * @nullable
      */
   branch?: string | null;
+  /** Full hashes of this commit's parent commits (2+ for merges) */
+  parents: string[];
 }

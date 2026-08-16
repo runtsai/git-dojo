@@ -11,6 +11,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { CommandBlock } from "@/components/ui/command-block";
 import { MapPeek } from "@/components/map-peek";
+import { TerritoryStrip } from "@/components/repo-view/territory-strip";
 
 function WayfindingPanel({ lessonId }: { lessonId: string }) {
   const [expanded, setExpanded] = useState(false);
@@ -191,11 +192,19 @@ export function LessonView() {
       ) : (
         <>
           <SummaryPanel summary={repo.summary} isDetached={repo.detachedHead} currentBranch={repo.currentBranch} />
-          
+
+          <TerritoryStrip repo={repo} />
+
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <div className="lg:col-span-2 space-y-8">
               <FileStatus files={repo.files} />
-              <CommitTimeline commits={repo.commits} />
+              <CommitTimeline
+                commits={repo.commits}
+                branches={repo.branches}
+                remoteBranches={repo.remoteBranches}
+                currentBranch={repo.currentBranch}
+                syncStatus={repo.syncStatus}
+              />
             </div>
             <div className="space-y-8">
               {repo.hasBot && <TeammateAction lessonId={lessonId!} />}

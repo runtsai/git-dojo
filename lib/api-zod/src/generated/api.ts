@@ -72,7 +72,8 @@ export const GetRepoStateResponse = zod.object({
   "authorName": zod.string(),
   "date": zod.string().describe('ISO 8601 author date'),
   "refs": zod.array(zod.string()).describe('Branch or tag names pointing at this commit'),
-  "branch": zod.string().nullish().describe('Branch this commit was listed under, when walking per-branch history')
+  "branch": zod.string().nullish().describe('Branch this commit was listed under, when walking per-branch history'),
+  "parents": zod.array(zod.string()).describe('Full hashes of this commit\'s parent commits (2+ for merges)')
 })),
   "branches": zod.array(zod.object({
   "name": zod.string(),
@@ -80,6 +81,16 @@ export const GetRepoStateResponse = zod.object({
   "headHash": zod.string()
 })),
   "remotes": zod.array(zod.string()),
+  "remoteBranches": zod.array(zod.object({
+  "name": zod.string().describe('Remote-tracking ref short name, e.g. origin\/main'),
+  "headHash": zod.string()
+})).describe('Remote-tracking branch heads (where GitHub\'s copy sits, as last seen)'),
+  "syncStatus": zod.union([zod.object({
+  "remoteBranch": zod.string().describe('The remote-tracking branch compared against, e.g. origin\/main'),
+  "ahead": zod.number().describe('Local commits the remote doesn\'t have yet (not pushed)'),
+  "behind": zod.number().describe('Remote commits the local branch doesn\'t have yet (not pulled)')
+}),zod.null()]).describe('Ahead\/behind counts for the current branch vs its remote counterpart, when one exists'),
+  "repoFolder": zod.string().nullable().describe('Subfolder of the playground the state was read from (e.g. laptop), when the working copy isn\'t the playground root'),
   "summary": zod.string().describe('Plain-English explanation of the current repository state'),
   "hasBot": zod.boolean().describe('The lesson has a scripted teammate (bot.sh) that can act when time passes')
 })
@@ -170,7 +181,8 @@ export const GetCrisisRepoStateResponse = zod.object({
   "authorName": zod.string(),
   "date": zod.string().describe('ISO 8601 author date'),
   "refs": zod.array(zod.string()).describe('Branch or tag names pointing at this commit'),
-  "branch": zod.string().nullish().describe('Branch this commit was listed under, when walking per-branch history')
+  "branch": zod.string().nullish().describe('Branch this commit was listed under, when walking per-branch history'),
+  "parents": zod.array(zod.string()).describe('Full hashes of this commit\'s parent commits (2+ for merges)')
 })),
   "branches": zod.array(zod.object({
   "name": zod.string(),
@@ -178,6 +190,16 @@ export const GetCrisisRepoStateResponse = zod.object({
   "headHash": zod.string()
 })),
   "remotes": zod.array(zod.string()),
+  "remoteBranches": zod.array(zod.object({
+  "name": zod.string().describe('Remote-tracking ref short name, e.g. origin\/main'),
+  "headHash": zod.string()
+})).describe('Remote-tracking branch heads (where GitHub\'s copy sits, as last seen)'),
+  "syncStatus": zod.union([zod.object({
+  "remoteBranch": zod.string().describe('The remote-tracking branch compared against, e.g. origin\/main'),
+  "ahead": zod.number().describe('Local commits the remote doesn\'t have yet (not pushed)'),
+  "behind": zod.number().describe('Remote commits the local branch doesn\'t have yet (not pulled)')
+}),zod.null()]).describe('Ahead\/behind counts for the current branch vs its remote counterpart, when one exists'),
+  "repoFolder": zod.string().nullable().describe('Subfolder of the playground the state was read from (e.g. laptop), when the working copy isn\'t the playground root'),
   "summary": zod.string().describe('Plain-English explanation of the current repository state'),
   "hasBot": zod.boolean().describe('The lesson has a scripted teammate (bot.sh) that can act when time passes')
 })

@@ -68,6 +68,23 @@ export interface RepoCommit {
      * @nullable
      */
   branch?: string | null;
+  /** Full hashes of this commit's parent commits (2+ for merges) */
+  parents: string[];
+}
+
+export interface RemoteBranch {
+  /** Remote-tracking ref short name, e.g. origin/main */
+  name: string;
+  headHash: string;
+}
+
+export interface SyncStatus {
+  /** The remote-tracking branch compared against, e.g. origin/main */
+  remoteBranch: string;
+  /** Local commits the remote doesn't have yet (not pushed) */
+  ahead: number;
+  /** Remote commits the local branch doesn't have yet (not pulled) */
+  behind: number;
 }
 
 export interface RepoBranch {
@@ -88,6 +105,15 @@ export interface RepoState {
   commits: RepoCommit[];
   branches: RepoBranch[];
   remotes: string[];
+  /** Remote-tracking branch heads (where GitHub's copy sits, as last seen) */
+  remoteBranches: RemoteBranch[];
+  /** Ahead/behind counts for the current branch vs its remote counterpart, when one exists */
+  syncStatus: SyncStatus | null;
+  /**
+     * Subfolder of the playground the state was read from (e.g. laptop), when the working copy isn't the playground root
+     * @nullable
+     */
+  repoFolder: string | null;
   /** Plain-English explanation of the current repository state */
   summary: string;
   /** The lesson has a scripted teammate (bot.sh) that can act when time passes */

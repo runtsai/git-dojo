@@ -465,7 +465,34 @@ components:
         branch:
           type: ["string", "null"]
           description: Branch this commit was listed under, when walking per-branch history
-      required: [hash, shortHash, subject, authorName, date, refs]
+        parents:
+          type: array
+          items:
+            type: string
+          description: Full hashes of this commit's parent commits (2+ for merges)
+      required: [hash, shortHash, subject, authorName, date, refs, parents]
+    RemoteBranch:
+      type: object
+      properties:
+        name:
+          type: string
+          description: Remote-tracking ref short name, e.g. origin/main
+        headHash:
+          type: string
+      required: [name, headHash]
+    SyncStatus:
+      type: object
+      properties:
+        remoteBranch:
+          type: string
+          description: The remote-tracking branch compared against, e.g. origin/main
+        ahead:
+          type: number
+          description: Local commits the remote doesn't have yet (not pushed)
+        behind:
+          type: number
+          description: Remote commits the local branch doesn't have yet (not pulled)
+      required: [remoteBranch, ahead, behind]
     RepoBranch:
       type: object
       properties:
@@ -507,6 +534,19 @@ components:
           type: array
           items:
             type: string
+        remoteBranches:
+          type: array
+          items:
+            $ref: "#/components/schemas/RemoteBranch"
+          description: Remote-tracking branch heads (where GitHub's copy sits, as last seen)
+        syncStatus:
+          oneOf:
+            - $ref: "#/components/schemas/SyncStatus"
+            - type: "null"
+          description: Ahead/behind counts for the current branch vs its remote counterpart, when one exists
+        repoFolder:
+          type: ["string", "null"]
+          description: Subfolder of the playground the state was read from (e.g. laptop), when the working copy isn't the playground root
         summary:
           type: string
           description: Plain-English explanation of the current repository state
@@ -526,6 +566,9 @@ components:
           commits,
           branches,
           remotes,
+          remoteBranches,
+          syncStatus,
+          repoFolder,
           summary,
         ]
     ProgressEntry:
