@@ -89,12 +89,18 @@ export function LessonView() {
   const { lessonId } = useParams<{ lessonId: string }>();
   const queryClient = useQueryClient();
   const [diffSelection, setDiffSelection] = useState<DiffSelection | null>(null);
-  
+
+  const { data: lessons, isLoading: isLessonsLoading } = useListLessons();
+  const currentLesson = lessons?.find((l) => l.id === lessonId);
+  const folderName = currentLesson?.folderName;
+  const lessonTitle = currentLesson?.title;
+
   useEffect(() => {
     if (lessonId) {
-      document.title = `${lessonId} | Test Center`;
+      const displayTitle = lessonTitle || lessonId;
+      document.title = `${displayTitle} | Test Center`;
     }
-  }, [lessonId]);
+  }, [lessonId, lessonTitle]);
 
   const { data: repo, isLoading, isFetching } = useGetRepoState(lessonId || '', {
     query: {
@@ -103,9 +109,6 @@ export function LessonView() {
       refetchInterval: 4000
     }
   });
-
-  const { data: lessons, isLoading: isLessonsLoading } = useListLessons();
-  const folderName = lessons?.find((l) => l.id === lessonId)?.folderName;
 
   const handleRefresh = () => {
     queryClient.invalidateQueries({ queryKey: getGetRepoStateQueryKey(lessonId || '') });
@@ -133,7 +136,7 @@ export function LessonView() {
               <div className="p-2 bg-primary/10 rounded-md text-primary shadow-sm border border-primary/20">
                 <Terminal className="w-6 h-6" />
               </div>
-              {lessonId}
+              {lessonTitle ? lessonTitle : lessonId}
             </h1>
             {isFetching && <RefreshCw className="w-4 h-4 text-primary animate-spin opacity-50" />}
           </div>
