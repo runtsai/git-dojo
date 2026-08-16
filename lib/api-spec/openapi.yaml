@@ -943,7 +943,14 @@ components:
         olderFailures:
           type: number
           description: Failures in the older half of the last 10 grader runs
-      required: [sourceId, failures, passes, effectiveFailures, recentPasses, recentFailures, olderPasses, olderFailures]
+        windowFailures:
+          type: number
+          description: >
+            Number of failed runs within the rolling window (last 30 grader
+            runs). Use this for display instead of the raw cumulative
+            `failures` counter so the subtitle stays consistent with current
+            struggle level.
+      required: [sourceId, failures, passes, effectiveFailures, recentPasses, recentFailures, olderPasses, olderFailures, windowFailures]
     DrillDueResult:
       type: object
       properties:

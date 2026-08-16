@@ -26,4 +26,6 @@ export interface DrillFrictionEntry {
   olderPasses: number;
   /** Failures in the older half of the last 10 grader runs */
   olderFailures: number;
+  /** Number of failed runs within the rolling window (last 30 grader runs). Use this for display instead of the raw cumulative failures counter so the subtitle stays consistent with current struggle level. */
+  windowFailures: number;
 }

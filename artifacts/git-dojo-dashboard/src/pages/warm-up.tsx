@@ -357,7 +357,7 @@ function WeakSpotsPanel({ friction }: { friction: DrillFrictionEntry[] }) {
                 </Link>
                 <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                   <p className="text-xs text-muted-foreground">
-                    {entry.failures} failed check{entry.failures === 1 ? "" : "s"}
+                    {entry.windowFailures} failed check{entry.windowFailures === 1 ? "" : "s"}
                     {totalRuns > 0 && (
                       <> · {entry.passes} of {totalRuns} passed</>
                     )}

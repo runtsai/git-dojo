@@ -210,6 +210,12 @@ export interface DrillFrictionEntry {
   olderPasses: number;
   /** Failures in the older half of the last RECENT_WINDOW runs. */
   olderFailures: number;
+  /**
+   * Failures within the rolling window (last FRICTION_WINDOW runs). Use this
+   * for display instead of the raw cumulative `failures` counter so the UI
+   * stays consistent with current struggle level.
+   */
+  windowFailures: number;
 }
 
 /** Stats for every candidate, due items first (highest priority first). */
@@ -254,6 +260,7 @@ export function queryDue(candidates: DueQueryCandidate[]): {
       // panel would only be celebrating old pain, not flagging a current gap.
       if (recentFailures === 0 && recentPasses > 0) continue;
 
+      const windowFailures = rec.runs.filter((r) => !r.passed).length;
       friction.push({
         sourceId,
         failures: rec.failures,
@@ -263,6 +270,7 @@ export function queryDue(candidates: DueQueryCandidate[]): {
         recentFailures,
         olderPasses,
         olderFailures,
+        windowFailures,
       });
     }
   }
@@ -311,7 +319,7 @@ export function recordGraderResult(sourceId: string, passed: boolean): void {
   const data = load();
   const rec: FrictionRecord = data.friction[sourceId] ?? { failures: 0, passes: 0, runs: [] };
   if (passed) rec.passes += 1;
-  else rec.failures += 1;
+  else rec.failures = Math.min(rec.failures + 1, 999);
   // Append to rolling window; trim to the most recent FRICTION_WINDOW entries.
   rec.runs.push({ at: new Date().toISOString(), passed });
   if (rec.runs.length > FRICTION_WINDOW) {
