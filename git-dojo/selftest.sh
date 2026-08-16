@@ -56,6 +56,18 @@ else
 fi
 
 # ═════════════════════════════════════════════════════════════════════════════
+# Setup script regression tests (lessons 01–09)
+# ═════════════════════════════════════════════════════════════════════════════
+step "Setup script checks (lessons 01–09)"
+if bash "$LESSONS_DIR/test-setup.sh" 2>&1; then
+  ok "test-setup.sh — all setup checks passed"
+  PASS_TOTAL=$((PASS_TOTAL+1))
+else
+  fail "test-setup.sh — one or more setup checks failed"
+  FAIL_TOTAL=$((FAIL_TOTAL+1))
+fi
+
+# ═════════════════════════════════════════════════════════════════════════════
 # Lesson 08 — The Collision
 # ═════════════════════════════════════════════════════════════════════════════
 LESSON_08="$LESSONS_DIR/lesson-08-the-collision"
