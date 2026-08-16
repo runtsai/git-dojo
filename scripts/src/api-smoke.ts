@@ -145,6 +145,28 @@ async function smokePost(
  * capstone state — prerequisites that may not be satisfied in all environments.
  * Any 2xx is validated against the schema; any other non-2xx is a failure.
  */
+/**
+ * Asserts that a POST with the given payload returns HTTP 400.  Used to verify
+ * that Zod guards on write endpoints reject malformed bodies rather than
+ * silently accepting them.
+ */
+async function smokeExpect400(path: string, payload: unknown, label?: string): Promise<void> {
+  const checkLabel = label ?? `POST ${path} (malformed body → 400)`;
+  let result: { status: number; body: unknown };
+  try {
+    result = await request("POST", path, payload);
+  } catch (err) {
+    fail(checkLabel, `Network error: ${String(err)}`);
+    return;
+  }
+
+  if (result.status === 400) {
+    ok(checkLabel);
+  } else {
+    fail(checkLabel, `Expected HTTP 400 but got ${result.status} — ${JSON.stringify(result.body).slice(0, 200)}`);
+  }
+}
+
 async function smokeWriteOrSkip409(
   method: "POST" | "DELETE",
   path: string,
@@ -602,6 +624,20 @@ async function main(): Promise<void> {
     "/api/drills/attempt",
     { itemId: "smoke-probe", correct: true, sourceId: null },
     RecordDrillAttemptResponse,
+  );
+
+  // 9b. Malformed drill-attempt bodies must be rejected with HTTP 400.
+  //     These checks guard the Zod validation in drills.ts against silent
+  //     breakage during future refactors.
+  await smokeExpect400(
+    "/api/drills/attempt",
+    { correct: true, sourceId: null },
+    "POST /api/drills/attempt (missing itemId → 400)",
+  );
+  await smokeExpect400(
+    "/api/drills/attempt",
+    { itemId: "smoke-probe", correct: "yes", sourceId: null },
+    "POST /api/drills/attempt (correct is string, not boolean → 400)",
   );
 
   // 10. Promo metadata — fast, no rendering, verifies the shared scene-duration
