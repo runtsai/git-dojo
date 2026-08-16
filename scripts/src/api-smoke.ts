@@ -18,6 +18,8 @@ import {
   GetCapstoneStatusResponse,
   GetProgressResponse,
   GetDueDrillsResponse,
+  GetCommitDiffResponse,
+  GetWorkingFileDiffResponse,
 } from "@workspace/api-zod";
 import type { ZodTypeAny, ZodIssue } from "zod";
 
@@ -152,10 +154,43 @@ async function main(): Promise<void> {
   const firstLesson = Array.isArray(lessons) ? (lessons as Array<{ id: string }>)[0] : undefined;
 
   // 4. Lesson repo state (parameterised) — skip if no lessons exist yet
+  let firstCommitHash: string | undefined;
+  let firstChangedFilePath: string | undefined;
   if (firstLesson) {
-    await smoke(`/api/dojo/lessons/${firstLesson.id}/state`, GetRepoStateResponse);
+    const state = await smoke(`/api/dojo/lessons/${firstLesson.id}/state`, GetRepoStateResponse);
+    if (state && typeof state === "object") {
+      const s = state as { commits?: Array<{ hash: string }>; files?: Array<{ path: string; status: string }> };
+      firstCommitHash = s.commits?.[0]?.hash;
+      firstChangedFilePath = s.files?.find(
+        (f) => f.status !== "conflicted",
+      )?.path;
+    }
   } else {
     console.log(`  -  GET /api/dojo/lessons/:id/state  (skipped — no lessons found)`);
+  }
+
+  // 4a. Commit diff — skip if the lesson has no commits yet
+  if (firstLesson && firstCommitHash) {
+    await smoke(
+      `/api/dojo/lessons/${firstLesson.id}/commits/${firstCommitHash}/diff`,
+      GetCommitDiffResponse,
+    );
+  } else {
+    console.log(
+      `  -  GET /api/dojo/lessons/:id/commits/:hash/diff  (skipped — no commits in first lesson)`,
+    );
+  }
+
+  // 4b. File diff — skip if the lesson has no changed files right now
+  if (firstLesson && firstChangedFilePath) {
+    await smoke(
+      `/api/dojo/lessons/${firstLesson.id}/file-diff?filePath=${encodeURIComponent(firstChangedFilePath)}`,
+      GetWorkingFileDiffResponse,
+    );
+  } else {
+    console.log(
+      `  -  GET /api/dojo/lessons/:id/file-diff  (skipped — no changed files in first lesson)`,
+    );
   }
 
   // 5. Crisis scenarios list — also extracts a crisisId
