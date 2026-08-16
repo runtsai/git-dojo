@@ -169,6 +169,30 @@ describe("journey ids are unique", () => {
 });
 
 // ---------------------------------------------------------------------------
+// mapFlows must have no duplicate ids
+// ---------------------------------------------------------------------------
+
+describe("mapFlows has no duplicate ids", () => {
+  it("every flow id is unique", () => {
+    const ids = mapFlows.map((f) => f.id);
+    const seen = new Set<string>();
+    const duplicates: string[] = [];
+    for (const id of ids) {
+      if (seen.has(id)) {
+        duplicates.push(id);
+      } else {
+        seen.add(id);
+      }
+    }
+    expect(
+      duplicates,
+      `mapFlows contains duplicate id(s): ${duplicates.map((id) => `"${id}"`).join(", ")}. ` +
+        `Each flow must have a unique id in src/content/map/index.ts.`,
+    ).toHaveLength(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Every Journey step must reference a valid flowId
 // ---------------------------------------------------------------------------
 
