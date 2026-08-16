@@ -60,7 +60,7 @@ _Describe the high-level user-facing capabilities of this app once they exist._
 
 ## User preferences
 
-_Populate as you build — explicit user instructions worth remembering across sessions._
+- **Task planning: always declare dependencies.** When proposing related project tasks (same feature area, same files, or one tests/extends another), declare the blocking dependency explicitly so the task system serializes them automatically. Adam runs up to 10 task agents at once and relies on "blocked by" to prevent overlap — he should be able to start anything in the queue without checking for conflicts himself.
 
 ## Syncing to GitHub
 
