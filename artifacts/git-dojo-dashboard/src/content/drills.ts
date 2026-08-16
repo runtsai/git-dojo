@@ -22,6 +22,12 @@ export interface ConceptDrill {
   explain: string;
   sourceLabel: string;
   sourceId?: string;
+  /**
+   * The breakthrough id this drill reinforces (e.g. "two-machines").
+   * Set on bt-* drills so the coverage check can verify every breakthrough
+   * has at least one warm-up question.
+   */
+  breakthroughId?: string;
   unlockedBy: string[];
 }
 
@@ -38,6 +44,12 @@ export interface CommandDrill {
   explain: string;
   sourceLabel: string;
   sourceId?: string;
+  /**
+   * The breakthrough id this drill reinforces (e.g. "two-machines").
+   * Set on bt-* drills so the coverage check can verify every breakthrough
+   * has at least one warm-up question.
+   */
+  breakthroughId?: string;
   unlockedBy: string[];
 }
 
@@ -240,6 +252,7 @@ export const drillBank: DrillItem[] = [
     explain:
       "Two machines: your Git works entirely on your machine. Syncing with GitHub is a separate, optional step.",
     sourceLabel: "Breakthrough — Two Machines",
+    breakthroughId: "two-machines",
     unlockedBy: ["1.1", "lesson-01"],
   },
   {
@@ -256,6 +269,7 @@ export const drillBank: DrillItem[] = [
     explain:
       "Snapshots, not diffs: each commit is a complete photograph of the project. Diffs are computed views between snapshots.",
     sourceLabel: "Breakthrough — Snapshots, Not Diffs",
+    breakthroughId: "snapshots-not-diffs",
     unlockedBy: ["1.3", "lesson-02"],
   },
   {
@@ -272,6 +286,7 @@ export const drillBank: DrillItem[] = [
     explain:
       "Branches are stickers: a branch is just a name pointing at a snapshot. That's why creating one is instant and free.",
     sourceLabel: "Breakthrough — Branches Are Stickers",
+    breakthroughId: "branches-are-stickers",
     unlockedBy: ["lesson-04"],
   },
   {
@@ -288,6 +303,7 @@ export const drillBank: DrillItem[] = [
     explain:
       "The loading dock: `git add` chooses precisely which changes ship in the next commit — the rest stays on your desk.",
     sourceLabel: "Breakthrough — The Loading Dock",
+    breakthroughId: "loading-dock",
     unlockedBy: ["lesson-01"],
   },
   {
@@ -304,7 +320,8 @@ export const drillBank: DrillItem[] = [
     explain:
       "Fetch is looking — always safe. Pull is fetch plus merge, which changes your working copy.",
     sourceLabel: "Breakthrough — Fetch Is Looking",
-    unlockedBy: ["lesson-06", "lesson-08"],
+    breakthroughId: "fetch-is-looking",
+    unlockedBy: ["lesson-06", "lesson-08", "lesson-09"],
   },
   {
     id: "bt-merge-reveals",
@@ -320,6 +337,7 @@ export const drillBank: DrillItem[] = [
     explain:
       "Merge reveals: the work was already committed. Merging connects the two lines of history so both are visible from one place.",
     sourceLabel: "Breakthrough — Merge Reveals",
+    breakthroughId: "merge-reveals",
     unlockedBy: ["lesson-04"],
   },
   {
@@ -336,6 +354,7 @@ export const drillBank: DrillItem[] = [
     explain:
       "HEAD is simply where you are standing. Visiting an old snapshot is legal; just put new work on a branch before leaving.",
     sourceLabel: "Breakthrough — Detached HEAD",
+    breakthroughId: "detached-head",
     unlockedBy: ["crisis-01"],
   },
   {
@@ -352,6 +371,7 @@ export const drillBank: DrillItem[] = [
     explain:
       "Conflicts are questions. Git shows both versions of each disputed region and waits for a human decision — nothing is broken.",
     sourceLabel: "Breakthrough — Conflicts Are Questions",
+    breakthroughId: "conflicts-are-questions",
     unlockedBy: ["lesson-05", "crisis-02"],
   },
   {
@@ -368,6 +388,7 @@ export const drillBank: DrillItem[] = [
     explain:
       "Nothing is lost: most \u201cdisasters\u201d are moved labels. `git reflog` remembers where you've been so you can point a label back.",
     sourceLabel: "Breakthrough — Nothing Is Lost",
+    breakthroughId: "nothing-is-lost",
     unlockedBy: ["crisis-06", "lesson-03"],
   },
   {
@@ -384,7 +405,8 @@ export const drillBank: DrillItem[] = [
     explain:
       "Merge commit keeps the true shape, squash collapses to a single commit, rebase replays commits into a straight line.",
     sourceLabel: "Breakthrough — Three Ways to Merge",
-    unlockedBy: ["2.1"],
+    breakthroughId: "three-ways-to-merge",
+    unlockedBy: ["2.1", "lesson-07"],
   },
   {
     id: "bt-secrets",
@@ -400,6 +422,7 @@ export const drillBank: DrillItem[] = [
     explain:
       "Secrets never heal: history keeps every snapshot, so deleting later doesn't erase the leak. Kill the credential itself.",
     sourceLabel: "Breakthrough — Secrets Never Heal",
+    breakthroughId: "secrets-never-heal",
     unlockedBy: ["1.4", "2.2"],
   },
   {
@@ -416,7 +439,8 @@ export const drillBank: DrillItem[] = [
     explain:
       "The robot coworker: CI runs the project's own tests on each PR and reports pass/fail before a human merges.",
     sourceLabel: "Breakthrough — The Robot Coworker",
-    unlockedBy: ["2.1"],
+    breakthroughId: "the-robot-coworker",
+    unlockedBy: ["2.1", "lesson-07"],
   },
 
   // ── Test Center command recall ──────────────────────────────────────
