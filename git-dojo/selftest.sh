@@ -14,6 +14,16 @@ step() { printf "\n\033[1;34m» %s\033[0m\n" "$*"; }
 ok()   { printf "  \033[1;32mPASS\033[0m  %s\n" "$*"; PASS_TOTAL=$((PASS_TOTAL+1)); }
 fail() { printf "  \033[1;31mFAIL\033[0m  %s\n" "$*"; FAIL_TOTAL=$((FAIL_TOTAL+1)); }
 
+# Before each lesson's setup.sh, remove any stale playground so selftest never
+# relies on setup.sh to clean up.  Fail loudly if the removal itself fails.
+assert_clean_playground() {
+  local dir="$1"
+  rm -rf "$dir"
+  if [ -d "$dir" ]; then
+    fail "stale playground still exists after rm -rf: $dir"
+  fi
+}
+
 # Run check.sh for a lesson; parse PASS/FAIL lines and update the global counters.
 # Uses a temp file to avoid pipeline-subshell variable-scope issues.
 run_check() {
@@ -101,12 +111,209 @@ else
   FAIL_TOTAL=$((FAIL_TOTAL+1))
 fi
 
+LESSON_01="$LESSONS_DIR/lesson-01-first-snapshot"
+PLAY_01="$LESSONS_DIR/playground/lesson-01"
+
+step "Lesson 01 — First Snapshot: setup"
+assert_clean_playground "$PLAY_01"
+bash "$LESSON_01/setup.sh" > /dev/null 2>&1
+
+step "Lesson 01 — learner: init, three commits (notes + edit + ideas)"
+cd "$PLAY_01"
+git init -q
+git symbolic-ref HEAD refs/heads/main
+# Commit 1: track notes.txt as-is
+git add notes.txt
+git commit -qm "Start tracking working notes"
+# Commit 2: extend notes.txt
+printf "\nAdded first real entry.\n" >> notes.txt
+git add notes.txt
+git commit -qm "Add first entry to working notes"
+# Commit 3: create and commit ideas.txt
+printf "Ideas for the project\n- Use Git for everything\n" > ideas.txt
+git add ideas.txt
+git commit -qm "Add ideas file for future reference"
+
+step "Lesson 01 — grader check"
+run_check "$LESSON_01"
+
+# ═════════════════════════════════════════════════════════════════════════════
+# Lesson 02 — The Ledger
+# ═════════════════════════════════════════════════════════════════════════════
+LESSON_02="$LESSONS_DIR/lesson-02-the-ledger"
+PLAY_02="$LESSONS_DIR/playground/lesson-02"
+
+step "Lesson 02 — The Ledger: setup"
+assert_clean_playground "$PLAY_02"
+bash "$LESSON_02/setup.sh" > /dev/null 2>&1
+
+step "Lesson 02 — learner: find the fee-change commit and write audit.txt"
+cd "$PLAY_02"
+FEE_HASH_02=$(git log --format="%h %s" -- pricing.txt | grep -i "fee" | grep -iv "Add pricing" | awk '{print $1}' | head -1)
+printf "Audit: the delivery fee was raised in commit %s\nThis commit modified pricing.txt to increase the fee.\n" "$FEE_HASH_02" > audit.txt
+git add audit.txt
+git commit -qm "Audit: record the fee-change commit for traceability"
+
+step "Lesson 02 — grader check"
+run_check "$LESSON_02"
+
+# ═════════════════════════════════════════════════════════════════════════════
+# Lesson 03 — Undo Without Erasing
+# ═════════════════════════════════════════════════════════════════════════════
+LESSON_03="$LESSONS_DIR/lesson-03-undo-without-erasing"
+PLAY_03="$LESSONS_DIR/playground/lesson-03"
+
+step "Lesson 03 — Undo Without Erasing: setup"
+assert_clean_playground "$PLAY_03"
+bash "$LESSON_03/setup.sh" > /dev/null 2>&1
+
+step "Lesson 03 — learner: revert the streamline commit and the temp-note commit"
+cd "$PLAY_03"
+# Revert HEAD (the streamline commit that removed "Lock out power")
+git revert --no-edit HEAD > /dev/null 2>&1
+# Find and revert the temporary-note commit
+TEMP_HASH=$(git log --format="%H %s" | grep -i "temporary" | awk '{print $1}' | head -1)
+git revert --no-edit "$TEMP_HASH" > /dev/null 2>&1
+
+step "Lesson 03 — grader check"
+run_check "$LESSON_03"
+
+# ═════════════════════════════════════════════════════════════════════════════
+# Lesson 04 — Branches
+# ═════════════════════════════════════════════════════════════════════════════
+LESSON_04="$LESSONS_DIR/lesson-04-branches"
+PLAY_04="$LESSONS_DIR/playground/lesson-04"
+
+step "Lesson 04 — Branches: setup"
+assert_clean_playground "$PLAY_04"
+bash "$LESSON_04/setup.sh" > /dev/null 2>&1
+
+step "Lesson 04 — learner: new-tagline branch, merge; bad-idea branch, abandon"
+cd "$PLAY_04"
+# Create new-tagline branch, update tagline, commit
+git switch -qc new-tagline
+sed -i 's/We haul it right\./Clean records. Moved right./' index.html
+git add index.html
+git commit -qm "Update tagline to Clean records. Moved right."
+# Merge into main
+git switch -q main
+git merge -q new-tagline --no-edit
+# Create bad-idea branch, make a bad change, then abandon it
+git switch -qc bad-idea
+sed -i 's/<h1>RTS Freight<\/h1>/<h1>RTS Mega Ultra Freight Corp<\/h1>/' index.html
+git add index.html
+git commit -qm "Rename company (bad idea)"
+# Return to main and delete the branch
+git switch -q main
+git branch -D bad-idea
+
+step "Lesson 04 — grader check"
+run_check "$LESSON_04"
+
+# ═════════════════════════════════════════════════════════════════════════════
+# Lesson 05 — The Conflict
+# ═════════════════════════════════════════════════════════════════════════════
+LESSON_05="$LESSONS_DIR/lesson-05-the-conflict"
+PLAY_05="$LESSONS_DIR/playground/lesson-05"
+
+step "Lesson 05 — The Conflict: setup"
+assert_clean_playground "$PLAY_05"
+bash "$LESSON_05/setup.sh" > /dev/null 2>&1
+
+step "Lesson 05 — learner: merge insurance-adjustment (fast-forward), then merge fuel-adjustment (conflict → \$95)"
+cd "$PLAY_05"
+# Merge insurance-adjustment first: fast-forward, pricing.txt becomes $95
+git merge -q insurance-adjustment --no-edit
+# Merge fuel-adjustment: conflict between $95 (main) and $80 (fuel-adjustment)
+git merge fuel-adjustment --no-edit 2>/dev/null || true
+# Resolve: keep $95, drop conflict markers
+sed -i '/^<\{7\}/d; /^=\{7\}/d; /^>\{7\}/d' pricing.txt
+sed -i 's/Delivery fee: \$80/Delivery fee: \$95/' pricing.txt
+git add pricing.txt
+git commit -q --no-edit
+
+step "Lesson 05 — grader check"
+run_check "$LESSON_05"
+
+# ═════════════════════════════════════════════════════════════════════════════
+# Lesson 06 — Fake GitHub
+# ═════════════════════════════════════════════════════════════════════════════
+LESSON_06="$LESSONS_DIR/lesson-06-fake-github"
+PLAY_06="$LESSONS_DIR/playground/lesson-06"
+
+step "Lesson 06 — Fake GitHub: setup"
+assert_clean_playground "$PLAY_06"
+bash "$LESSON_06/setup.sh" > /dev/null 2>&1
+
+step "Lesson 06 — owner (laptop): add services page and push"
+cd "$PLAY_06/laptop"
+printf "RTS Freight services\nFull truckload, LTL, and hazmat.\n" > services.txt
+git add services.txt
+git commit -qm "Add services page"
+git push -q
+
+step "Lesson 06 — contractor: clone hub, add contact page and push"
+cd "$PLAY_06"
+git clone -q hub/website.git contractor 2>/dev/null
+cd contractor
+git config user.name "Contractor"
+git config user.email "contractor@example.com"
+printf "Contact us\nphone: 555-0100\nemail: info@rts.example\n" > contact.txt
+git add contact.txt
+git commit -qm "Add contact page"
+git push -q
+
+step "Lesson 06 — owner (laptop): pull contractor's contact page"
+cd "$PLAY_06/laptop"
+git pull -q
+
+step "Lesson 06 — grader check"
+run_check "$LESSON_06"
+
+# ═════════════════════════════════════════════════════════════════════════════
+# Lesson 07 — Capstone: Contractor Review
+# ═════════════════════════════════════════════════════════════════════════════
+LESSON_07="$LESSONS_DIR/lesson-07-capstone-contractor-review"
+PLAY_07="$LESSONS_DIR/playground/lesson-07"
+
+step "Lesson 07 — Capstone: setup"
+assert_clean_playground "$PLAY_07"
+bash "$LESSON_07/setup.sh" > /dev/null 2>&1
+
+step "Lesson 07 — learner: write review.txt with findings and disposition, commit"
+cd "$PLAY_07"
+cat > review.txt <<'REVIEW'
+Contractor Delivery Review
+
+FINDING 1: api_key credential planted in config.txt
+The contractor added a live api_key (api_key=sk-live-...) to config.txt.
+This is a secret/credential that must never be committed to a repository.
+
+FINDING 2: unauthorized cloud upload behavior change
+The contractor silently changed upload_to_cloud from false to true in config.txt.
+This silent behavior change was not authorized and poses a data-exposure risk.
+
+DISPOSITION: about.txt adopted (clean); config.txt change rejected — credential must be removed
+REVIEW
+git add review.txt
+git commit -qm "Add contractor delivery review with findings and disposition"
+
+step "Lesson 07 — learner: cherry-pick about.txt from contractor-delivery, commit"
+git restore --source=contractor-delivery -- about.txt
+git add about.txt
+git commit -qm "Adopt about page from contractor delivery"
+
+step "Lesson 07 — grader check"
+run_check "$LESSON_07"
+
 # ═════════════════════════════════════════════════════════════════════════════
 # Lesson 08 — The Collision
 # ═════════════════════════════════════════════════════════════════════════════
 LESSON_08="$LESSONS_DIR/lesson-08-the-collision"
+PLAY_08="$LESSONS_DIR/playground/lesson-08"
 
 step "Lesson 08 — The Collision: setup"
+assert_clean_playground "$PLAY_08"
 bash "$LESSON_08/setup.sh" > /dev/null 2>&1
 
 LAPTOP_08="$LESSONS_DIR/playground/lesson-08/laptop"
@@ -137,8 +344,10 @@ run_check "$LESSON_08"
 # Lesson 09 — The Standoff
 # ═════════════════════════════════════════════════════════════════════════════
 LESSON_09="$LESSONS_DIR/lesson-09-the-standoff"
+PLAY_09="$LESSONS_DIR/playground/lesson-09"
 
 step "Lesson 09 — The Standoff: setup"
+assert_clean_playground "$PLAY_09"
 bash "$LESSON_09/setup.sh" > /dev/null 2>&1
 
 LAPTOP_09="$LESSONS_DIR/playground/lesson-09/laptop"
