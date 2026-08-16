@@ -120,6 +120,90 @@ export interface RepoState {
   hasBot: boolean;
 }
 
+/**
+ * hunk marks a "skip ahead" separator between change regions
+ */
+export type DiffLineKind = typeof DiffLineKind[keyof typeof DiffLineKind];
+
+
+export const DiffLineKind = {
+  added: 'added',
+  removed: 'removed',
+  context: 'context',
+  hunk: 'hunk',
+} as const;
+
+export interface DiffLine {
+  /** hunk marks a "skip ahead" separator between change regions */
+  kind: DiffLineKind;
+  text: string;
+}
+
+export type FileDiffChangeKind = typeof FileDiffChangeKind[keyof typeof FileDiffChangeKind];
+
+
+export const FileDiffChangeKind = {
+  added: 'added',
+  modified: 'modified',
+  deleted: 'deleted',
+  renamed: 'renamed',
+  binary: 'binary',
+} as const;
+
+export interface FileDiff {
+  path: string;
+  changeKind: FileDiffChangeKind;
+  /**
+     * Previous path when the file was renamed
+     * @nullable
+     */
+  renamedFrom: string | null;
+  /** Count of added lines */
+  added: number;
+  /** Count of removed lines */
+  removed: number;
+  /** True when the diff was cut off for size */
+  truncated: boolean;
+  lines: DiffLine[];
+}
+
+export interface CommitDiff {
+  hash: string;
+  shortHash: string;
+  subject: string;
+  authorName: string;
+  /** ISO 8601 author date */
+  date: string;
+  /** True when the snapshot joined two timelines; the diff is against its first parent */
+  isMerge: boolean;
+  /** Plain-English explanation of what this snapshot changed */
+  summary: string;
+  files: FileDiff[];
+}
+
+export type WorkingFileDiffStatus = typeof WorkingFileDiffStatus[keyof typeof WorkingFileDiffStatus];
+
+
+export const WorkingFileDiffStatus = {
+  staged: 'staged',
+  modified: 'modified',
+  staged_and_modified: 'staged_and_modified',
+  untracked: 'untracked',
+  deleted: 'deleted',
+  conflicted: 'conflicted',
+} as const;
+
+export interface WorkingFileDiff {
+  path: string;
+  status: WorkingFileDiffStatus;
+  /** Plain-English explanation of where this file's changes sit */
+  summary: string;
+  /** Changes already boxed on the Loading Dock (staged), if any */
+  staged: FileDiff | null;
+  /** Changes still on the Workbench (unstaged), if any */
+  unstaged: FileDiff | null;
+}
+
 export type ProgressEntryTrack = typeof ProgressEntryTrack[keyof typeof ProgressEntryTrack];
 
 
@@ -300,4 +384,11 @@ export interface CrisisSetupResult {
   /** Absolute path of the scenario's practice repository */
   path: string;
 }
+
+export type GetWorkingFileDiffParams = {
+/**
+ * Repo-relative path of the file, as reported by the repo state
+ */
+filePath: string;
+};
 

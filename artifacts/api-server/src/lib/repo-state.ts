@@ -242,6 +242,273 @@ export async function readRepoState(pg: string): Promise<RepoStateData> {
   };
 }
 
+// ---------------------------------------------------------------------------
+// Diff reading: what a commit (or the working copy) actually changed.
+// ---------------------------------------------------------------------------
+
+export type DiffLineKind = "added" | "removed" | "context" | "hunk";
+export type FileChangeKind = "added" | "modified" | "deleted" | "renamed" | "binary";
+
+export interface DiffLineData {
+  kind: DiffLineKind;
+  text: string;
+}
+
+export interface FileDiffData {
+  path: string;
+  changeKind: FileChangeKind;
+  renamedFrom: string | null;
+  added: number;
+  removed: number;
+  truncated: boolean;
+  lines: DiffLineData[];
+}
+
+const MAX_LINES_PER_FILE = 400;
+
+function unquoteGitPath(p: string): string {
+  if (p.startsWith('"') && p.endsWith('"')) {
+    try {
+      return JSON.parse(p) as string;
+    } catch {
+      return p.slice(1, -1);
+    }
+  }
+  return p;
+}
+
+/** Parse `git diff` / `git show --patch` unified output into structured file diffs. */
+export function parseUnifiedDiff(text: string): FileDiffData[] {
+  const files: FileDiffData[] = [];
+  let cur: FileDiffData | null = null;
+  let inHunk = false;
+
+  const push = () => {
+    if (cur) files.push(cur);
+    cur = null;
+  };
+
+  for (const raw of text.split("\n")) {
+    if (raw.startsWith("diff --git ")) {
+      push();
+      inHunk = false;
+      cur = {
+        path: "",
+        changeKind: "modified",
+        renamedFrom: null,
+        added: 0,
+        removed: 0,
+        truncated: false,
+        lines: [],
+      };
+      continue;
+    }
+    if (!cur) continue;
+
+    if (!inHunk) {
+      if (raw.startsWith("new file mode")) cur.changeKind = "added";
+      else if (raw.startsWith("deleted file mode")) cur.changeKind = "deleted";
+      else if (raw.startsWith("rename from ")) {
+        cur.changeKind = "renamed";
+        cur.renamedFrom = unquoteGitPath(raw.slice("rename from ".length));
+      } else if (raw.startsWith("rename to ")) {
+        cur.path = unquoteGitPath(raw.slice("rename to ".length));
+      } else if (raw.startsWith("Binary files ")) {
+        cur.changeKind = "binary";
+        if (!cur.path) {
+          const m = /^Binary files (?:a\/)?(.*?) and (?:b\/)?(.*?) differ$/.exec(raw);
+          if (m) cur.path = unquoteGitPath(m[2] === "/dev/null" ? m[1]! : m[2]!);
+        }
+      } else if (raw.startsWith("--- ")) {
+        const p = unquoteGitPath(raw.slice(4).trim());
+        if (p !== "/dev/null" && !cur.path) cur.path = p.replace(/^a\//, "");
+      } else if (raw.startsWith("+++ ")) {
+        const p = unquoteGitPath(raw.slice(4).trim());
+        if (p !== "/dev/null") cur.path = p.replace(/^b\//, "");
+      }
+    }
+
+    if (raw.startsWith("@@")) {
+      inHunk = true;
+      if (cur.lines.length < MAX_LINES_PER_FILE) {
+        cur.lines.push({ kind: "hunk", text: raw.replace(/^@@[^@]*@@ ?/, "").trim() });
+      } else cur.truncated = true;
+      continue;
+    }
+    if (!inHunk) continue;
+
+    if (raw.startsWith("+")) {
+      cur.added += 1;
+      if (cur.lines.length < MAX_LINES_PER_FILE) cur.lines.push({ kind: "added", text: raw.slice(1) });
+      else cur.truncated = true;
+    } else if (raw.startsWith("-")) {
+      cur.removed += 1;
+      if (cur.lines.length < MAX_LINES_PER_FILE) cur.lines.push({ kind: "removed", text: raw.slice(1) });
+      else cur.truncated = true;
+    } else if (raw.startsWith(" ")) {
+      if (cur.lines.length < MAX_LINES_PER_FILE) cur.lines.push({ kind: "context", text: raw.slice(1) });
+      else cur.truncated = true;
+    } else if (raw === "\\ No newline at end of file") {
+      // skip marker
+    } else if (raw.startsWith("diff ") || raw === "") {
+      inHunk = false;
+    }
+  }
+  push();
+  return files.filter((f) => f.path !== "");
+}
+
+export const COMMIT_HASH_RE = /^[0-9a-f]{4,40}$/i;
+
+export interface CommitDiffData {
+  hash: string;
+  shortHash: string;
+  subject: string;
+  authorName: string;
+  date: string;
+  isMerge: boolean;
+  summary: string;
+  files: FileDiffData[];
+}
+
+function plural(n: number, one: string): string {
+  return `${n} ${n === 1 ? one : one + "s"}`;
+}
+
+/** Read what one sealed snapshot changed. Returns null when the commit doesn't exist. */
+export async function readCommitDiff(dir: string, hash: string): Promise<CommitDiffData | null> {
+  if (!COMMIT_HASH_RE.test(hash)) return null;
+  const SEP = "\x1f";
+  const REC = "\x1e";
+  const meta = await git(dir, [
+    "show",
+    "--no-patch",
+    `--format=%H${SEP}%h${SEP}%s${SEP}%an${SEP}%aI${SEP}%P`,
+    hash,
+    "--",
+  ]);
+  if (!meta) return null;
+  const [full = "", shortHash = "", subject = "", authorName = "", date = "", parentsRaw = ""] = meta
+    .trim()
+    .split(SEP);
+  const parents = parentsRaw.split(" ").filter(Boolean);
+  const isMerge = parents.length > 1;
+
+  // For merges, diff against the first parent so learners see what the merge
+  // brought onto their timeline instead of git's combined-diff shorthand.
+  const patch = isMerge
+    ? await git(dir, ["diff", "--no-color", `${full}^1`, full, "--"])
+    : await git(dir, ["show", "--no-color", "--format=%x1e", "--patch", full, "--"]);
+  const files = parseUnifiedDiff((patch ?? "").replace(REC, ""));
+
+  const totalAdded = files.reduce((s, f) => s + f.added, 0);
+  const totalRemoved = files.reduce((s, f) => s + f.removed, 0);
+  let summary: string;
+  if (files.length === 0) {
+    summary = isMerge
+      ? "This merge joined two timelines without changing any file beyond what its parents already had."
+      : "This snapshot sealed no file changes — an empty commit.";
+  } else {
+    const head = isMerge
+      ? `This merge brought changes to ${plural(files.length, "file")} onto your timeline`
+      : `This snapshot sealed changes to ${plural(files.length, "file")}`;
+    summary = `${head}: ${plural(totalAdded, "line")} added, ${totalRemoved} removed.`;
+  }
+  return { hash: full, shortHash, subject, authorName, date, isMerge, summary, files };
+}
+
+export interface WorkingFileDiffData {
+  path: string;
+  status: FileStatus;
+  summary: string;
+  staged: FileDiffData | null;
+  unstaged: FileDiffData | null;
+}
+
+/**
+ * Read how one working-copy file differs from the last snapshot, split by
+ * staged vs unstaged. The path must be one the repo status reports — callers
+ * pass user input, so this is the safety gate (no shell involved either way;
+ * git is always invoked via execFile with an argument array and a `--` guard).
+ */
+export async function readWorkingFileDiff(
+  dir: string,
+  filePath: string,
+): Promise<WorkingFileDiffData | null> {
+  const state = await readRepoState(dir);
+  const entry = state.files.find((f) => f.path === filePath);
+  if (!entry) return null;
+
+  let staged: FileDiffData | null = null;
+  let unstaged: FileDiffData | null = null;
+
+  if (entry.status === "untracked") {
+    // Untracked files have no snapshot to compare against; show the whole
+    // file as new. --no-index diffs against /dev/null but exits non-zero,
+    // so read via git's own machinery with intent-to-add semantics avoided:
+    const abs = path.resolve(dir, filePath);
+    if (!abs.startsWith(path.resolve(dir) + path.sep)) return null;
+    const { readFileSync, lstatSync, realpathSync } = await import("node:fs");
+    try {
+      // Never follow symlinks: an untracked symlink pointing outside the
+      // playground must not leak the target file's contents. Reject links
+      // and re-check containment on the canonical (realpath) location.
+      const lst = lstatSync(abs);
+      const realDir = realpathSync(dir);
+      if (
+        !lst.isSymbolicLink() &&
+        lst.isFile() &&
+        realpathSync(abs).startsWith(realDir + path.sep) &&
+        lst.size <= 256 * 1024
+      ) {
+        const content = readFileSync(abs, "utf8");
+        const lines = content.split("\n");
+        if (lines[lines.length - 1] === "") lines.pop();
+        const truncated = lines.length > MAX_LINES_PER_FILE;
+        unstaged = {
+          path: filePath,
+          changeKind: "added",
+          renamedFrom: null,
+          added: lines.length,
+          removed: 0,
+          truncated,
+          lines: lines.slice(0, MAX_LINES_PER_FILE).map((text) => ({ kind: "added" as const, text })),
+        };
+      }
+    } catch {
+      /* unreadable file: fall through with no diff */
+    }
+  } else {
+    const [stagedOut, unstagedOut] = await Promise.all([
+      git(dir, ["diff", "--no-color", "--cached", "--", filePath]),
+      git(dir, ["diff", "--no-color", "--", filePath]),
+    ]);
+    staged = stagedOut ? (parseUnifiedDiff(stagedOut)[0] ?? null) : null;
+    unstaged = unstagedOut ? (parseUnifiedDiff(unstagedOut)[0] ?? null) : null;
+  }
+
+  const parts: string[] = [];
+  if (entry.status === "untracked")
+    parts.push(
+      unstaged
+        ? `${filePath} is brand new on the Workbench — ${plural(unstaged.added, "line")}, none of it in the record system yet.`
+        : `${filePath} is untracked and couldn't be read as text.`,
+    );
+  else {
+    if (staged && (staged.added > 0 || staged.removed > 0 || staged.changeKind !== "modified"))
+      parts.push(
+        `${plural(staged.added, "line")} added and ${staged.removed} removed are boxed on the Loading Dock, ready to seal.`,
+      );
+    if (unstaged && (unstaged.added > 0 || unstaged.removed > 0 || unstaged.changeKind !== "modified"))
+      parts.push(
+        `${plural(unstaged.added, "line")} added and ${unstaged.removed} removed are still on the Workbench — not staged yet.`,
+      );
+    if (parts.length === 0) parts.push(`${filePath} matches the last snapshot line-for-line.`);
+  }
+
+  return { path: filePath, status: entry.status, summary: parts.join(" "), staged, unstaged };
+}
+
 export function buildSummary(state: RepoStateData): string {
   if (!state.hasPlayground)
     return "This lesson's practice folder doesn't exist yet. Run the lesson's setup.sh to create it.";

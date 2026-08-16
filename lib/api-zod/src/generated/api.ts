@@ -126,6 +126,81 @@ export const RunBotActionResponse = zod.object({
 
 
 /**
+ * Changed files and readable line-by-line diff for one sealed snapshot (merges are compared against their first parent)
+ * @summary What a commit actually changed
+ */
+export const GetCommitDiffParams = zod.object({
+  "lessonId": zod.coerce.string(),
+  "commitHash": zod.coerce.string()
+})
+
+export const GetCommitDiffResponse = zod.object({
+  "hash": zod.string(),
+  "shortHash": zod.string(),
+  "subject": zod.string(),
+  "authorName": zod.string(),
+  "date": zod.string().describe('ISO 8601 author date'),
+  "isMerge": zod.boolean().describe('True when the snapshot joined two timelines; the diff is against its first parent'),
+  "summary": zod.string().describe('Plain-English explanation of what this snapshot changed'),
+  "files": zod.array(zod.object({
+  "path": zod.string(),
+  "changeKind": zod.enum(['added', 'modified', 'deleted', 'renamed', 'binary']),
+  "renamedFrom": zod.string().nullable().describe('Previous path when the file was renamed'),
+  "added": zod.number().describe('Count of added lines'),
+  "removed": zod.number().describe('Count of removed lines'),
+  "truncated": zod.boolean().describe('True when the diff was cut off for size'),
+  "lines": zod.array(zod.object({
+  "kind": zod.enum(['added', 'removed', 'context', 'hunk']).describe('hunk marks a \"skip ahead\" separator between change regions'),
+  "text": zod.string()
+}))
+}))
+})
+
+
+/**
+ * How a file differs from the last snapshot, split into what is already staged (Loading Dock) and what is still unstaged (Workbench)
+ * @summary Working-copy changes for one file
+ */
+export const GetWorkingFileDiffParams = zod.object({
+  "lessonId": zod.coerce.string()
+})
+
+export const GetWorkingFileDiffQueryParams = zod.object({
+  "filePath": zod.coerce.string()
+})
+
+export const GetWorkingFileDiffResponse = zod.object({
+  "path": zod.string(),
+  "status": zod.enum(['staged', 'modified', 'staged_and_modified', 'untracked', 'deleted', 'conflicted']),
+  "summary": zod.string().describe('Plain-English explanation of where this file\'s changes sit'),
+  "staged": zod.union([zod.object({
+  "path": zod.string(),
+  "changeKind": zod.enum(['added', 'modified', 'deleted', 'renamed', 'binary']),
+  "renamedFrom": zod.string().nullable().describe('Previous path when the file was renamed'),
+  "added": zod.number().describe('Count of added lines'),
+  "removed": zod.number().describe('Count of removed lines'),
+  "truncated": zod.boolean().describe('True when the diff was cut off for size'),
+  "lines": zod.array(zod.object({
+  "kind": zod.enum(['added', 'removed', 'context', 'hunk']).describe('hunk marks a \"skip ahead\" separator between change regions'),
+  "text": zod.string()
+}))
+}),zod.null()]).describe('Changes already boxed on the Loading Dock (staged), if any'),
+  "unstaged": zod.union([zod.object({
+  "path": zod.string(),
+  "changeKind": zod.enum(['added', 'modified', 'deleted', 'renamed', 'binary']),
+  "renamedFrom": zod.string().nullable().describe('Previous path when the file was renamed'),
+  "added": zod.number().describe('Count of added lines'),
+  "removed": zod.number().describe('Count of removed lines'),
+  "truncated": zod.boolean().describe('True when the diff was cut off for size'),
+  "lines": zod.array(zod.object({
+  "kind": zod.enum(['added', 'removed', 'context', 'hunk']).describe('hunk marks a \"skip ahead\" separator between change regions'),
+  "text": zod.string()
+}))
+}),zod.null()]).describe('Changes still on the Workbench (unstaged), if any')
+})
+
+
+/**
  * All Crisis Room scenarios with playground and badge status
  * @summary List crisis scenarios
  */

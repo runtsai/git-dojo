@@ -137,6 +137,74 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiMessage"
+  /dojo/lessons/{lessonId}/commits/{commitHash}/diff:
+    get:
+      operationId: getCommitDiff
+      tags: [dojo]
+      summary: What a commit actually changed
+      description: Changed files and readable line-by-line diff for one sealed snapshot (merges are compared against their first parent)
+      parameters:
+        - name: lessonId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: commitHash
+          in: path
+          required: true
+          schema:
+            type: string
+            description: Full or abbreviated hex commit hash
+      responses:
+        "200":
+          description: Commit diff
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CommitDiff"
+        "404":
+          description: Lesson or commit not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiMessage"
+        "400":
+          description: Invalid commit hash
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiMessage"
+  /dojo/lessons/{lessonId}/file-diff:
+    get:
+      operationId: getWorkingFileDiff
+      tags: [dojo]
+      summary: Working-copy changes for one file
+      description: How a file differs from the last snapshot, split into what is already staged (Loading Dock) and what is still unstaged (Workbench)
+      parameters:
+        - name: lessonId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: filePath
+          in: query
+          required: true
+          schema:
+            type: string
+            description: Repo-relative path of the file, as reported by the repo state
+      responses:
+        "200":
+          description: Working file diff
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkingFileDiff"
+        "404":
+          description: Lesson not found or file has no changes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiMessage"
   /crisis/scenarios:
     get:
       operationId: listCrisisScenarios
@@ -571,6 +639,89 @@ components:
           repoFolder,
           summary,
         ]
+    DiffLine:
+      type: object
+      properties:
+        kind:
+          type: string
+          enum: [added, removed, context, hunk]
+          description: hunk marks a "skip ahead" separator between change regions
+        text:
+          type: string
+      required: [kind, text]
+    FileDiff:
+      type: object
+      properties:
+        path:
+          type: string
+        changeKind:
+          type: string
+          enum: [added, modified, deleted, renamed, binary]
+        renamedFrom:
+          type: ["string", "null"]
+          description: Previous path when the file was renamed
+        added:
+          type: number
+          description: Count of added lines
+        removed:
+          type: number
+          description: Count of removed lines
+        truncated:
+          type: boolean
+          description: True when the diff was cut off for size
+        lines:
+          type: array
+          items:
+            $ref: "#/components/schemas/DiffLine"
+      required: [path, changeKind, renamedFrom, added, removed, truncated, lines]
+    CommitDiff:
+      type: object
+      properties:
+        hash:
+          type: string
+        shortHash:
+          type: string
+        subject:
+          type: string
+        authorName:
+          type: string
+        date:
+          type: string
+          description: ISO 8601 author date
+        isMerge:
+          type: boolean
+          description: True when the snapshot joined two timelines; the diff is against its first parent
+        summary:
+          type: string
+          description: Plain-English explanation of what this snapshot changed
+        files:
+          type: array
+          items:
+            $ref: "#/components/schemas/FileDiff"
+      required: [hash, shortHash, subject, authorName, date, isMerge, summary, files]
+    WorkingFileDiff:
+      type: object
+      properties:
+        path:
+          type: string
+        status:
+          type: string
+          enum:
+            [staged, modified, staged_and_modified, untracked, deleted, conflicted]
+        summary:
+          type: string
+          description: Plain-English explanation of where this file's changes sit
+        staged:
+          anyOf:
+            - $ref: "#/components/schemas/FileDiff"
+            - type: "null"
+          description: Changes already boxed on the Loading Dock (staged), if any
+        unstaged:
+          anyOf:
+            - $ref: "#/components/schemas/FileDiff"
+            - type: "null"
+          description: Changes still on the Workbench (unstaged), if any
+      required: [path, status, summary, staged, unstaged]
     ProgressEntry:
       type: object
       properties:

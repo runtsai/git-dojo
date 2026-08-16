@@ -10,10 +10,20 @@ import {
   GetRepoStateResponse,
   RunLessonCheckResponse,
   RunBotActionResponse,
+  GetCommitDiffResponse,
+  GetWorkingFileDiffResponse,
 } from "@workspace/api-zod";
 import { recordCompletion } from "../lib/progress-store";
 import { recordGraderResult } from "../lib/drill-store";
-import { readRepoState, buildSummary, isRepo, commitCount } from "../lib/repo-state";
+import {
+  readRepoState,
+  buildSummary,
+  isRepo,
+  commitCount,
+  readCommitDiff,
+  readWorkingFileDiff,
+  COMMIT_HASH_RE,
+} from "../lib/repo-state";
 
 const run = promisify(execFile);
 
@@ -152,6 +162,58 @@ router.get("/dojo/lessons/:lessonId/state", async (req, res) => {
       summary: buildSummary(state),
     }),
   );
+});
+
+router.get("/dojo/lessons/:lessonId/commits/:commitHash/diff", async (req, res) => {
+  const root = dojoRoot();
+  const lessonId = req.params.lessonId ?? "";
+  const commitHash = req.params.commitHash ?? "";
+  const lesson = root ? listLessonDirs(root).find((l) => l.id === lessonId) : undefined;
+  if (!root || !lesson) {
+    res.status(404).json({ error: `Lesson not found: ${lessonId}` });
+    return;
+  }
+  if (!COMMIT_HASH_RE.test(commitHash)) {
+    res.status(400).json({ error: "Invalid commit hash." });
+    return;
+  }
+  const pgRoot = playgroundDir(root, lesson.id);
+  const repoDir = existsSync(pgRoot) ? resolveRepoDir(pgRoot) : null;
+  if (!repoDir) {
+    res.status(404).json({ error: "This lesson's practice repository doesn't exist yet." });
+    return;
+  }
+  const diff = await readCommitDiff(repoDir, commitHash);
+  if (!diff) {
+    res.status(404).json({ error: `No such commit in this repository: ${commitHash}` });
+    return;
+  }
+  res.json(GetCommitDiffResponse.parse(diff));
+});
+
+router.get("/dojo/lessons/:lessonId/file-diff", async (req, res) => {
+  const root = dojoRoot();
+  const lessonId = req.params.lessonId ?? "";
+  const filePath = typeof req.query.filePath === "string" ? req.query.filePath : "";
+  const lesson = root ? listLessonDirs(root).find((l) => l.id === lessonId) : undefined;
+  if (!root || !lesson) {
+    res.status(404).json({ error: `Lesson not found: ${lessonId}` });
+    return;
+  }
+  const pgRoot = playgroundDir(root, lesson.id);
+  const repoDir = existsSync(pgRoot) ? resolveRepoDir(pgRoot) : null;
+  if (!repoDir) {
+    res.status(404).json({ error: "This lesson's practice repository doesn't exist yet." });
+    return;
+  }
+  // readWorkingFileDiff only accepts paths git status itself reports, so
+  // arbitrary user input can never reach the filesystem or git unvalidated.
+  const diff = await readWorkingFileDiff(repoDir, filePath);
+  if (!diff) {
+    res.status(404).json({ error: `That file has no reported changes right now: ${filePath}` });
+    return;
+  }
+  res.json(GetWorkingFileDiffResponse.parse(diff));
 });
 
 router.post("/dojo/lessons/:lessonId/check", async (req, res) => {

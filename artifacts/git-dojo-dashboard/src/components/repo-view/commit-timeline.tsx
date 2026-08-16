@@ -132,9 +132,11 @@ interface Props {
   remoteBranches?: RemoteBranch[];
   currentBranch?: string | null;
   syncStatus?: SyncStatus | null;
+  /** When provided, clicking a commit reveals what it actually changed. */
+  onCommitClick?: (commit: RepoCommit) => void;
 }
 
-export function CommitTimeline({ commits, branches = [], remoteBranches = [], currentBranch = null, syncStatus = null }: Props) {
+export function CommitTimeline({ commits, branches = [], remoteBranches = [], currentBranch = null, syncStatus = null, onCommitClick }: Props) {
   if (commits.length === 0) {
     return (
       <div className="surface-card p-6 md:p-8">
@@ -203,8 +205,20 @@ export function CommitTimeline({ commits, branches = [], remoteBranches = [], cu
             const remotes = remoteTips.get(c.hash) ?? [];
             const isHead = !!tip && !!currentBranch && tip.name === currentBranch;
             const isMerge = (c.parents?.length ?? 0) > 1;
+            const RowTag = onCommitClick ? "button" : "div";
             return (
-              <div key={c.hash} style={{ height: ROW_H }} className="flex items-center min-w-0 pl-3 group border-b border-white/[0.03] last:border-0">
+              <RowTag
+                key={c.hash}
+                style={{ height: ROW_H }}
+                className={`flex items-center min-w-0 pl-3 group border-b border-white/[0.03] last:border-0 w-full text-left ${
+                  onCommitClick
+                    ? "cursor-pointer rounded-md transition-colors hover:bg-white/[0.04] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                    : ""
+                }`}
+                {...(onCommitClick
+                  ? { onClick: () => onCommitClick(c), title: "See what this snapshot changed", "data-testid": `commit-row-${c.shortHash}` }
+                  : {})}
+              >
                 <div className="min-w-0 flex-1 py-2">
                   <div className="flex flex-wrap items-center gap-2 mb-1 min-w-0">
                     <span className="font-mono text-xs font-bold px-2 py-0.5 rounded-md border shadow-sm" style={{ color: r.color, borderColor: `${r.color}40`, backgroundColor: `${r.color}14` }}>
@@ -237,7 +251,12 @@ export function CommitTimeline({ commits, branches = [], remoteBranches = [], cu
                     <span className="inline-flex items-center gap-1"><Clock className="w-3 h-3" /> {new Date(c.date).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}</span>
                   </div>
                 </div>
-              </div>
+                {onCommitClick && (
+                  <span className="hidden sm:inline text-[10px] uppercase font-bold tracking-widest text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity pr-3 shrink-0">
+                    what changed?
+                  </span>
+                )}
+              </RowTag>
             );
           })}
         </div>

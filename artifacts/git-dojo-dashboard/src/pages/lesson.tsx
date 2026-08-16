@@ -12,6 +12,7 @@ import { useEffect, useState } from "react";
 import { CommandBlock } from "@/components/ui/command-block";
 import { MapPeek } from "@/components/map-peek";
 import { TerritoryStrip } from "@/components/repo-view/territory-strip";
+import { DiffViewer, DiffSelection } from "@/components/repo-view/diff-viewer";
 
 function WayfindingPanel({ lessonId }: { lessonId: string }) {
   const [expanded, setExpanded] = useState(false);
@@ -87,6 +88,7 @@ function WayfindingPanel({ lessonId }: { lessonId: string }) {
 export function LessonView() {
   const { lessonId } = useParams<{ lessonId: string }>();
   const queryClient = useQueryClient();
+  const [diffSelection, setDiffSelection] = useState<DiffSelection | null>(null);
   
   useEffect(() => {
     if (lessonId) {
@@ -193,17 +195,25 @@ export function LessonView() {
         <>
           <SummaryPanel summary={repo.summary} isDetached={repo.detachedHead} currentBranch={repo.currentBranch} />
 
-          <TerritoryStrip repo={repo} />
+          <TerritoryStrip
+            repo={repo}
+            onFileClick={(path) => setDiffSelection({ kind: "file", path })}
+            onCommitClick={(hash, shortHash) => setDiffSelection({ kind: "commit", hash, shortHash })}
+          />
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <div className="lg:col-span-2 space-y-8">
-              <FileStatus files={repo.files} />
+              <FileStatus
+                files={repo.files}
+                onFileClick={(f) => setDiffSelection({ kind: "file", path: f.path })}
+              />
               <CommitTimeline
                 commits={repo.commits}
                 branches={repo.branches}
                 remoteBranches={repo.remoteBranches}
                 currentBranch={repo.currentBranch}
                 syncStatus={repo.syncStatus}
+                onCommitClick={(c) => setDiffSelection({ kind: "commit", hash: c.hash, shortHash: c.shortHash })}
               />
             </div>
             <div className="space-y-8">
@@ -213,6 +223,10 @@ export function LessonView() {
             </div>
           </div>
         </>
+      )}
+
+      {lessonId && (
+        <DiffViewer lessonId={lessonId} selection={diffSelection} onClose={() => setDiffSelection(null)} />
       )}
     </div>
   );

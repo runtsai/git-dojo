@@ -1,7 +1,7 @@
 import { RepoFile } from "@workspace/api-client-react";
 import { File, FilePlus, FileEdit, FileMinus, AlertCircle, HelpCircle } from "lucide-react";
 
-export function FileStatus({ files }: { files: RepoFile[] }) {
+export function FileStatus({ files, onFileClick }: { files: RepoFile[]; onFileClick?: (f: RepoFile) => void }) {
   if (files.length === 0) {
     return (
       <div className="surface-card p-6 md:p-8">
@@ -28,14 +28,29 @@ export function FileStatus({ files }: { files: RepoFile[] }) {
           <Icon className="w-4 h-4" /> {title} ({items.length})
         </h4>
         <div className="space-y-2">
-          {items.map((f: RepoFile) => (
-            <div key={f.path} className="font-mono text-sm px-4 py-3 bg-background border border-white/5 rounded-lg flex items-center justify-between shadow-sm">
-              <span className="text-foreground">{f.path}</span>
-              {f.status === 'staged_and_modified' && title.includes('Staged') && (
-                <span className="text-[10px] uppercase font-bold tracking-widest text-amber-500 bg-amber-500/10 px-2 py-1 rounded-md border border-amber-500/20">Also Modified</span>
-              )}
-            </div>
-          ))}
+          {items.map((f: RepoFile) => {
+            const clickable = !!onFileClick;
+            const Tag = clickable ? 'button' : 'div';
+            return (
+              <Tag
+                key={f.path}
+                {...(clickable ? { onClick: () => onFileClick!(f), title: 'See what changed in this file', 'data-testid': `file-row-${f.path}` } : {})}
+                className={`w-full font-mono text-sm px-4 py-3 bg-background border border-white/5 rounded-lg flex items-center justify-between shadow-sm text-left ${
+                  clickable ? 'cursor-pointer transition-colors hover:border-primary/40 hover:bg-primary/[0.04] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary' : ''
+                }`}
+              >
+                <span className="text-foreground">{f.path}</span>
+                <span className="flex items-center gap-2">
+                  {f.status === 'staged_and_modified' && title.includes('Staged') && (
+                    <span className="text-[10px] uppercase font-bold tracking-widest text-amber-500 bg-amber-500/10 px-2 py-1 rounded-md border border-amber-500/20">Also Modified</span>
+                  )}
+                  {clickable && (
+                    <span className="text-[10px] uppercase font-bold tracking-widest text-muted-foreground opacity-60">what changed?</span>
+                  )}
+                </span>
+              </Tag>
+            );
+          })}
         </div>
       </div>
     );

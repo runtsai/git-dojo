@@ -25,6 +25,7 @@ import type {
   CapstoneStatus,
   CapstoneVerifyResult,
   CheckResult,
+  CommitDiff,
   CompleteModuleRequest,
   CrisisScenario,
   CrisisSetupResult,
@@ -33,10 +34,12 @@ import type {
   DrillCandidateSet,
   DrillDueResult,
   DrillItemStats,
+  GetWorkingFileDiffParams,
   HealthStatus,
   Lesson,
   Progress,
-  RepoState
+  RepoState,
+  WorkingFileDiff
 } from './api.schemas';
 
 import { customFetch } from '../custom-fetch';
@@ -521,6 +524,179 @@ export const useRunBotAction = <TError = ErrorType<ApiMessage>,
       > => {
       return useMutation(getRunBotActionMutationOptions(options));
     }
+
+export const getGetCommitDiffUrl = (lessonId: string,
+    commitHash: string,) => {
+
+
+
+
+  return `/api/dojo/lessons/${lessonId}/commits/${commitHash}/diff`
+}
+
+/**
+ * Changed files and readable line-by-line diff for one sealed snapshot (merges are compared against their first parent)
+ * @summary What a commit actually changed
+ */
+export const getCommitDiff = async (lessonId: string,
+    commitHash: string, options?: Parameters<typeof customFetch>[1]): Promise<CommitDiff> => {
+
+  return customFetch<CommitDiff>(getGetCommitDiffUrl(lessonId,commitHash),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetCommitDiffQueryKey = (lessonId: string,
+    commitHash: string,) => {
+    return [
+    `/api/dojo/lessons/${lessonId}/commits/${commitHash}/diff`
+    ] as const;
+    }
+
+
+export const getGetCommitDiffQueryOptions = <TData = Awaited<ReturnType<typeof getCommitDiff>>, TError = ErrorType<ApiMessage>>(lessonId: string,
+    commitHash: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCommitDiff>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetCommitDiffQueryKey(lessonId,commitHash);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getCommitDiff>>> = ({ signal }) => getCommitDiff(lessonId,commitHash, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: lessonId !== null && lessonId !== undefined && commitHash !== null && commitHash !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getCommitDiff>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetCommitDiffQueryResult = NonNullable<Awaited<ReturnType<typeof getCommitDiff>>>
+export type GetCommitDiffQueryError = ErrorType<ApiMessage>
+
+
+/**
+ * @summary What a commit actually changed
+ */
+
+export function useGetCommitDiff<TData = Awaited<ReturnType<typeof getCommitDiff>>, TError = ErrorType<ApiMessage>>(
+ lessonId: string,
+    commitHash: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCommitDiff>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetCommitDiffQueryOptions(lessonId,commitHash,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetWorkingFileDiffUrl = (lessonId: string,
+    params: GetWorkingFileDiffParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/dojo/lessons/${lessonId}/file-diff?${stringifiedParams}` : `/api/dojo/lessons/${lessonId}/file-diff`
+}
+
+/**
+ * How a file differs from the last snapshot, split into what is already staged (Loading Dock) and what is still unstaged (Workbench)
+ * @summary Working-copy changes for one file
+ */
+export const getWorkingFileDiff = async (lessonId: string,
+    params: GetWorkingFileDiffParams, options?: Parameters<typeof customFetch>[1]): Promise<WorkingFileDiff> => {
+
+  return customFetch<WorkingFileDiff>(getGetWorkingFileDiffUrl(lessonId,params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetWorkingFileDiffQueryKey = (lessonId: string,
+    params?: GetWorkingFileDiffParams,) => {
+    return [
+    `/api/dojo/lessons/${lessonId}/file-diff`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetWorkingFileDiffQueryOptions = <TData = Awaited<ReturnType<typeof getWorkingFileDiff>>, TError = ErrorType<ApiMessage>>(lessonId: string,
+    params: GetWorkingFileDiffParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getWorkingFileDiff>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetWorkingFileDiffQueryKey(lessonId,params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getWorkingFileDiff>>> = ({ signal }) => getWorkingFileDiff(lessonId,params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: lessonId !== null && lessonId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getWorkingFileDiff>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetWorkingFileDiffQueryResult = NonNullable<Awaited<ReturnType<typeof getWorkingFileDiff>>>
+export type GetWorkingFileDiffQueryError = ErrorType<ApiMessage>
+
+
+/**
+ * @summary Working-copy changes for one file
+ */
+
+export function useGetWorkingFileDiff<TData = Awaited<ReturnType<typeof getWorkingFileDiff>>, TError = ErrorType<ApiMessage>>(
+ lessonId: string,
+    params: GetWorkingFileDiffParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getWorkingFileDiff>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetWorkingFileDiffQueryOptions(lessonId,params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getListCrisisScenariosUrl = () => {
 

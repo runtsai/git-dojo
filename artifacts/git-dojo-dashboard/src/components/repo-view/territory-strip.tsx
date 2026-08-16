@@ -231,7 +231,7 @@ export function detectMovements(prev: RepoState, next: RepoState, counter: () =>
   return events;
 }
 
-function Chip({ label, fresh, tone }: { label: string; fresh: boolean; tone: "workbench" | "dock" | "sealed" | "shared" }) {
+function Chip({ label, fresh, tone, onClick, testId }: { label: string; fresh: boolean; tone: "workbench" | "dock" | "sealed" | "shared"; onClick?: () => void; testId?: string }) {
   const toneClass =
     tone === "dock"
       ? "bg-primary/10 border-primary/25 text-primary"
@@ -240,13 +240,24 @@ function Chip({ label, fresh, tone }: { label: string; fresh: boolean; tone: "wo
         : tone === "shared"
           ? "bg-sky-500/10 border-sky-500/25 text-sky-400"
           : "bg-white/5 border-white/10 text-foreground/80";
+  const cls = `inline-block max-w-full truncate font-mono text-xs px-2 py-1 rounded-md border ${toneClass} ${
+    fresh ? "ring-2 ring-primary/60 motion-safe:animate-in motion-safe:zoom-in-95 motion-safe:slide-in-from-left-4 motion-safe:duration-500 shadow-[0_0_12px_rgba(255,107,0,0.25)]" : ""
+  }`;
+  if (onClick) {
+    return (
+      <button
+        type="button"
+        onClick={onClick}
+        className={`${cls} text-left cursor-pointer transition-colors hover:border-primary/50 hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary`}
+        title={`${label} — see what changed`}
+        data-testid={testId}
+      >
+        {label}
+      </button>
+    );
+  }
   return (
-    <span
-      className={`inline-block max-w-full truncate font-mono text-xs px-2 py-1 rounded-md border ${toneClass} ${
-        fresh ? "ring-2 ring-primary/60 motion-safe:animate-in motion-safe:zoom-in-95 motion-safe:slide-in-from-left-4 motion-safe:duration-500 shadow-[0_0_12px_rgba(255,107,0,0.25)]" : ""
-      }`}
-      title={label}
-    >
+    <span className={cls} title={label}>
       {label}
     </span>
   );
@@ -308,7 +319,17 @@ function LaneArrow({ lit }: { lit: boolean }) {
 const MAX_CHIPS = 4;
 const MAX_EVENTS = 3;
 
-export function TerritoryStrip({ repo }: { repo: RepoState }) {
+export function TerritoryStrip({
+  repo,
+  onFileClick,
+  onCommitClick,
+}: {
+  repo: RepoState;
+  /** When provided, clicking a file chip reveals its working-copy changes. */
+  onFileClick?: (path: string) => void;
+  /** When provided, clicking a commit chip reveals what that snapshot changed. */
+  onCommitClick?: (hash: string, shortHash: string) => void;
+}) {
   const prevRef = useRef<RepoState | null>(null);
   const idRef = useRef(0);
   const [events, setEvents] = useState<MovementEvent[]>([]);
@@ -357,7 +378,14 @@ export function TerritoryStrip({ repo }: { repo: RepoState }) {
           ) : (
             <>
               {wb.slice(0, MAX_CHIPS).map((f) => (
-                <Chip key={f.path} label={`${f.path}${f.status === "conflicted" ? " ⚠" : ""}`} fresh={fresh.has(f.path) && (latest?.to === "workbench")} tone="workbench" />
+                <Chip
+                  key={f.path}
+                  label={`${f.path}${f.status === "conflicted" ? " ⚠" : ""}`}
+                  fresh={fresh.has(f.path) && (latest?.to === "workbench")}
+                  tone="workbench"
+                  onClick={onFileClick ? () => onFileClick(f.path) : undefined}
+                  testId={`strip-workbench-${f.path}`}
+                />
               ))}
               {wb.length > MAX_CHIPS && <span className="text-[11px] text-muted-foreground">+{wb.length - MAX_CHIPS} more</span>}
             </>
@@ -378,7 +406,14 @@ export function TerritoryStrip({ repo }: { repo: RepoState }) {
           ) : (
             <>
               {dk.slice(0, MAX_CHIPS).map((f) => (
-                <Chip key={f.path} label={f.path} fresh={fresh.has(f.path) && latest?.to === "dock"} tone="dock" />
+                <Chip
+                  key={f.path}
+                  label={f.path}
+                  fresh={fresh.has(f.path) && latest?.to === "dock"}
+                  tone="dock"
+                  onClick={onFileClick ? () => onFileClick(f.path) : undefined}
+                  testId={`strip-dock-${f.path}`}
+                />
               ))}
               {dk.length > MAX_CHIPS && <span className="text-[11px] text-muted-foreground">+{dk.length - MAX_CHIPS} more</span>}
             </>
@@ -399,7 +434,14 @@ export function TerritoryStrip({ repo }: { repo: RepoState }) {
           ) : (
             <>
               {repo.commits.slice(0, MAX_CHIPS - 1).map((c) => (
-                <Chip key={c.hash} label={`${c.shortHash} ${c.subject}`} fresh={fresh.has(c.hash)} tone="sealed" />
+                <Chip
+                  key={c.hash}
+                  label={`${c.shortHash} ${c.subject}`}
+                  fresh={fresh.has(c.hash)}
+                  tone="sealed"
+                  onClick={onCommitClick ? () => onCommitClick(c.hash, c.shortHash) : undefined}
+                  testId={`strip-sealed-${c.shortHash}`}
+                />
               ))}
               {repo.commits.length > MAX_CHIPS - 1 && (
                 <span className="text-[11px] text-muted-foreground">+{repo.commits.length - (MAX_CHIPS - 1)} older</span>
