@@ -309,6 +309,59 @@ describe("detached HEAD", () => {
     expect(ev).toBeDefined();
     expect(ev!.text).toMatch(/detached/i);
   });
+
+  it("emits the detached-HEAD event and no duplicate workbench-appearance event when files appear in the same poll", () => {
+    // Before: on main branch, clean workbench
+    const prev = state({
+      detachedHead: false,
+      currentBranch: "main",
+      branches: [{ name: "main", isCurrent: true, headHash: "abc" }],
+      files: [],
+    });
+    // After: detached HEAD (checked out an old commit), workbench files become visible
+    const next = state({
+      detachedHead: true,
+      currentBranch: null,
+      branches: [{ name: "main", isCurrent: false, headHash: "abc" }],
+      files: [
+        { path: "old-file.ts", status: "modified" },
+        { path: "legacy.md", status: "untracked" },
+      ],
+    });
+    const events = detectMovements(prev, next, counter);
+
+    // The detached-HEAD event must fire
+    const detachedEv = events.find((e) => e.from === "sealed" && e.to === "workbench");
+    expect(detachedEv).toBeDefined();
+    expect(detachedEv!.text).toMatch(/detached/i);
+    // Newly-visible workbench files must be in freshKeys of the detached-HEAD event
+    expect(detachedEv!.freshKeys).toContain("old-file.ts");
+    expect(detachedEv!.freshKeys).toContain("legacy.md");
+
+    // No separate workbench-appearance event must fire for those same files
+    const appearanceEvents = events.filter(
+      (e) => e.to === "workbench" && e !== detachedEv,
+    );
+    expect(appearanceEvents).toHaveLength(0);
+  });
+
+  it("total event count is exactly 1 when detached-HEAD entry and file appearance occur together", () => {
+    const prev = state({
+      detachedHead: false,
+      currentBranch: "main",
+      files: [],
+    });
+    const next = state({
+      detachedHead: true,
+      currentBranch: null,
+      files: [{ path: "snapshot.ts", status: "modified" }],
+    });
+    const events = detectMovements(prev, next, counter);
+    expect(events).toHaveLength(1);
+    expect(events[0].from).toBe("sealed");
+    expect(events[0].to).toBe("workbench");
+    expect(events[0].text).toMatch(/detached/i);
+  });
 });
 
 // ---------------------------------------------------------------------------
