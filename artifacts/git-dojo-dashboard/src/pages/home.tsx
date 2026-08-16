@@ -55,6 +55,7 @@ export function Home() {
 
   const completedVisualModules = progress?.entries.filter(e => e.track === "visual").map(e => e.moduleId) || [];
   const completedCliLessons = progress?.entries.filter(e => e.track === "cli").map(e => e.moduleId) || [];
+  const goLiveBadgeEarned = progress?.entries.some(e => e.track === "live") ?? false;
 
   return (
     <div className="enter-slide-up max-w-7xl mx-auto space-y-12">
@@ -354,20 +355,40 @@ export function Home() {
             </Link>
           </div>
 
-          <div className="surface-card p-6 border-primary/20">
-            <div className="flex items-center gap-2 mb-3">
-              <Rocket className="w-5 h-5 text-primary" />
-              <h3 className="text-lg font-bold text-foreground">Go Live Capstone</h3>
+          <div className={`surface-card p-6 relative overflow-hidden ${goLiveBadgeEarned ? 'border-emerald-500/40 bg-emerald-500/5' : 'border-primary/20'}`}>
+            {goLiveBadgeEarned && (
+              <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/10 blur-2xl rounded-full translate-x-1/2 -translate-y-1/2 pointer-events-none" />
+            )}
+            <div className="flex items-center justify-between gap-2 mb-3 relative z-10">
+              <div className="flex items-center gap-2">
+                <Rocket className={`w-5 h-5 ${goLiveBadgeEarned ? 'text-emerald-400' : 'text-primary'}`} />
+                <h3 className="text-lg font-bold text-foreground">Go Live Capstone</h3>
+              </div>
+              {goLiveBadgeEarned && (
+                <div className="w-9 h-9 rounded-full bg-emerald-500/20 border-2 border-emerald-500 flex items-center justify-center flex-shrink-0 shadow-[0_0_20px_rgba(16,185,129,0.3)]">
+                  <Trophy className="w-4 h-4 text-emerald-400" />
+                </div>
+              )}
             </div>
-            <p className="text-sm text-muted-foreground leading-relaxed mb-4">
-              Optional final step: do it for real on your own GitHub account. Dojo creates a real
-              repo, opens a real PR, and verifies every step against the live GitHub API.
-            </p>
+            {goLiveBadgeEarned ? (
+              <p className="text-sm text-emerald-300/80 leading-relaxed mb-4 relative z-10">
+                Every mission verified against your real GitHub repo. Live Badge earned.
+              </p>
+            ) : (
+              <p className="text-sm text-muted-foreground leading-relaxed mb-4 relative z-10">
+                Optional final step: do it for real on your own GitHub account. Dojo creates a real
+                repo, opens a real PR, and verifies every step against the live GitHub API.
+              </p>
+            )}
             <Link 
               href="/go-live"
-              className="block w-full py-3 px-4 bg-primary/10 hover:bg-primary/20 border border-primary/30 text-primary text-center font-bold text-sm rounded-lg transition-all active:scale-95"
+              className={`block w-full py-3 px-4 text-center font-bold text-sm rounded-lg transition-all active:scale-95 relative z-10 ${
+                goLiveBadgeEarned
+                  ? 'bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 text-emerald-400'
+                  : 'bg-primary/10 hover:bg-primary/20 border border-primary/30 text-primary'
+              }`}
             >
-              Take it live &rarr;
+              {goLiveBadgeEarned ? 'View your capstone →' : 'Take it live →'}
             </Link>
           </div>
 
