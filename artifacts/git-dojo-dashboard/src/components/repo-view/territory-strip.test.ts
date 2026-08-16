@@ -995,3 +995,72 @@ describe("compound: branch switch + workbench files appear in same poll", () => 
     expect(events[0].to).toBe("workbench");
   });
 });
+
+// ---------------------------------------------------------------------------
+// Branch switch: staged files and freshKeys
+//
+// workbenchFiles() includes staged_and_modified (the file has both staged and
+// unstaged changes) so those paths are eligible for the freshKeys diff.  A
+// staged_and_modified file that exists on BOTH sides of the switch was not
+// brought in by the switch and must be excluded; one that appears only on the
+// new branch was brought in and must be included.
+// Pure "staged" files are never in workbenchFiles, so they cannot become
+// freshKeys regardless, but the staged_and_modified case needs explicit cover.
+// ---------------------------------------------------------------------------
+
+describe("branch switch: staged files and freshKeys", () => {
+  it("does not include a staged_and_modified file that carries over from the old branch", () => {
+    // The file was already staged_and_modified on main before the switch.
+    // After switching to feature it remains staged_and_modified — it was not
+    // brought in by the switch and must not receive the orange highlight ring.
+    const prev = state({
+      currentBranch: "main",
+      branches: [
+        { name: "main", isCurrent: true, headHash: "abc" },
+        { name: "feature", isCurrent: false, headHash: "def" },
+      ],
+      files: [{ path: "carry.ts", status: "staged_and_modified" }],
+    });
+    const next = state({
+      currentBranch: "feature",
+      branches: [
+        { name: "main", isCurrent: false, headHash: "abc" },
+        { name: "feature", isCurrent: true, headHash: "def" },
+      ],
+      // carry.ts is still staged_and_modified after the switch — it carried over.
+      files: [{ path: "carry.ts", status: "staged_and_modified" }],
+    });
+    const events = detectMovements(prev, next, counter);
+    const switchEv = events.find((e) => e.from === "sealed" && e.to === "workbench");
+    expect(switchEv).toBeDefined();
+    // The file that carried over must NOT be highlighted
+    expect(switchEv!.freshKeys).not.toContain("carry.ts");
+  });
+
+  it("includes a staged_and_modified file that appears only after the branch switch", () => {
+    // branch-specific.ts did not exist on main at all; it is unique to feature
+    // and becomes visible (staged_and_modified) only after the switch.
+    // That means it was brought in by the switch and must appear in freshKeys.
+    const prev = state({
+      currentBranch: "main",
+      branches: [
+        { name: "main", isCurrent: true, headHash: "abc" },
+        { name: "feature", isCurrent: false, headHash: "def" },
+      ],
+      files: [],
+    });
+    const next = state({
+      currentBranch: "feature",
+      branches: [
+        { name: "main", isCurrent: false, headHash: "abc" },
+        { name: "feature", isCurrent: true, headHash: "def" },
+      ],
+      files: [{ path: "branch-specific.ts", status: "staged_and_modified" }],
+    });
+    const events = detectMovements(prev, next, counter);
+    const switchEv = events.find((e) => e.from === "sealed" && e.to === "workbench");
+    expect(switchEv).toBeDefined();
+    // The file that only appeared because of the switch must be highlighted
+    expect(switchEv!.freshKeys).toContain("branch-specific.ts");
+  });
+});
