@@ -685,3 +685,101 @@ describe("compound: commit then push in one poll cycle", () => {
     expect(pushEv!.text).toMatch(/2 commit/);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Compound: branch switch + workbench files appearing in the same poll cycle
+// ---------------------------------------------------------------------------
+
+describe("compound: branch switch + workbench files appear in same poll", () => {
+  it("emits the branch-switch event and no duplicate workbench-appearance event", () => {
+    // Before: on main, clean workbench
+    const prev = state({
+      currentBranch: "main",
+      branches: [
+        { name: "main", isCurrent: true, headHash: "abc" },
+        { name: "feature", isCurrent: false, headHash: "abc" },
+      ],
+      files: [],
+    });
+    // After: switched to feature, which has untracked/modified files now visible
+    const next = state({
+      currentBranch: "feature",
+      branches: [
+        { name: "main", isCurrent: false, headHash: "abc" },
+        { name: "feature", isCurrent: true, headHash: "abc" },
+      ],
+      files: [
+        { path: "feature.ts", status: "untracked" },
+        { path: "README.md", status: "modified" },
+      ],
+    });
+    const events = detectMovements(prev, next, counter);
+
+    // The branch-switch event must be present
+    const switchEv = events.find((e) => e.from === "sealed" && e.to === "workbench");
+    expect(switchEv).toBeDefined();
+    expect(switchEv!.text).toMatch(/feature/);
+    expect(switchEv!.text).toMatch(/Switched/i);
+
+    // No separate workbench-appearance event must fire for the new files
+    const appearanceEvents = events.filter(
+      (e) => e.to === "workbench" && e !== switchEv,
+    );
+    expect(appearanceEvents).toHaveLength(0);
+  });
+
+  it("emits new-branch event and no duplicate workbench-appearance when branch is created with dirty files", () => {
+    // Before: on main, clean workbench
+    const prev = state({
+      currentBranch: "main",
+      branches: [{ name: "main", isCurrent: true, headHash: "abc" }],
+      files: [],
+    });
+    // After: switched to a brand-new branch with a modified file visible
+    const next = state({
+      currentBranch: "experiment",
+      branches: [
+        { name: "main", isCurrent: false, headHash: "abc" },
+        { name: "experiment", isCurrent: true, headHash: "abc" },
+      ],
+      files: [{ path: "scratch.ts", status: "modified" }],
+    });
+    const events = detectMovements(prev, next, counter);
+
+    // Must narrate branch creation
+    const createEv = events.find((e) => e.from === "sealed" && e.to === "workbench");
+    expect(createEv).toBeDefined();
+    expect(createEv!.text).toMatch(/experiment/);
+    expect(createEv!.text).toMatch(/created|new timeline/i);
+
+    // No redundant workbench-appearance event for the modified file
+    const extra = events.filter((e) => e.to === "workbench" && e !== createEv);
+    expect(extra).toHaveLength(0);
+  });
+
+  it("total event count is exactly 1 when only branch-switch + file appearance occur together", () => {
+    const prev = state({
+      currentBranch: "main",
+      branches: [
+        { name: "main", isCurrent: true, headHash: "abc" },
+        { name: "other", isCurrent: false, headHash: "abc" },
+      ],
+      files: [],
+    });
+    const next = state({
+      currentBranch: "other",
+      branches: [
+        { name: "main", isCurrent: false, headHash: "abc" },
+        { name: "other", isCurrent: true, headHash: "abc" },
+      ],
+      files: [
+        { path: "a.ts", status: "untracked" },
+        { path: "b.ts", status: "modified" },
+      ],
+    });
+    const events = detectMovements(prev, next, counter);
+    expect(events).toHaveLength(1);
+    expect(events[0].from).toBe("sealed");
+    expect(events[0].to).toBe("workbench");
+  });
+});
