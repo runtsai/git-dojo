@@ -626,4 +626,122 @@ describe("readWorkingFileDiff — integration", () => {
     expect(diff!.staged).not.toBeNull();
     expect(diff!.unstaged).not.toBeNull();
   });
+
+  // -------------------------------------------------------------------------
+  // Crisis-specific states
+  // -------------------------------------------------------------------------
+
+  it("crisis-02: conflicted file mid-merge returns valid WorkingFileDiffData shape", async () => {
+    // Reproduces the state crisis-02 leaves: a merge was started but left open
+    // with conflicts. rates.txt has conflict markers — both sides changed the
+    // fuel-surcharge line to different values.
+    const dir = makeRepo();
+    reposToClean.push(dir);
+
+    const RATES = "RTS Freight rates\nStandard load: $500\nRush load: $750\nFuel surcharge: $40\n";
+    const env = {
+      ...process.env,
+      GIT_AUTHOR_NAME: "Test",
+      GIT_AUTHOR_EMAIL: "test@test.com",
+      GIT_COMMITTER_NAME: "Test",
+      GIT_COMMITTER_EMAIL: "test@test.com",
+      GIT_TERMINAL_PROMPT: "0",
+      GIT_CONFIG_GLOBAL: "/dev/null",
+      HOME: dir,
+    };
+    const g = (...args: string[]) => execFileSync("git", args, { cwd: dir, env });
+
+    // Base commit with original rates
+    writeFileSync(path.join(dir, "rates.txt"), RATES);
+    g("add", ".");
+    g("commit", "-m", "Open the books");
+
+    // Feature branch: change surcharge to $80
+    g("checkout", "-b", "rate-overhaul");
+    writeFileSync(path.join(dir, "rates.txt"), RATES.replace("Fuel surcharge: $40", "Fuel surcharge: $80"));
+    g("add", ".");
+    g("commit", "-m", "Overhaul: raise fuel surcharge");
+
+    // Back to main: change surcharge to $65 (conflict!)
+    g("checkout", "main");
+    writeFileSync(path.join(dir, "rates.txt"), RATES.replace("Fuel surcharge: $40", "Fuel surcharge: $65"));
+    g("add", ".");
+    g("commit", "-m", "Mainline: raise fuel surcharge");
+
+    // Start merge — it will conflict; ignore the non-zero exit
+    try {
+      g("merge", "rate-overhaul");
+    } catch {
+      /* expected conflict */
+    }
+
+    // The file must now be in conflict (UU status)
+    const diff = await readWorkingFileDiff(dir, "rates.txt");
+
+    // Shape checks — must never return null for a conflicted file
+    expect(diff).not.toBeNull();
+    expect(diff!.path).toBe("rates.txt");
+    expect(diff!.status).toBe("conflicted");
+    // summary must be a non-empty string
+    expect(typeof diff!.summary).toBe("string");
+    expect(diff!.summary.length).toBeGreaterThan(0);
+    // staged/unstaged may be null for conflicted files (git diff output varies)
+    // — the important thing is the shape is present and not throwing
+    expect("staged" in diff!).toBe(true);
+    expect("unstaged" in diff!).toBe(true);
+  });
+
+  it("crisis-05: staged-only file has staged diff and no unstaged diff", async () => {
+    // Reproduces what crisis-05 setup produces for rates.txt:
+    // the file is overwritten with garbage and then staged (git add rates.txt),
+    // while drivers.txt is modified but NOT staged.
+    const dir = makeRepo();
+    reposToClean.push(dir);
+
+    const RATES = "RTS Freight rates\nStandard load: $500\nRush load: $750\nFuel surcharge: $40\n";
+    const DRIVERS = "Active drivers\nM. Alvarez\nJ. Okafor\n";
+    const env = {
+      ...process.env,
+      GIT_AUTHOR_NAME: "Test",
+      GIT_AUTHOR_EMAIL: "test@test.com",
+      GIT_COMMITTER_NAME: "Test",
+      GIT_COMMITTER_EMAIL: "test@test.com",
+      GIT_TERMINAL_PROMPT: "0",
+      GIT_CONFIG_GLOBAL: "/dev/null",
+      HOME: dir,
+    };
+    const g = (...args: string[]) => execFileSync("git", args, { cwd: dir, env });
+
+    // Base commits: rates.txt and drivers.txt clean
+    writeFileSync(path.join(dir, "rates.txt"), RATES);
+    writeFileSync(path.join(dir, "drivers.txt"), DRIVERS);
+    g("add", ".");
+    g("commit", "-m", "Open the books");
+
+    // Trash both files, but only stage rates.txt (mirrors crisis-05 exactly)
+    writeFileSync(path.join(dir, "rates.txt"), "ALL RATES 90% OFF???\nasdf asdf asdf\n");
+    writeFileSync(path.join(dir, "drivers.txt"), "fired everyone lol\n");
+    g("add", "rates.txt");
+
+    // rates.txt is staged-only: staged diff present, unstaged diff absent
+    const ratesDiff = await readWorkingFileDiff(dir, "rates.txt");
+    expect(ratesDiff).not.toBeNull();
+    expect(ratesDiff!.path).toBe("rates.txt");
+    expect(ratesDiff!.status).toBe("staged");
+    expect(ratesDiff!.staged).not.toBeNull();
+    expect(ratesDiff!.staged!.added).toBeGreaterThan(0);
+    expect(ratesDiff!.staged!.removed).toBeGreaterThan(0);
+    // No further working-tree changes beyond what was staged
+    expect(ratesDiff!.unstaged).toBeNull();
+
+    // drivers.txt is modified-only: unstaged diff present, staged diff absent
+    const driversDiff = await readWorkingFileDiff(dir, "drivers.txt");
+    expect(driversDiff).not.toBeNull();
+    expect(driversDiff!.path).toBe("drivers.txt");
+    expect(driversDiff!.status).toBe("modified");
+    expect(driversDiff!.unstaged).not.toBeNull();
+    expect(driversDiff!.unstaged!.added).toBeGreaterThan(0);
+    expect(driversDiff!.unstaged!.removed).toBeGreaterThan(0);
+    expect(driversDiff!.staged).toBeNull();
+  });
 });
