@@ -15,12 +15,13 @@ import { CommandBlock } from "@/components/ui/command-block";
 import { MapPeek } from "@/components/map-peek";
 import { TerritoryStrip } from "@/components/repo-view/territory-strip";
 import { DiffViewer, DiffSelection } from "@/components/repo-view/diff-viewer";
+import { safeStorage } from "@/lib/safe-storage";
 
 function WayfindingPanel({ lessonId }: { lessonId: string }) {
   const [expanded, setExpanded] = useState(false);
 
   useEffect(() => {
-    const dismissed = localStorage.getItem("dojo-terminal-info-dismissed");
+    const dismissed = safeStorage.getItem("dojo-terminal-info-dismissed");
     if (!dismissed) {
       setExpanded(true);
     }
@@ -28,7 +29,7 @@ function WayfindingPanel({ lessonId }: { lessonId: string }) {
 
   const togglePanel = () => {
     if (expanded) {
-      localStorage.setItem("dojo-terminal-info-dismissed", "true");
+      safeStorage.setItem("dojo-terminal-info-dismissed", "true");
     }
     setExpanded(!expanded);
   };

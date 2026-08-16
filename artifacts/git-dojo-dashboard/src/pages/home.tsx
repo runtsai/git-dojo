@@ -7,6 +7,7 @@ import { tiers } from "@/content/tiers";
 import { breakthroughs } from "@/content/breakthroughs";
 import { useEffect, useState } from "react";
 import { crises } from "@/content/crises";
+import { safeStorage } from "@/lib/safe-storage";
 
 export function Home() {
   const [_, setLocation] = useLocation();
@@ -16,7 +17,7 @@ export function Home() {
 
   useEffect(() => {
     document.title = "Git Dojo | The GitHub Mastery Path";
-    const dismissed = localStorage.getItem("dojo-orientation-dismissed");
+    const dismissed = safeStorage.getItem("dojo-orientation-dismissed");
     if (!dismissed) {
       setShowOrientation(true);
     }
@@ -25,24 +26,24 @@ export function Home() {
   const [showMobileNotice, setShowMobileNotice] = useState(false);
 
   useEffect(() => {
-    const noticeDismissed = localStorage.getItem("dojo-mobile-notice-dismissed");
+    const noticeDismissed = safeStorage.getItem("dojo-mobile-notice-dismissed");
     if (!noticeDismissed) {
       setShowMobileNotice(true);
     }
   }, []);
 
   const dismissMobileNotice = () => {
-    localStorage.setItem("dojo-mobile-notice-dismissed", "true");
+    safeStorage.setItem("dojo-mobile-notice-dismissed", "true");
     setShowMobileNotice(false);
   };
 
   const dismissOrientation = () => {
-    localStorage.setItem("dojo-orientation-dismissed", "true");
+    safeStorage.setItem("dojo-orientation-dismissed", "true");
     setShowOrientation(false);
   };
 
   const showOrientationPanel = () => {
-    localStorage.removeItem("dojo-orientation-dismissed");
+    safeStorage.removeItem("dojo-orientation-dismissed");
     setShowOrientation(true);
   };
 
