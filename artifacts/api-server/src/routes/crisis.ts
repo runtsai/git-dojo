@@ -9,10 +9,11 @@ import {
   SetupCrisisScenarioResponse,
   GetCrisisRepoStateResponse,
   RunCrisisCheckResponse,
+  GetCommitDiffResponse,
 } from "@workspace/api-zod";
 import { recordCompletion, loadEntries } from "../lib/progress-store";
 import { recordGraderResult } from "../lib/drill-store";
-import { readRepoState, buildSummary, isRepo, git } from "../lib/repo-state";
+import { readRepoState, buildSummary, isRepo, git, readCommitDiff, COMMIT_HASH_RE } from "../lib/repo-state";
 import { requireOwner } from "../middlewares/require-owner";
 
 const run = promisify(execFile);
@@ -453,6 +454,30 @@ router.get("/crisis/scenarios/:crisisId/state", async (req, res) => {
       summary: buildSummary(state),
     }),
   );
+});
+
+router.get("/crisis/scenarios/:crisisId/commits/:commitHash/diff", async (req, res) => {
+  const scenario = findScenario(String(req.params.crisisId ?? ""));
+  if (!scenario) {
+    res.status(404).json({ error: `Scenario not found: ${req.params.crisisId}` });
+    return;
+  }
+  const commitHash = req.params.commitHash ?? "";
+  if (!COMMIT_HASH_RE.test(commitHash)) {
+    res.status(400).json({ error: "Invalid commit hash." });
+    return;
+  }
+  const pg = playground(scenario.id);
+  if (!existsSync(pg) || !isRepo(pg)) {
+    res.status(404).json({ error: "This scenario's practice repository doesn't exist yet." });
+    return;
+  }
+  const diff = await readCommitDiff(pg, commitHash);
+  if (!diff) {
+    res.status(404).json({ error: `No such commit in this repository: ${commitHash}` });
+    return;
+  }
+  res.json(GetCommitDiffResponse.parse(diff));
 });
 
 router.post("/crisis/scenarios/:crisisId/check", requireOwner, async (req, res) => {

@@ -998,6 +998,89 @@ export const useRunCrisisCheck = <TError = ErrorType<ApiMessage>,
       return useMutation(getRunCrisisCheckMutationOptions(options));
     }
 
+export const getGetCrisisCommitDiffUrl = (crisisId: string,
+    commitHash: string,) => {
+
+
+
+
+  return `/api/crisis/scenarios/${crisisId}/commits/${commitHash}/diff`
+}
+
+/**
+ * Changed files and readable line-by-line diff for one sealed snapshot in a crisis scenario's playground (merges are compared against their first parent)
+ * @summary What a crisis commit actually changed
+ */
+export const getCrisisCommitDiff = async (crisisId: string,
+    commitHash: string, options?: Parameters<typeof customFetch>[1]): Promise<CommitDiff> => {
+
+  return customFetch<CommitDiff>(getGetCrisisCommitDiffUrl(crisisId,commitHash),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetCrisisCommitDiffQueryKey = (crisisId: string,
+    commitHash: string,) => {
+    return [
+    `/api/crisis/scenarios/${crisisId}/commits/${commitHash}/diff`
+    ] as const;
+    }
+
+
+export const getGetCrisisCommitDiffQueryOptions = <TData = Awaited<ReturnType<typeof getCrisisCommitDiff>>, TError = ErrorType<ApiMessage>>(crisisId: string,
+    commitHash: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCrisisCommitDiff>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetCrisisCommitDiffQueryKey(crisisId,commitHash);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getCrisisCommitDiff>>> = ({ signal }) => getCrisisCommitDiff(crisisId,commitHash, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: crisisId !== null && crisisId !== undefined && commitHash !== null && commitHash !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getCrisisCommitDiff>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetCrisisCommitDiffQueryResult = NonNullable<Awaited<ReturnType<typeof getCrisisCommitDiff>>>
+export type GetCrisisCommitDiffQueryError = ErrorType<ApiMessage>
+
+
+/**
+ * @summary What a crisis commit actually changed
+ */
+
+export function useGetCrisisCommitDiff<TData = Awaited<ReturnType<typeof getCrisisCommitDiff>>, TError = ErrorType<ApiMessage>>(
+ crisisId: string,
+    commitHash: string, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCrisisCommitDiff>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetCrisisCommitDiffQueryOptions(crisisId,commitHash,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
 export const getGetProgressUrl = () => {
 
 

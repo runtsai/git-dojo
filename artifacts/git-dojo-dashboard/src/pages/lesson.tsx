@@ -226,7 +226,7 @@ export function LessonView() {
       )}
 
       {lessonId && (
-        <DiffViewer lessonId={lessonId} selection={diffSelection} onClose={() => setDiffSelection(null)} />
+        <DiffViewer source={{ kind: "lesson", id: lessonId }} selection={diffSelection} onClose={() => setDiffSelection(null)} />
       )}
     </div>
   );

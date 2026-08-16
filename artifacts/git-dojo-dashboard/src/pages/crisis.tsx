@@ -21,6 +21,7 @@ import { FileStatus } from "@/components/repo-view/file-status";
 import { CommitTimeline } from "@/components/repo-view/commit-timeline";
 import { BranchList } from "@/components/repo-view/branch-list";
 import { CrisisCheckRunner } from "@/components/repo-view/crisis-check-runner";
+import { DiffViewer, DiffSelection } from "@/components/repo-view/diff-viewer";
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { crises } from "@/content/crises";
@@ -39,6 +40,7 @@ export function CrisisView() {
   const crisis = crises.find((c) => c.id === crisisId);
   const [hintsOpen, setHintsOpen] = useState(0);
   const [justPassed, setJustPassed] = useState(false);
+  const [diffSelection, setDiffSelection] = useState<DiffSelection | null>(null);
 
   useEffect(() => {
     if (crisis) document.title = `${crisis.title} | Crisis Room`;
@@ -173,7 +175,10 @@ export function CrisisView() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <div className="lg:col-span-2 space-y-8">
               <FileStatus files={repo!.files} />
-              <CommitTimeline commits={repo!.commits} />
+              <CommitTimeline
+                commits={repo!.commits}
+                onCommitClick={(c) => setDiffSelection({ kind: "commit", hash: c.hash, shortHash: c.shortHash })}
+              />
             </div>
             <div className="space-y-8">
               <CrisisCheckRunner crisisId={crisis.id} onPass={() => setJustPassed(true)} />
@@ -252,6 +257,12 @@ export function CrisisView() {
           )}
         </>
       )}
+
+      <DiffViewer
+        source={{ kind: "crisis", id: crisis.id }}
+        selection={diffSelection}
+        onClose={() => setDiffSelection(null)}
+      />
     </div>
   );
 }

@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import {
   useGetCommitDiff,
   useGetWorkingFileDiff,
+  useGetCrisisCommitDiff,
   FileDiff,
   DiffLine,
 } from "@workspace/api-client-react";
@@ -16,6 +17,14 @@ import { X, FileText, User, Clock, GitMerge, Package, Wrench } from "lucide-reac
 export type DiffSelection =
   | { kind: "commit"; hash: string; shortHash: string }
   | { kind: "file"; path: string };
+
+/**
+ * Which API to fetch diffs from. "lesson" uses the dojo lesson endpoints;
+ * "crisis" uses the crisis scenario endpoints (commit-only — no working-file diff).
+ */
+export type DiffSource =
+  | { kind: "lesson"; id: string }
+  | { kind: "crisis"; id: string };
 
 function DiffLines({ lines }: { lines: DiffLine[] }) {
   return (
@@ -145,8 +154,19 @@ function Spinner() {
   );
 }
 
-function CommitDiffPanel({ lessonId, hash, onClose }: { lessonId: string; hash: string; onClose: () => void }) {
-  const { data, isLoading, isError } = useGetCommitDiff(lessonId, hash);
+function CommitDiffPanel({ source, hash, onClose }: { source: DiffSource; hash: string; onClose: () => void }) {
+  // Both hooks must be called unconditionally (Rules of Hooks). The inactive
+  // one receives a sentinel ID so it will skip fetching (the generated guard
+  // checks !== null && !== undefined; we pass null-cast to disable it cleanly).
+  const lessonResult = useGetCommitDiff(
+    source.kind === "lesson" ? source.id : (null as unknown as string),
+    hash,
+  );
+  const crisisResult = useGetCrisisCommitDiff(
+    source.kind === "crisis" ? source.id : (null as unknown as string),
+    hash,
+  );
+  const { data, isLoading, isError } = source.kind === "crisis" ? crisisResult : lessonResult;
   return (
     <PanelShell
       onClose={onClose}
@@ -197,8 +217,12 @@ function CommitDiffPanel({ lessonId, hash, onClose }: { lessonId: string; hash: 
   );
 }
 
-function WorkingDiffPanel({ lessonId, path, onClose }: { lessonId: string; path: string; onClose: () => void }) {
-  const { data, isLoading, isError } = useGetWorkingFileDiff(lessonId, { filePath: path });
+function WorkingDiffPanel({ source, path, onClose }: { source: DiffSource; path: string; onClose: () => void }) {
+  // Crisis Room has no working-file diff endpoint; only lesson sources use this panel.
+  const { data, isLoading, isError } = useGetWorkingFileDiff(
+    source.kind === "lesson" ? source.id : (null as unknown as string),
+    { filePath: path },
+  );
   return (
     <PanelShell
       onClose={onClose}
@@ -246,18 +270,18 @@ function WorkingDiffPanel({ lessonId, path, onClose }: { lessonId: string; path:
 }
 
 export function DiffViewer({
-  lessonId,
+  source,
   selection,
   onClose,
 }: {
-  lessonId: string;
+  source: DiffSource;
   selection: DiffSelection | null;
   onClose: () => void;
 }) {
   if (!selection) return null;
   return selection.kind === "commit" ? (
-    <CommitDiffPanel lessonId={lessonId} hash={selection.hash} onClose={onClose} />
+    <CommitDiffPanel source={source} hash={selection.hash} onClose={onClose} />
   ) : (
-    <WorkingDiffPanel lessonId={lessonId} path={selection.path} onClose={onClose} />
+    <WorkingDiffPanel source={source} path={selection.path} onClose={onClose} />
   );
 }

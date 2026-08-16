@@ -296,6 +296,38 @@ export const RunCrisisCheckResponse = zod.object({
 
 
 /**
+ * Changed files and readable line-by-line diff for one sealed snapshot in a crisis scenario's playground (merges are compared against their first parent)
+ * @summary What a crisis commit actually changed
+ */
+export const GetCrisisCommitDiffParams = zod.object({
+  "crisisId": zod.coerce.string(),
+  "commitHash": zod.coerce.string()
+})
+
+export const GetCrisisCommitDiffResponse = zod.object({
+  "hash": zod.string(),
+  "shortHash": zod.string(),
+  "subject": zod.string(),
+  "authorName": zod.string(),
+  "date": zod.string().describe('ISO 8601 author date'),
+  "isMerge": zod.boolean().describe('True when the snapshot joined two timelines; the diff is against its first parent'),
+  "summary": zod.string().describe('Plain-English explanation of what this snapshot changed'),
+  "files": zod.array(zod.object({
+  "path": zod.string(),
+  "changeKind": zod.enum(['added', 'modified', 'deleted', 'renamed', 'binary']),
+  "renamedFrom": zod.string().nullable().describe('Previous path when the file was renamed'),
+  "added": zod.number().describe('Count of added lines'),
+  "removed": zod.number().describe('Count of removed lines'),
+  "truncated": zod.boolean().describe('True when the diff was cut off for size'),
+  "lines": zod.array(zod.object({
+  "kind": zod.enum(['added', 'removed', 'context', 'hunk']).describe('hunk marks a \"skip ahead\" separator between change regions'),
+  "text": zod.string()
+}))
+}))
+})
+
+
+/**
  * All completed modules across both tracks
  * @summary Get saved course progress
  */
