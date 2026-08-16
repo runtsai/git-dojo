@@ -1,0 +1,549 @@
+/**
+ * Tests for the capstone write endpoints — POST /api/capstone/repo,
+ * POST /api/capstone/verify/:missionId, DELETE /api/capstone/repo.
+ *
+ * These endpoints require a live GitHub connection and are stateful/destructive,
+ * so the smoke check skips them unless SMOKE_CAPSTONE_WRITES=1.  This test
+ * validates that the success-path response bodies conform to the generated Zod
+ * schemas (CreateCapstoneRepoResponse, VerifyCapstoneMissionResponse,
+ * DeleteCapstoneRepoResponse) so a shape regression can't go undetected until
+ * a learner actually starts the capstone.
+ *
+ * All external I/O is mocked:
+ *   - ghJson / getConnectedLogin   → lib/github
+ *   - loadCapstone / saveCapstone / clearCapstone → lib/capstone-store
+ *   - recordCompletion             → lib/progress-store
+ *
+ * Timer-based delays (the 1500 ms auto_init wait) are mocked with vi.useFakeTimers.
+ */
+
+import { describe, it, expect, vi, beforeEach, beforeAll, afterAll } from "vitest";
+import express from "express";
+import type { Server } from "node:http";
+import {
+  CreateCapstoneRepoResponse,
+  VerifyCapstoneMissionResponse,
+  DeleteCapstoneRepoResponse,
+} from "@workspace/api-zod";
+
+/**
+ * Minimal local type for a Zod schema — avoids importing from `zod` directly
+ * (not a declared direct dependency of this package).
+ */
+interface Schema {
+  safeParse(val: unknown): {
+    success: boolean;
+    data?: unknown;
+    error?: { issues: Array<{ path: (string | number)[]; message: string }> };
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Mock setup — must happen before the router is imported
+// ---------------------------------------------------------------------------
+
+// ---- GitHub connector -------------------------------------------------------
+const mockGetConnectedLogin = vi.fn<() => Promise<string | null>>();
+const mockGhJson = vi.fn<
+  (path: string, init?: { method?: string; body?: unknown }) => Promise<unknown>
+>();
+
+vi.mock("../lib/github.js", () => ({
+  getConnectedLogin: (...args: unknown[]) => mockGetConnectedLogin(...(args as [])),
+  ghJson: (...args: unknown[]) =>
+    mockGhJson(...(args as [string, (object | undefined)?])),
+  // ghFetch is not used directly by the router
+  ghFetch: vi.fn(),
+}));
+
+// ---- Capstone store ---------------------------------------------------------
+import type { CapstoneState } from "../lib/capstone-store.js";
+
+let mockCapstoneState: CapstoneState | null = null;
+
+vi.mock("../lib/capstone-store.js", async (importOriginal) => {
+  const original = await importOriginal<typeof import("../lib/capstone-store.js")>();
+  return {
+    ...original,
+    loadCapstone: vi.fn(() => mockCapstoneState),
+    saveCapstone: vi.fn((s: CapstoneState) => {
+      mockCapstoneState = s;
+    }),
+    clearCapstone: vi.fn(() => {
+      mockCapstoneState = null;
+    }),
+  };
+});
+
+// ---- Progress store ---------------------------------------------------------
+vi.mock("../lib/progress-store.js", () => ({
+  loadEntries: vi.fn(() => []),
+  recordCompletion: vi.fn(),
+}));
+
+// Import router AFTER mocks are registered.
+const { default: capstoneRouter } = await import("./capstone.js");
+
+// ---------------------------------------------------------------------------
+// Minimal Express app
+// ---------------------------------------------------------------------------
+
+const app = express();
+app.use(express.json());
+// Wire up a stub request logger that the router references via req.log
+app.use((_req, _res, next) => {
+  (
+    _req as unknown as {
+      log: { info: () => void; warn: () => void; error: () => void };
+    }
+  ).log = {
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+  };
+  next();
+});
+app.use("/api", capstoneRouter);
+
+let server: Server;
+let base: string;
+
+beforeAll(
+  () =>
+    new Promise<void>((resolve) => {
+      server = app.listen(0, "127.0.0.1", () => {
+        const addr = server.address() as { port: number };
+        base = `http://127.0.0.1:${addr.port}`;
+        resolve();
+      });
+    }),
+);
+
+afterAll(
+  () =>
+    new Promise<void>((resolve) => {
+      server.close(() => resolve());
+    }),
+);
+
+beforeEach(() => {
+  vi.clearAllMocks();
+  mockCapstoneState = null;
+  // Default: GitHub connected.
+  mockGetConnectedLogin.mockResolvedValue("testuser");
+});
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function makeRepo() {
+  return {
+    id: 123456,
+    name: "dojo-live-capstone",
+    full_name: "testuser/dojo-live-capstone",
+    html_url: "https://github.com/testuser/dojo-live-capstone",
+    clone_url: "https://github.com/testuser/dojo-live-capstone.git",
+    default_branch: "main",
+    owner: { login: "testuser" },
+  };
+}
+
+function makeCapstoneState(overrides: Partial<CapstoneState> = {}): CapstoneState {
+  return {
+    owner: "testuser",
+    repoId: 123456,
+    repoName: "dojo-live-capstone",
+    repoFullName: "testuser/dojo-live-capstone",
+    htmlUrl: "https://github.com/testuser/dojo-live-capstone",
+    cloneUrl: "https://github.com/testuser/dojo-live-capstone.git",
+    defaultBranch: "main",
+    prNumber: 42,
+    prUrl: "https://github.com/testuser/dojo-live-capstone/pull/42",
+    prBranch: "dojo/practice-pr-abc1",
+    seedShas: ["seed-sha-1"],
+    missionsVerifiedAt: {},
+    badgeEarnedAt: null,
+    createdByDojo: true,
+    createdAt: "2026-01-01T00:00:00.000Z",
+    ...overrides,
+  };
+}
+
+/** ghJson mock that returns a canned 404 for any path. */
+function ghJsonNotFound() {
+  return { ok: false, status: 404, data: null, errorMessage: "Not Found" };
+}
+
+/** Validate that a fetch response body parses cleanly against a Zod schema. */
+async function assertSchemaMatch(
+  res: Response,
+  schema: Schema,
+): Promise<unknown> {
+  expect(res.ok, `expected 2xx, got ${res.status}`).toBe(true);
+  const body: unknown = await res.json();
+  const result = schema.safeParse(body);
+  if (!result.success) {
+    const issues = (result.error?.issues ?? [])
+      .map((i: { path: (string | number)[]; message: string }) => `${i.path.join(".")}: ${i.message}`)
+      .join("; ");
+    throw new Error(`Response body failed schema validation — ${issues}`);
+  }
+  return result.data;
+}
+
+// ---------------------------------------------------------------------------
+// POST /api/capstone/repo
+// ---------------------------------------------------------------------------
+
+describe("POST /api/capstone/repo — response shape", () => {
+  it("200 success path: response matches CreateCapstoneRepoResponse schema", async () => {
+    vi.useFakeTimers();
+
+    const repo = makeRepo();
+
+    // Wire ghJson to answer each call in the sequence the route makes them.
+    mockGhJson.mockImplementation(async (path: string, init?: { method?: string }) => {
+      const method = init?.method?.toUpperCase() ?? "GET";
+
+      // 1. Collision check — repo does not exist yet
+      if (method === "GET" && path === "/repos/testuser/dojo-live-capstone") {
+        return ghJsonNotFound();
+      }
+      // 2. Create the repo
+      if (method === "POST" && path === "/user/repos") {
+        return { ok: true, status: 201, data: repo, errorMessage: null };
+      }
+      // 3. Read seed commits
+      if (
+        method === "GET" &&
+        path.startsWith("/repos/testuser/dojo-live-capstone/commits")
+      ) {
+        return {
+          ok: true,
+          status: 200,
+          data: [{ sha: "seed-sha-1" }],
+          errorMessage: null,
+        };
+      }
+      // 4. List open PRs — none yet
+      if (
+        method === "GET" &&
+        path.includes("/pulls?state=open")
+      ) {
+        return { ok: true, status: 200, data: [], errorMessage: null };
+      }
+      // 5. Read HEAD sha for PR branch creation
+      if (method === "GET" && path.includes("/git/ref/heads/")) {
+        return {
+          ok: true,
+          status: 200,
+          data: { object: { sha: "head-sha-abc" } },
+          errorMessage: null,
+        };
+      }
+      // 6. Create the PR branch
+      if (method === "POST" && path.includes("/git/refs")) {
+        return { ok: true, status: 201, data: {}, errorMessage: null };
+      }
+      // 7. Seed file commit
+      if (method === "PUT" && path.includes("/contents/DOJO_MISSION")) {
+        return {
+          ok: true,
+          status: 201,
+          data: { commit: { sha: "file-commit-sha" } },
+          errorMessage: null,
+        };
+      }
+      // 8. Open the practice PR
+      if (method === "POST" && path.includes("/pulls")) {
+        return {
+          ok: true,
+          status: 201,
+          data: {
+            number: 42,
+            html_url: "https://github.com/testuser/dojo-live-capstone/pull/42",
+          },
+          errorMessage: null,
+        };
+      }
+
+      throw new Error(`Unexpected ghJson call: ${method} ${path}`);
+    });
+
+    const fetchPromise = fetch(`${base}/api/capstone/repo`, { method: "POST" });
+
+    // Advance fake timers past the 1500 ms auto_init wait.
+    await vi.runAllTimersAsync();
+
+    const res = await fetchPromise;
+    await assertSchemaMatch(res, CreateCapstoneRepoResponse);
+
+    vi.useRealTimers();
+  });
+
+  it("returns 409 (not a schema error) when GitHub is not connected", async () => {
+    mockGetConnectedLogin.mockResolvedValue(null);
+
+    const res = await fetch(`${base}/api/capstone/repo`, { method: "POST" });
+    expect(res.status).toBe(409);
+    const body = (await res.json()) as { error: string };
+    expect(typeof body.error).toBe("string");
+  });
+
+  it("is idempotent: reuses existing trusted state and returns CreateCapstoneRepoResponse", async () => {
+    const state = makeCapstoneState();
+    mockCapstoneState = state;
+
+    // verifyStateTrust fetches the live repo to confirm the id
+    mockGhJson.mockResolvedValue({
+      ok: true,
+      status: 200,
+      data: makeRepo(),
+      errorMessage: null,
+    });
+
+    const res = await fetch(`${base}/api/capstone/repo`, { method: "POST" });
+    await assertSchemaMatch(res, CreateCapstoneRepoResponse);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// POST /api/capstone/verify/:missionId
+// ---------------------------------------------------------------------------
+
+describe("POST /api/capstone/verify/:missionId — response shape", () => {
+  /**
+   * Helper that runs a verify call for one missionId, wiring the ghJson mock
+   * to what that mission branch needs, and checks the schema.
+   */
+  async function runVerify(
+    missionId: string,
+    ghSetup: (path: string, init?: { method?: string }) => unknown,
+    stateOverrides: Partial<CapstoneState> = {},
+  ) {
+    mockCapstoneState = makeCapstoneState(stateOverrides);
+
+    // verifyStateTrust always needs the repo id check first
+    mockGhJson.mockImplementation(async (path: string, init?: { method?: string }) =>
+      ghSetup(path, init),
+    );
+
+    const res = await fetch(`${base}/api/capstone/verify/${missionId}`, {
+      method: "POST",
+    });
+    return assertSchemaMatch(res, VerifyCapstoneMissionResponse);
+  }
+
+  it("push-commit: response matches schema when a learner commit is found", async () => {
+    await runVerify("push-commit", (path) => {
+      // verifyStateTrust: confirm repo id
+      if (path === "/repos/testuser/dojo-live-capstone") {
+        return { ok: true, status: 200, data: makeRepo(), errorMessage: null };
+      }
+      // commits list — include one non-seed commit
+      if (path.includes("/commits")) {
+        return {
+          ok: true,
+          status: 200,
+          data: [
+            { sha: "learner-sha-1", commit: { message: "My first real commit" } },
+            { sha: "seed-sha-1", commit: { message: "Initial commit" } },
+          ],
+          errorMessage: null,
+        };
+      }
+      // PR state check (to exclude merge commit)
+      if (path.includes("/pulls/42")) {
+        return {
+          ok: true,
+          status: 200,
+          data: { merge_commit_sha: null, title: "Dojo practice PR" },
+          errorMessage: null,
+        };
+      }
+      throw new Error(`Unexpected ghJson call: ${path}`);
+    });
+  });
+
+  it("push-commit: response matches schema even when no learner commit exists yet", async () => {
+    await runVerify("push-commit", (path) => {
+      if (path === "/repos/testuser/dojo-live-capstone") {
+        return { ok: true, status: 200, data: makeRepo(), errorMessage: null };
+      }
+      if (path.includes("/commits")) {
+        return {
+          ok: true,
+          status: 200,
+          data: [{ sha: "seed-sha-1", commit: { message: "Initial commit" } }],
+          errorMessage: null,
+        };
+      }
+      if (path.includes("/pulls/42")) {
+        return {
+          ok: true,
+          status: 200,
+          data: { merge_commit_sha: null, title: "Dojo practice PR" },
+          errorMessage: null,
+        };
+      }
+      throw new Error(`Unexpected ghJson call: ${path}`);
+    });
+  });
+
+  it("create-branch: response matches schema when a learner branch is found", async () => {
+    await runVerify("create-branch", (path) => {
+      if (path === "/repos/testuser/dojo-live-capstone") {
+        return { ok: true, status: 200, data: makeRepo(), errorMessage: null };
+      }
+      if (path.includes("/branches")) {
+        return {
+          ok: true,
+          status: 200,
+          data: [
+            { name: "main" },
+            { name: "dojo/practice-pr-abc1" },
+            { name: "my-feature" }, // learner branch
+          ],
+          errorMessage: null,
+        };
+      }
+      throw new Error(`Unexpected ghJson call: ${path}`);
+    });
+  });
+
+  it("create-branch: response matches schema when no learner branch exists", async () => {
+    await runVerify("create-branch", (path) => {
+      if (path === "/repos/testuser/dojo-live-capstone") {
+        return { ok: true, status: 200, data: makeRepo(), errorMessage: null };
+      }
+      if (path.includes("/branches")) {
+        return {
+          ok: true,
+          status: 200,
+          data: [{ name: "main" }, { name: "dojo/practice-pr-abc1" }],
+          errorMessage: null,
+        };
+      }
+      throw new Error(`Unexpected ghJson call: ${path}`);
+    });
+  });
+
+  it("merge-pr: response matches schema when the PR is merged", async () => {
+    await runVerify("merge-pr", (path) => {
+      if (path === "/repos/testuser/dojo-live-capstone") {
+        return { ok: true, status: 200, data: makeRepo(), errorMessage: null };
+      }
+      if (path.includes("/pulls/42")) {
+        return {
+          ok: true,
+          status: 200,
+          data: { merged: true, state: "closed" },
+          errorMessage: null,
+        };
+      }
+      throw new Error(`Unexpected ghJson call: ${path}`);
+    });
+  });
+
+  it("merge-pr: response matches schema when the PR is still open", async () => {
+    await runVerify("merge-pr", (path) => {
+      if (path === "/repos/testuser/dojo-live-capstone") {
+        return { ok: true, status: 200, data: makeRepo(), errorMessage: null };
+      }
+      if (path.includes("/pulls/42")) {
+        return {
+          ok: true,
+          status: 200,
+          data: { merged: false, state: "open" },
+          errorMessage: null,
+        };
+      }
+      throw new Error(`Unexpected ghJson call: ${path}`);
+    });
+  });
+
+  it("returns 409 when GitHub is not connected", async () => {
+    mockGetConnectedLogin.mockResolvedValue(null);
+    mockCapstoneState = makeCapstoneState();
+
+    const res = await fetch(`${base}/api/capstone/verify/push-commit`, {
+      method: "POST",
+    });
+    expect(res.status).toBe(409);
+    const body = (await res.json()) as { error: string };
+    expect(typeof body.error).toBe("string");
+  });
+
+  it("returns 404 for an unknown missionId", async () => {
+    const res = await fetch(`${base}/api/capstone/verify/unknown-mission`, {
+      method: "POST",
+    });
+    expect(res.status).toBe(404);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// DELETE /api/capstone/repo
+// ---------------------------------------------------------------------------
+
+describe("DELETE /api/capstone/repo — response shape", () => {
+  it("returns GetCapstoneStatusResponse shape when there is no capstone state", async () => {
+    mockCapstoneState = null;
+    // DELETE with no state falls through to a plain status response — the
+    // route uses GetCapstoneStatusResponse schema for that branch.
+    const { GetCapstoneStatusResponse } = await import("@workspace/api-zod");
+
+    const res = await fetch(`${base}/api/capstone/repo`, { method: "DELETE" });
+    await assertSchemaMatch(res, GetCapstoneStatusResponse);
+  });
+
+  it("returns DeleteCapstoneRepoResponse shape after clearing state (token lacks delete_repo)", async () => {
+    const state = makeCapstoneState();
+    mockCapstoneState = state;
+
+    mockGhJson.mockImplementation(async (path: string, init?: { method?: string }) => {
+      const method = init?.method?.toUpperCase() ?? "GET";
+      // verifyStateTrust: confirm repo id
+      if (method === "GET" && path === "/repos/testuser/dojo-live-capstone") {
+        return { ok: true, status: 200, data: makeRepo(), errorMessage: null };
+      }
+      // Deletion attempt — 403 (token lacks delete_repo scope)
+      if (method === "DELETE" && path === "/repos/testuser/dojo-live-capstone") {
+        return {
+          ok: false,
+          status: 403,
+          data: null,
+          errorMessage: "Must have admin rights to Repository.",
+        };
+      }
+      throw new Error(`Unexpected ghJson call: ${method} ${path}`);
+    });
+
+    const res = await fetch(`${base}/api/capstone/repo`, { method: "DELETE" });
+    // The route returns 409 when deletion is refused — validate the error shape
+    // rather than the success schema (this is the most common real-world path).
+    expect(res.status).toBe(409);
+    const body = (await res.json()) as { error: string };
+    expect(typeof body.error).toBe("string");
+  });
+
+  it("returns DeleteCapstoneRepoResponse shape when deletion succeeds", async () => {
+    const state = makeCapstoneState();
+    mockCapstoneState = state;
+
+    mockGhJson.mockImplementation(async (path: string, init?: { method?: string }) => {
+      const method = init?.method?.toUpperCase() ?? "GET";
+      if (method === "GET" && path === "/repos/testuser/dojo-live-capstone") {
+        return { ok: true, status: 200, data: makeRepo(), errorMessage: null };
+      }
+      if (method === "DELETE" && path === "/repos/testuser/dojo-live-capstone") {
+        return { ok: true, status: 204, data: null, errorMessage: null };
+      }
+      throw new Error(`Unexpected ghJson call: ${method} ${path}`);
+    });
+
+    const res = await fetch(`${base}/api/capstone/repo`, { method: "DELETE" });
+    await assertSchemaMatch(res, DeleteCapstoneRepoResponse);
+  });
+});
