@@ -64,16 +64,34 @@ else
   exit 1
 fi
 
-# ── 3. Build a throwaway repo with just the course content ───────────────────
+# ── 3. Build the sync commit ON TOP of the remote history ────────────────────
+#
+# The workspace is the single source of truth for course content. We check out
+# the mirror's current history, replace the content wholesale with the
+# workspace copy, and commit the difference. The push is then always a
+# fast-forward — no rebase, no possible merge conflicts. (A previous version
+# rebased a fresh root commit onto the remote, which produced add/add
+# conflicts whenever any course file changed.)
 
 TMPDIR=$(mktemp -d)
 trap 'rm -rf "$TMPDIR"; CONNECTOR_TOKEN=""' EXIT
 
 cd "$TMPDIR"
 git init -q
-git checkout -q -b "$BRANCH"
 git config user.email "sync-bot@replit"
 git config user.name "Replit Sync"
+
+echo "Checking remote state..."
+REMOTE_SHA=$(git ls-remote "$AUTH_REMOTE" "refs/heads/${BRANCH}" 2>/dev/null | awk '{print $1}' || echo "")
+
+if [ -n "$REMOTE_SHA" ]; then
+  git fetch -q "$AUTH_REMOTE" "${BRANCH}"
+  git checkout -q -b "$BRANCH" FETCH_HEAD
+  # Remove all tracked content so deletions in the workspace propagate too.
+  git rm -rq . 2>/dev/null || true
+else
+  git checkout -q -b "$BRANCH"
+fi
 
 # Copy course content (everything except playground/)
 cp -r "$COURSE_DIR"/lesson-* .
@@ -84,44 +102,15 @@ cp "$COURSE_DIR/README.md" .
 
 git add -A
 
+if git diff --cached --quiet; then
+  echo "Already up-to-date (course content unchanged since last sync)."
+  exit 0
+fi
+
 # Compute a short hash of the workspace HEAD for the commit message
 WORKSPACE_SHA=$(git -C "$WORKSPACE_ROOT" rev-parse --short HEAD 2>/dev/null || echo "unknown")
 
 git commit -q -m "Sync course from workspace@${WORKSPACE_SHA}"
-
-# ── 4. Fetch remote HEAD and check for divergence ────────────────────────────
-
-echo "Checking remote state..."
-REMOTE_SHA=$(git ls-remote "$AUTH_REMOTE" "refs/heads/${BRANCH}" 2>/dev/null | awk '{print $1}' || echo "")
-
-if [ -n "$REMOTE_SHA" ]; then
-  # Fetch the remote into our temp repo to compare
-  git fetch -q "$AUTH_REMOTE" "${BRANCH}:refs/remotes/origin/${BRANCH}" 2>/dev/null || true
-  LOCAL_TREE=$(git rev-parse HEAD^{tree})
-  REMOTE_TREE=$(git rev-parse "refs/remotes/origin/${BRANCH}^{tree}" 2>/dev/null || echo "")
-  if [ "$LOCAL_TREE" = "$REMOTE_TREE" ]; then
-    echo "Already up-to-date (course content unchanged since last sync)."
-    exit 0
-  fi
-  # Fast-forward case: remote has commits that our throwaway repo doesn't (this
-  # is always the case for a freshly-built repo).  Rebase our new sync commit on
-  # top of the remote so we preserve remote history, then push.
-  echo ""
-  echo "Fast-forward detected: remote has commits not present in local."
-  echo "  Remote ${BRANCH}: ${REMOTE_SHA}"
-  echo "Rebasing course commit on top of remote ..."
-  GIT_AUTHOR_NAME="Replit Sync" GIT_AUTHOR_EMAIL="sync-bot@replit" \
-    git rebase "refs/remotes/origin/${BRANCH}" || {
-    echo ""
-    echo "ERROR: Rebase failed — genuine divergence between the local course"
-    echo "       content and the remote course mirror."
-    echo "       Inspect the conflict and resolve manually before re-running."
-    git rebase --abort 2>/dev/null || true
-    exit 1
-  }
-  echo "✓ Rebase complete. Ready to push."
-  echo ""
-fi
 
 # ── 5. Push ───────────────────────────────────────────────────────────────────
 
