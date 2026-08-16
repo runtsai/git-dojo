@@ -104,3 +104,20 @@ describe("drills coverage — breakthroughs", () => {
     },
   );
 });
+
+describe("drills integrity — unique IDs", () => {
+  it("all drill ids are globally unique", () => {
+    const seen = new Map<string, number>();
+    for (const drill of drillBank) {
+      seen.set(drill.id, (seen.get(drill.id) ?? 0) + 1);
+    }
+    const duplicates = [...seen.entries()]
+      .filter(([, count]) => count > 1)
+      .map(([id]) => id);
+    expect(
+      duplicates,
+      `Duplicate drill id(s) found: ${duplicates.map((id) => `"${id}"`).join(", ")}. ` +
+        `Each drill must have a unique id so learner progress is never confused.`,
+    ).toEqual([]);
+  });
+});

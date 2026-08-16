@@ -236,6 +236,22 @@ export const drillBank: DrillItem[] = [
     sourceLabel: "Module 2.3 — The verdict: approve or block",
     unlockedBy: ["2.3"],
   },
+  {
+    id: "t2-close-the-loop",
+    type: "concept",
+    prompt: "A contractor pushed a fix after you requested changes. What should you do before approving?",
+    options: [
+      "Approve immediately — they said it's fixed",
+      "Re-read the updated diff to confirm the issues are actually gone",
+      "Close the PR and ask them to open a new one",
+      "Wait for CI to pass, then approve without reading",
+    ],
+    answerIndex: 1,
+    explain:
+      "Closing the loop means verifying, not just trusting. Re-read the updated Files Changed tab to confirm every blocker is resolved before you approve.",
+    sourceLabel: "Module 2.4 — Ruth's fix: close the loop",
+    unlockedBy: ["2.4"],
+  },
 
   // ── Breakthroughs ────────────────────────────────────────────────────
   {
