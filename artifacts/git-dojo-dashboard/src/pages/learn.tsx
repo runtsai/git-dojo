@@ -64,8 +64,11 @@ export function LearnModuleView() {
     }
   }, [moduleId]);
 
-  const modules: Record<string, React.ComponentType<VisualModuleProps> | undefined> = learnModules;
-  const ModuleComponent = moduleId ? modules[moduleId] : undefined;
+  const modules = learnModules;
+  type LearnRouteKey = keyof typeof learnModules;
+  const safeModuleId: LearnRouteKey | undefined =
+    moduleId && (moduleId in modules) ? (moduleId as LearnRouteKey) : undefined;
+  const ModuleComponent = safeModuleId ? modules[safeModuleId] : undefined;
   if (ModuleComponent && moduleId) {
     // Check whether this module has an unmet prerequisite.
     const dotId = moduleId.replace("-", ".");

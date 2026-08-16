@@ -138,6 +138,13 @@ function LessonContent({ lessonId }: { lessonId: string }) {
   }
   const displayRepo = repo ?? lastKnownRepoRef.current;
 
+  // Show the strip as dimmed whenever we are retrying after a failure — React
+  // Query keeps `repo` alive while the observer is mounted, so `!repo` alone
+  // is not a reliable outage signal.  `lostContact` (isFetching + failureCount)
+  // fires within ~4–8 s of the first missed poll and clears the moment a
+  // successful fetch completes, giving a tight freeze/resume cycle.
+  // The lastKnownRepoRef still guards against the rare case where the cache IS
+  // evicted (e.g. query disabled or observer unmounted/remounted mid-outage).
   // Show a reconnecting banner as soon as the second poll cycle begins after a
   // failure: isFetching fires when the retry starts, failureCount >= 1 means at
   // least one attempt already failed.  Together they surface the banner within
@@ -146,13 +153,6 @@ function LessonContent({ lessonId }: { lessonId: string }) {
   // React Query resets failureCount to 0 on the next successful fetch, clearing it.
   const lostContact = isFetching && failureCount >= 1;
 
-  // Show the strip as dimmed whenever we are retrying after a failure — React
-  // Query keeps `repo` alive while the observer is mounted, so `!repo` alone
-  // is not a reliable outage signal.  `lostContact` (isFetching + failureCount)
-  // fires within ~4–8 s of the first missed poll and clears the moment a
-  // successful fetch completes, giving a tight freeze/resume cycle.
-  // The lastKnownRepoRef still guards against the rare case where the cache IS
-  // evicted (e.g. query disabled or observer unmounted/remounted mid-outage).
   const showingStale = lostContact;
 
   const handleRefresh = () => {
