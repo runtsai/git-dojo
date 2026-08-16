@@ -102,13 +102,19 @@ export function LessonView() {
     }
   }, [lessonId, lessonTitle]);
 
-  const { data: repo, isLoading, isFetching } = useGetRepoState(lessonId || '', {
+  const { data: repo, isLoading, isFetching, isError, failureCount, dataUpdatedAt } = useGetRepoState(lessonId || '', {
     query: {
       enabled: !!lessonId,
       queryKey: getGetRepoStateQueryKey(lessonId || ''),
       refetchInterval: 4000
     }
   });
+
+  // Show a reconnecting banner after 2+ consecutive failures (~8 s of silence).
+  // failureCount increments on every failed attempt (including retries), so this
+  // fires well before isError — which only becomes true after retries are exhausted.
+  // React Query resets failureCount to 0 on the next successful fetch, clearing it.
+  const lostContact = failureCount >= 2;
 
   const handleRefresh = () => {
     queryClient.invalidateQueries({ queryKey: getGetRepoStateQueryKey(lessonId || '') });
@@ -153,6 +159,17 @@ export function LessonView() {
         </button>
         </div>
       </div>
+
+      {lostContact && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="flex items-center gap-3 px-4 py-2.5 rounded-lg border border-amber-500/30 bg-amber-500/10 text-amber-300 text-sm font-medium"
+        >
+          <RefreshCw className="w-4 h-4 shrink-0 animate-spin" />
+          Lost contact with the practice watcher — reconnecting…
+        </div>
+      )}
 
       {lessonId && <WayfindingPanel lessonId={lessonId} />}
 
@@ -200,6 +217,7 @@ export function LessonView() {
 
           <TerritoryStrip
             repo={repo}
+            lastFetchedAt={dataUpdatedAt}
             onFileClick={(path) => setDiffSelection({ kind: "file", path })}
             onCommitClick={(hash, shortHash) => setDiffSelection({ kind: "commit", hash, shortHash })}
           />

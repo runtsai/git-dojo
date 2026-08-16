@@ -336,32 +336,67 @@ function LaneArrow({ lit }: { lit: boolean }) {
 const MAX_CHIPS = 4;
 const MAX_EVENTS = 3;
 
+// If more than this many milliseconds pass between two consecutive successful
+// fetches, the API was likely down. Re-baseline without narrating the gap as
+// movements. Exported so it can be unit-tested independently.
+export const STALE_GAP_MS = 20_000;
+
+/**
+ * Returns true when the gap between two consecutive React Query `dataUpdatedAt`
+ * timestamps exceeds the stale threshold — indicating the API was unreachable
+ * and the previous snapshot should not be diffed against the recovered one.
+ *
+ * `prevFetchedAt` of 0 means no prior fetch has been recorded yet (first load),
+ * which is not a stale gap.
+ */
+export function isStaleGap(prevFetchedAt: number, currentFetchedAt: number): boolean {
+  return prevFetchedAt > 0 && currentFetchedAt - prevFetchedAt > STALE_GAP_MS;
+}
+
 export function TerritoryStrip({
   repo,
+  lastFetchedAt,
   onFileClick,
   onCommitClick,
 }: {
   repo: RepoState;
+  /**
+   * React Query's `dataUpdatedAt` for the repo-state query.  This value
+   * advances on EVERY successful fetch — even when the response data is
+   * reference-identical to the previous one — so it reliably tracks poll
+   * cadence and lets the strip detect a connectivity gap.
+   */
+  lastFetchedAt: number;
   /** When provided, clicking a file chip reveals its working-copy changes. */
   onFileClick?: (path: string) => void;
   /** When provided, clicking a commit chip reveals what that snapshot changed. */
   onCommitClick?: (hash: string, shortHash: string) => void;
 }) {
   const prevRef = useRef<RepoState | null>(null);
+  const prevFetchedAtRef = useRef<number>(0);
   const idRef = useRef(0);
   const [events, setEvents] = useState<MovementEvent[]>([]);
 
   useEffect(() => {
     const prev = prevRef.current;
-    // Only compare snapshots of the same lesson's initialized repo.
-    if (prev && prev.lessonId === repo.lessonId && prev.initialized && repo.initialized) {
+    // isStaleGap compares consecutive dataUpdatedAt timestamps.  Because
+    // dataUpdatedAt advances even when data is reference-identical, this effect
+    // runs (and prevFetchedAtRef advances) on every successful poll — not only
+    // when repo data changes — so stable polls never accumulate a false gap.
+    const stale = isStaleGap(prevFetchedAtRef.current, lastFetchedAt);
+
+    // Only compare snapshots of the same lesson's initialized repo,
+    // and skip the diff if the previous snapshot is stale (gap after API downtime).
+    if (!stale && prev && prev.lessonId === repo.lessonId && prev.initialized && repo.initialized) {
       const found = detectMovements(prev, repo, () => ++idRef.current);
       if (found.length > 0) {
         setEvents((old) => [...found.reverse(), ...old].slice(0, MAX_EVENTS));
       }
     }
+
     prevRef.current = repo;
-  }, [repo]);
+    prevFetchedAtRef.current = lastFetchedAt;
+  }, [repo, lastFetchedAt]);
 
   const wb = workbenchFiles(repo);
   const dk = dockFiles(repo);

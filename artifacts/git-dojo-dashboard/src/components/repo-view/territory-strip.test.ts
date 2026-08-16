@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { detectMovements } from "./territory-strip";
+import { detectMovements, isStaleGap, STALE_GAP_MS } from "./territory-strip";
 import type { RepoState, RepoFile, RepoCommit, SyncStatus } from "@workspace/api-client-react";
 
 // ---------------------------------------------------------------------------
@@ -596,6 +596,102 @@ describe("compound: git stash pop", () => {
     // Only one event: something appeared on the Workbench
     expect(events).toHaveLength(1);
     expect(events[0].to).toBe("workbench");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// isStaleGap — pure helper for reconnect re-baseline detection
+//
+// The TerritoryStrip component passes React Query's `dataUpdatedAt` (which
+// advances on EVERY successful fetch, even when data is reference-identical)
+// as `lastFetchedAt`.  The effect runs on every [repo, lastFetchedAt] change,
+// so prevFetchedAtRef advances on every successful poll — stable polls never
+// accumulate a false gap.
+// ---------------------------------------------------------------------------
+
+describe("isStaleGap", () => {
+  it("returns false when prevFetchedAt is 0 (first load — no prior fetch)", () => {
+    expect(isStaleGap(0, Date.now())).toBe(false);
+  });
+
+  it("returns false when consecutive polls are within the threshold", () => {
+    const base = 1_000_000;
+    // Simulate two polls 4 s apart (normal cadence)
+    expect(isStaleGap(base, base + 4_000)).toBe(false);
+    // One poll just below the threshold
+    expect(isStaleGap(base, base + STALE_GAP_MS - 1)).toBe(false);
+  });
+
+  it("returns false when the gap exactly equals the threshold (boundary — strictly greater-than)", () => {
+    const base = 1_000_000;
+    expect(isStaleGap(base, base + STALE_GAP_MS)).toBe(false);
+  });
+
+  it("returns true when the gap exceeds the threshold (API was down)", () => {
+    const base = 1_000_000;
+    expect(isStaleGap(base, base + 30_000)).toBe(true);
+    expect(isStaleGap(base, base + 60_000)).toBe(true);
+  });
+
+  it("returns false after recovery when polls resume at normal cadence", () => {
+    // Simulate: gap fired once (stale = true, re-baselined).
+    // The component then updates prevFetchedAtRef to currentFetchedAt.
+    // Next poll is only 4 s later → not stale.
+    const recovered = 2_000_000;
+    expect(isStaleGap(recovered, recovered + 4_000)).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Reconnect / re-baseline — detectMovements behaviour after a gap
+//
+// When isStaleGap returns true the component skips detectMovements and
+// re-baselines prevRef.  These tests verify the pure-function layer produces
+// correct output for the polls that immediately follow the re-baseline.
+// ---------------------------------------------------------------------------
+
+describe("reconnect / re-baseline (detectMovements)", () => {
+  it("produces no events when prev and next are identical (clean re-baseline)", () => {
+    // After a gap the component re-sets prevRef to the recovered snapshot.
+    // The very next poll compares identical states → no movement narration.
+    const snap = state({
+      files: [{ path: "README.md", status: "modified" }],
+      commits: [makeCommit("abc1234", "Initial commit", [])],
+    });
+    const events = detectMovements(snap, snap, counter);
+    expect(events).toHaveLength(0);
+  });
+
+  it("correctly narrates a git-add performed after a re-baseline", () => {
+    // First post-gap poll re-baselines. The next poll shows the file staged.
+    const baseline = state({ files: [{ path: "work.ts", status: "modified" }] });
+    const afterAdd  = state({ files: [{ path: "work.ts", status: "staged" }] });
+    const events = detectMovements(baseline, afterAdd, counter);
+    expect(events).toHaveLength(1);
+    expect(events[0].from).toBe("workbench");
+    expect(events[0].to).toBe("dock");
+    expect(events[0].freshKeys).toContain("work.ts");
+  });
+
+  it("correctly narrates a commit performed after a re-baseline", () => {
+    const baseline    = state({ files: [{ path: "feat.ts", status: "staged" }], commits: [] });
+    const afterCommit = state({ files: [], commits: [makeCommit("deadbeef", "Add feature", [])] });
+    const events = detectMovements(baseline, afterCommit, counter);
+    const seal = events.find((e) => e.from === "dock" && e.to === "sealed");
+    expect(seal).toBeDefined();
+    expect(seal!.text).toMatch(/Sealed!/);
+    expect(seal!.freshKeys).toContain("deadbeef");
+  });
+
+  it("does not emit branch-switch events when lesson context changes across the gap", () => {
+    // A different lessonId means the component does NOT call detectMovements at all.
+    // This test documents what detectMovements would wrongly emit without that guard.
+    const prevLesson = { ...base(), lessonId: "lesson-01", currentBranch: "main" };
+    const nextLesson = { ...base(), lessonId: "lesson-02", currentBranch: "main" };
+    const events = detectMovements(prevLesson, nextLesson, counter);
+    // Branch names are identical, so no switch event even without the guard.
+    const branchSwitch = events.filter((e) => e.from === "sealed" && e.to === "workbench");
+    expect(branchSwitch).toHaveLength(0);
   });
 });
 

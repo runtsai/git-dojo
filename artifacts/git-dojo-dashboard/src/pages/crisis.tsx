@@ -60,13 +60,18 @@ export function CrisisView() {
   const { data: scenarios } = useListCrisisScenarios();
   const setup = useSetupCrisisScenario();
 
-  const { data: repo, isFetching } = useGetCrisisRepoState(crisisId || "", {
+  const { data: repo, isFetching, isError, failureCount } = useGetCrisisRepoState(crisisId || "", {
     query: {
       enabled: !!crisisId && !!crisis,
       queryKey: getGetCrisisRepoStateQueryKey(crisisId || ""),
       refetchInterval: 4000,
     },
   });
+
+  // Show a reconnecting banner after 2+ consecutive failures (~8 s of silence).
+  // failureCount increments on every failed attempt (including retries), so this
+  // fires well before isError — which only becomes true after retries are exhausted.
+  const lostContact = failureCount >= 2;
 
   if (!crisis) return <NotFound />;
 
@@ -133,6 +138,17 @@ export function CrisisView() {
         </button>
         </div>
       </div>
+
+      {lostContact && (
+        <div
+          role="status"
+          aria-live="polite"
+          className="flex items-center gap-3 px-4 py-2.5 rounded-lg border border-amber-500/30 bg-amber-500/10 text-amber-300 text-sm font-medium"
+        >
+          <RefreshCw className="w-4 h-4 shrink-0 animate-spin" />
+          Lost contact with the practice watcher — reconnecting…
+        </div>
+      )}
 
       {/* Briefing */}
       <div className="surface-card p-6 md:p-8 relative overflow-hidden">
