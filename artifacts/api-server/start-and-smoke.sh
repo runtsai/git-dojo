@@ -20,6 +20,20 @@ HEALTHZ="http://localhost:${PORT}/api/healthz"
 # full container restart — which is exactly the scope we care about.
 SMOKE_STATE_FILE="/tmp/api-smoke-last-status"
 
+# JSON result file read by the /api/healthz endpoint.  Written atomically so
+# the server never reads a partial file.
+SMOKE_RESULT_FILE="/tmp/api-smoke-result.json"
+
+write_smoke_result() {
+  local passed="$1"   # "true" or "false"
+  local checked_at
+  checked_at=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+  local tmp
+  tmp=$(mktemp "${SMOKE_RESULT_FILE}.XXXXXX")
+  printf '{"passed":%s,"checkedAt":"%s"}\n' "${passed}" "${checked_at}" > "${tmp}"
+  mv "${tmp}" "${SMOKE_RESULT_FILE}"
+}
+
 # ── 1. Start server in background ──────────────────────────────────────────
 node --enable-source-maps ./dist/index.mjs &
 SERVER_PID=$!
@@ -40,6 +54,7 @@ if [ "${READY}" -eq 0 ]; then
   # Health poll timed out — treat as a failed deploy so a subsequent healthy
   # startup will be recognised as a recovery.
   echo "FAILED" > "${SMOKE_STATE_FILE}"
+  write_smoke_result "false"
   echo "⚠️  Server did not become healthy within 30 s — skipping smoke check"
 else
   # ── 3. Read previous smoke result ────────────────────────────────────────
@@ -57,6 +72,7 @@ else
   echo ""
   if SKIP_EXPORT_SMOKE=1 API_URL="http://localhost:${PORT}" pnpm --filter @workspace/scripts run api-smoke; then
     echo "PASSED" > "${SMOKE_STATE_FILE}"
+    write_smoke_result "true"
     echo ""
     if [ "${PREV_STATUS}" = "FAILED" ]; then
       echo "🟢 ════════════════════════════════════════════════════════════"
@@ -68,6 +84,7 @@ else
     fi
   else
     echo "FAILED" > "${SMOKE_STATE_FILE}"
+    write_smoke_result "false"
     echo ""
     echo "⚠️  Smoke check FAILED — check the output above"
   fi

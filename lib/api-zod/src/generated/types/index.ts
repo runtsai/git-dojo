@@ -32,6 +32,8 @@ export * from './fileDiffChangeKind';
 export * from './getCrisisFileDiffParams';
 export * from './getWorkingFileDiffParams';
 export * from './healthStatus';
+export * from './healthStatusSmokeStatus';
+export * from './healthStatusStatus';
 export * from './lesson';
 export * from './progress';
 export * from './progressEntry';

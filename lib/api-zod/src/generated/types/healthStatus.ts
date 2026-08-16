@@ -5,7 +5,13 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+import type { HealthStatusSmokeStatus } from './healthStatusSmokeStatus';
+import type { HealthStatusStatus } from './healthStatusStatus';
 
 export interface HealthStatus {
-  status: string;
+  status: HealthStatusStatus;
+  /** Result of the last startup smoke check */
+  smokeStatus: HealthStatusSmokeStatus;
+  /** ISO 8601 timestamp of when the last smoke check completed */
+  smokeCheckedAt?: string;
 }

@@ -13,15 +13,10 @@ export interface DrillFrictionEntry {
   /** Lesson or crisis id (e.g. "lesson-01", "crisis-03") */
   sourceId: string;
   /** Number of failed grader runs on this source */
-
   failures: number;
   /** Number of passed grader runs on this source */
   passes: number;
-  /**
-   * Recency-weighted failure score (0–10 range). Failures decay exponentially
-   * with a 14-day half-life so old misses stop dominating the ranking once the
-   * learner has improved.
-   */
+  /** Recency-weighted failure score (0–10 range). Failures decay exponentially with a 14-day half-life so old misses stop dominating the ranking once the learner has improved. */
   effectiveFailures: number;
   /** Passes in the newer half of the last 10 grader runs */
   recentPasses: number;

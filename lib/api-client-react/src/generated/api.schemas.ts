@@ -5,8 +5,32 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+export type HealthStatusStatus = typeof HealthStatusStatus[keyof typeof HealthStatusStatus];
+
+
+export const HealthStatusStatus = {
+  ok: 'ok',
+  degraded: 'degraded',
+} as const;
+
+/**
+ * Result of the last startup smoke check
+ */
+export type HealthStatusSmokeStatus = typeof HealthStatusSmokeStatus[keyof typeof HealthStatusSmokeStatus];
+
+
+export const HealthStatusSmokeStatus = {
+  passed: 'passed',
+  failed: 'failed',
+  unknown: 'unknown',
+} as const;
+
 export interface HealthStatus {
-  status: string;
+  status: HealthStatusStatus;
+  /** Result of the last startup smoke check */
+  smokeStatus: HealthStatusSmokeStatus;
+  /** ISO 8601 timestamp of when the last smoke check completed */
+  smokeCheckedAt?: string;
 }
 
 export interface ApiMessage {
@@ -317,11 +341,7 @@ export interface DrillFrictionEntry {
   failures: number;
   /** Number of passed grader runs on this source */
   passes: number;
-  /**
-   * Recency-weighted failure score (0–10 range). Failures decay exponentially
-   * with a 14-day half-life so old misses stop dominating the ranking once the
-   * learner has improved.
-   */
+  /** Recency-weighted failure score (0–10 range). Failures decay exponentially with a 14-day half-life so old misses stop dominating the ranking once the learner has improved. */
   effectiveFailures: number;
   /** Passes in the newer half of the last 10 grader runs */
   recentPasses: number;
@@ -426,3 +446,4 @@ export type GetCrisisFileDiffParams = {
  */
 filePath: string;
 };
+
