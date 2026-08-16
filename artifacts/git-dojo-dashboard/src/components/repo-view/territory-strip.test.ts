@@ -472,3 +472,216 @@ describe("remote-sourced-commits invariant", () => {
     });
   });
 });
+
+// ---------------------------------------------------------------------------
+// Compound: git pull --rebase (remote commits arrive + branch advances)
+// ---------------------------------------------------------------------------
+
+describe("compound: pull --rebase", () => {
+  it("narrates incoming remote commits without emitting Sealed!", () => {
+    const localCommit = makeCommit("local1", "My work", []);
+    const remoteCommit = makeCommit("remote1", "Teammate work", []);
+    // After rebase: local commit is replayed on top of the remote commit
+    const rebasedLocal = makeCommit("local1r", "My work (rebased)", ["remote1"]);
+    const prev = state({
+      remotes: ["origin"],
+      commits: [localCommit],
+      remoteBranches: [{ name: "origin/main", headHash: "remote1" }],
+      syncStatus: { remoteBranch: "origin/main", ahead: 1, behind: 1 },
+    });
+    const next = state({
+      remotes: ["origin"],
+      commits: [rebasedLocal, remoteCommit],
+      remoteBranches: [{ name: "origin/main", headHash: "remote1" }],
+      syncStatus: { remoteBranch: "origin/main", ahead: 1, behind: 0 },
+    });
+    const events = detectMovements(prev, next, counter);
+    // Remote commits arrived → narrated as coming from Shared Record
+    const sharedToSealed = events.find((e) => e.from === "shared" && e.to === "sealed");
+    expect(sharedToSealed).toBeDefined();
+    // No "Sealed!" for the remote-sourced commits
+    const wrongSeal = events.filter((e) => e.text.includes("Sealed!"));
+    expect(wrongSeal).toHaveLength(0);
+  });
+
+  it("highest-priority movement wins: pull emits shared→sealed, not dock→sealed", () => {
+    const remoteCommit = makeCommit("r1", "Remote commit", []);
+    const prev = state({
+      remotes: ["origin"],
+      commits: [],
+      remoteBranches: [{ name: "origin/main", headHash: "old1" }],
+      syncStatus: { remoteBranch: "origin/main", ahead: 0, behind: 1 },
+    });
+    const next = state({
+      remotes: ["origin"],
+      commits: [remoteCommit],
+      remoteBranches: [{ name: "origin/main", headHash: "r1" }],
+      syncStatus: { remoteBranch: "origin/main", ahead: 0, behind: 0 },
+    });
+    const events = detectMovements(prev, next, counter);
+    // Must not narrate as a local seal
+    const dockToSealed = events.filter((e) => e.from === "dock" && e.to === "sealed");
+    expect(dockToSealed).toHaveLength(0);
+    // Must narrate as coming from the Shared Record
+    const sharedToSealed = events.find((e) => e.from === "shared" && e.to === "sealed");
+    expect(sharedToSealed).toBeDefined();
+  });
+
+  it("puts new commit hashes in freshKeys of the shared→sealed event (direct pull path)", () => {
+    // Direct pull: remote heads move but behind was 0 — uses the fallback path
+    // which does populate freshKeys with the arriving commit hashes.
+    const remoteCommit = makeCommit("r2", "Remote feature", []);
+    const prev = state({
+      remotes: ["origin"],
+      commits: [],
+      remoteBranches: [{ name: "origin/main", headHash: "old2" }],
+      syncStatus: { remoteBranch: "origin/main", ahead: 0, behind: 0 },
+    });
+    const next = state({
+      remotes: ["origin"],
+      commits: [remoteCommit],
+      remoteBranches: [{ name: "origin/main", headHash: "r2" }],
+      syncStatus: { remoteBranch: "origin/main", ahead: 0, behind: 0 },
+    });
+    const events = detectMovements(prev, next, counter);
+    const sharedToSealed = events.find((e) => e.from === "shared" && e.to === "sealed");
+    expect(sharedToSealed).toBeDefined();
+    expect(sharedToSealed!.freshKeys).toContain("r2");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Compound: git stash pop (files restored to workbench)
+// ---------------------------------------------------------------------------
+
+describe("compound: git stash pop", () => {
+  it("narrates files restored to the Workbench after a stash pop", () => {
+    const prev = state({ files: [] });
+    const next = state({
+      files: [
+        { path: "work.ts", status: "modified" },
+        { path: "new-file.ts", status: "untracked" },
+      ],
+    });
+    const events = detectMovements(prev, next, counter);
+    // Files appeared on the Workbench
+    const ev = events.find((e) => e.to === "workbench");
+    expect(ev).toBeDefined();
+    expect(ev!.freshKeys).toContain("work.ts");
+    // No spurious Sealed! emitted
+    const wrongSeal = events.filter((e) => e.text.includes("Sealed!"));
+    expect(wrongSeal).toHaveLength(0);
+  });
+
+  it("stash pop landing a conflict narrates the conflict, not a seal", () => {
+    const prev = state({ files: [], mergeInProgress: false });
+    const next = state({
+      files: [{ path: "conflict.ts", status: "conflicted" }],
+      mergeInProgress: true,
+    });
+    const events = detectMovements(prev, next, counter);
+    const conflictEv = events.find((e) => e.to === "workbench" && /conflict/i.test(e.text));
+    expect(conflictEv).toBeDefined();
+    expect(conflictEv!.freshKeys).toContain("conflict.ts");
+    const wrongSeal = events.filter((e) => e.text.includes("Sealed!"));
+    expect(wrongSeal).toHaveLength(0);
+  });
+
+  it("stash pop is the sole event when no other state changes occur", () => {
+    const prev = state({ files: [] });
+    const next = state({
+      files: [{ path: "stashed.ts", status: "modified" }],
+    });
+    const events = detectMovements(prev, next, counter);
+    // Only one event: something appeared on the Workbench
+    expect(events).toHaveLength(1);
+    expect(events[0].to).toBe("workbench");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Compound: commit then push in one poll cycle (sealed + pushed simultaneously)
+// ---------------------------------------------------------------------------
+
+describe("compound: commit then push in one poll cycle", () => {
+  it("emits Sealed! when a local commit lands (dock was non-empty) even if already pushed", () => {
+    const newCommit = makeCommit("abc123", "Add feature", []);
+    const prev = state({
+      remotes: ["origin"],
+      files: [{ path: "feature.ts", status: "staged" }],
+      commits: [],
+      syncStatus: { remoteBranch: "origin/main", ahead: 0, behind: 0 },
+    });
+    // Commit and push both happened before the next poll — dock cleared,
+    // commit sealed, already pushed (ahead stays 0).
+    const next = state({
+      remotes: ["origin"],
+      files: [],
+      commits: [newCommit],
+      syncStatus: { remoteBranch: "origin/main", ahead: 0, behind: 0 },
+    });
+    const events = detectMovements(prev, next, counter);
+    const sealEv = events.find((e) => e.from === "dock" && e.to === "sealed");
+    expect(sealEv).toBeDefined();
+    expect(sealEv!.text).toMatch(/Sealed!/);
+    expect(sealEv!.freshKeys).toContain("abc123");
+  });
+
+  it("emits both Sealed! and a push event when commit+push happen and ahead was 0 before", () => {
+    // Commit + immediate push: ahead stays at 0 the whole time, but the new
+    // commit is already in sync — the narration must acknowledge the push.
+    const newCommit = makeCommit("abc123", "Add feature", []);
+    const prev = state({
+      remotes: ["origin"],
+      files: [{ path: "feature.ts", status: "staged" }],
+      commits: [],
+      syncStatus: { remoteBranch: "origin/main", ahead: 0, behind: 0 },
+    });
+    const next = state({
+      remotes: ["origin"],
+      files: [],
+      commits: [newCommit],
+      syncStatus: { remoteBranch: "origin/main", ahead: 0, behind: 0 },
+    });
+    const events = detectMovements(prev, next, counter);
+    // Seal event fires for the local commit
+    const sealEv = events.find((e) => e.text.includes("Sealed!"));
+    expect(sealEv).toBeDefined();
+    // Push event also fires — commit was immediately synchronized
+    const pushEv = events.find((e) => e.from === "sealed" && e.to === "shared");
+    expect(pushEv).toBeDefined();
+    expect(pushEv!.text).toMatch(/push/i);
+    expect(pushEv!.text).toMatch(/1 commit/);
+  });
+
+  it("emits both Sealed! and push with correct total count when commit+push happen and ahead was > 0 before", () => {
+    // Scenario: user had 1 unsent commit (ahead=1) plus staged changes.
+    // They committed a 2nd change and immediately pushed everything.
+    // Poll sees: staged gone, new commit appeared, ahead dropped from 1 to 0.
+    // Total pushed = 1 (old unsent) + 1 (new sealed) = 2 commits.
+    const prevCommit = makeCommit("prev1", "Previous commit", []);
+    const newCommit = makeCommit("new1", "New commit", ["prev1"]);
+    const prev = state({
+      remotes: ["origin"],
+      files: [{ path: "feature.ts", status: "staged" }],
+      commits: [prevCommit],
+      syncStatus: { remoteBranch: "origin/main", ahead: 1, behind: 0 },
+    });
+    const next = state({
+      remotes: ["origin"],
+      files: [],
+      commits: [newCommit, prevCommit],
+      syncStatus: { remoteBranch: "origin/main", ahead: 0, behind: 0 },
+    });
+    const events = detectMovements(prev, next, counter);
+    // Seal event for the new local commit
+    const sealEv = events.find((e) => e.from === "dock" && e.to === "sealed");
+    expect(sealEv).toBeDefined();
+    expect(sealEv!.text).toMatch(/Sealed!/);
+    // Push event must report BOTH the old unsent commit AND the new one = 2 total
+    const pushEv = events.find((e) => e.from === "sealed" && e.to === "shared");
+    expect(pushEv).toBeDefined();
+    expect(pushEv!.text).toMatch(/push/i);
+    expect(pushEv!.text).toMatch(/2 commit/);
+  });
+});

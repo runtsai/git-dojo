@@ -116,13 +116,30 @@ export function detectMovements(prev: RepoState, next: RepoState, counter: () =>
   const ps = prev.syncStatus;
   const ns = next.syncStatus;
   if (ps && ns) {
+    // Compound local-seal + push: when a commit was just sealed locally AND
+    // everything ended up synchronized (ahead===0), the new commit(s) traveled
+    // to the Shared Record in the same cycle and must be counted too.
+    const sealedAndPushedAll = isLocalSeal && ns.ahead === 0;
+
     if (ns.ahead < ps.ahead && ps.ahead > 0) {
-      const sent = ps.ahead - ns.ahead;
+      // Include newly sealed commits in the count when they went out in the same cycle.
+      const sent = (ps.ahead - ns.ahead) + (sealedAndPushedAll ? newCommits.length : 0);
       events.push({
         id: counter(),
         from: "sealed",
         to: "shared",
         text: `Pushed — ${sent} ${plural(sent, "commit")} traveled to the Shared Record. GitHub now has ${ns.ahead === 0 ? "everything you have" : "more of your work"}.`,
+        freshKeys: [],
+      });
+    } else if (sealedAndPushedAll && ps.ahead === 0 && newCommits.length > 0) {
+      // Commit + immediate push: ahead was 0 before the commit too, so the
+      // ahead delta alone is invisible — but the new commit is already in sync.
+      const sent = newCommits.length;
+      events.push({
+        id: counter(),
+        from: "sealed",
+        to: "shared",
+        text: `Pushed — ${sent} ${plural(sent, "commit")} traveled to the Shared Record. GitHub now has everything you have.`,
         freshKeys: [],
       });
     }
