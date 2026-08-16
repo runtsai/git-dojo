@@ -79,6 +79,16 @@ else
 fi
 
 # ═════════════════════════════════════════════════════════════════════════════
+# Course sync recovery regression tests
+# ═════════════════════════════════════════════════════════════════════════════
+step "Course sync recovery checks (commit preservation + concurrent-push rejection)"
+if bash "$LESSONS_DIR/test-course-sync-recovery.sh" 2>&1; then
+  ok "test-course-sync-recovery.sh — all checks passed"
+else
+  fail "test-course-sync-recovery.sh — one or more checks failed"
+fi
+
+# ═════════════════════════════════════════════════════════════════════════════
 # Reset script regression tests
 # ═════════════════════════════════════════════════════════════════════════════
 step "Reset script checks (populated / empty / missing playground)"
