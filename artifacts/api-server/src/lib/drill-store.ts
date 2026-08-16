@@ -249,6 +249,11 @@ export function queryDue(candidates: DueQueryCandidate[]): {
       const recentFailures = newerHalf.length - recentPasses;
       const olderPasses = olderHalf.filter((r) => r.passed).length;
       const olderFailures = olderHalf.length - olderPasses;
+      // Skip entries where the learner has fully recovered within the recent
+      // window: at least one recent pass and no recent failures means the
+      // panel would only be celebrating old pain, not flagging a current gap.
+      if (recentFailures === 0 && recentPasses > 0) continue;
+
       friction.push({
         sourceId,
         failures: rec.failures,
