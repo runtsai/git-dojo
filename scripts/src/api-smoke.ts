@@ -498,58 +498,37 @@ async function main(): Promise<void> {
     ? (scenarios as Array<{ id: string }>)[0]
     : undefined;
 
-  // 6. Crisis scenario state (parameterised) — skip if none exist yet
-  let crisisHasActiveSession = false;
+  // 6. Crisis scenario state (parameterised) — skip if none exist yet.
+  //    Note: this reads state for the first *learner* scenario only; the grader
+  //    smoke steps below always use the dedicated "crisis-smoke" sentinel
+  //    scenario instead (see steps 6a/6b).
   if (firstScenario) {
-    const crisisState = await smoke(`/api/crisis/scenarios/${firstScenario.id}/state`, GetCrisisRepoStateResponse);
-    // Consider the playground "active" (in-progress learner session) when it
-    // already has commits.  We detect this from the state response rather than
-    // calling setup blindly, so we never wipe a learner's work.
-    if (crisisState && typeof crisisState === "object") {
-      const cs = crisisState as { commits?: unknown[] };
-      crisisHasActiveSession = Array.isArray(cs.commits) && cs.commits.length > 0;
-    }
+    await smoke(`/api/crisis/scenarios/${firstScenario.id}/state`, GetCrisisRepoStateResponse);
   } else {
     console.log(`  -  GET /api/crisis/scenarios/:id/state  (skipped — no scenarios found)`);
   }
 
-  // 6a. Crisis setup — initialises the practice playground only when it does
-  //     not already have commits.  Skipped when the playground already has
-  //     commits to avoid wiping a learner's active in-progress session.
-  if (firstScenario) {
-    if (crisisHasActiveSession) {
-      console.log(
-        `  -  POST /api/crisis/scenarios/:id/setup  (skipped — playground already has commits; won't overwrite active session)`,
-      );
-    } else {
-      await smokePost(
-        `/api/crisis/scenarios/${firstScenario.id}/setup`,
-        {},
-        SetupCrisisScenarioResponse,
-      );
-    }
-  } else {
-    console.log(`  -  POST /api/crisis/scenarios/:id/setup  (skipped — no scenarios found)`);
-  }
+  // 6a. Crisis setup — always targets the "crisis-smoke" sentinel scenario
+  //     regardless of commit state.  This sentinel is never shown in the
+  //     learner-facing scenarios list, so resetting it can never wipe a
+  //     learner's in-progress session.  Running setup unconditionally ensures
+  //     a stale playground from a previous run can never silently suppress this
+  //     step.
+  await smokePost(
+    `/api/crisis/scenarios/crisis-smoke/setup`,
+    {},
+    SetupCrisisScenarioResponse,
+  );
 
-  // 6b. Crisis check — runs the grader against the just-set-up playground.
-  //     Skipped when setup was skipped to avoid recording false grader failures
-  //     against a learner's in-progress work.
-  if (firstScenario) {
-    if (crisisHasActiveSession) {
-      console.log(
-        `  -  POST /api/crisis/scenarios/:id/check  (skipped — deferring to active learner session)`,
-      );
-    } else {
-      await smokePost(
-        `/api/crisis/scenarios/${firstScenario.id}/check`,
-        {},
-        RunCrisisCheckResponse,
-      );
-    }
-  } else {
-    console.log(`  -  POST /api/crisis/scenarios/:id/check  (skipped — no scenarios found)`);
-  }
+  // 6b. Crisis check — always targets "crisis-smoke" immediately after setup.
+  //     The sentinel scenario's checks are trivially satisfied right after a
+  //     fresh setup, so the grader path is exercised on every smoke run without
+  //     depending on learner activity or playground cleanup.
+  await smokePost(
+    `/api/crisis/scenarios/crisis-smoke/check`,
+    {},
+    RunCrisisCheckResponse,
+  );
 
   // 7. Capstone status
   await smoke("/api/capstone/status", GetCapstoneStatusResponse);

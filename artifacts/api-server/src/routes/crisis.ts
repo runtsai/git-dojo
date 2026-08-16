@@ -129,7 +129,35 @@ const RATES = "RTS Freight rates\nStandard load: $500\nRush load: $750\nFuel sur
 const DRIVERS = "Active drivers\nM. Alvarez\nJ. Okafor\n";
 const CLIENTS = "Client ledger\nHarbor Mills — net 30\nGrange Supply — net 15\n";
 
+/**
+ * Smoke-only sentinel scenario.  It is never shown in the learner-facing list
+ * (`GET /crisis/scenarios`) but its setup and check endpoints are always
+ * exercised by the API smoke check so grader regressions cannot hide behind a
+ * stale learner playground.  The setup is trivially solvable so the grader
+ * always returns `passed: true` immediately after setup runs.
+ */
+const SMOKE_SCENARIO_ID = "crisis-smoke";
+
 const SCENARIOS: CrisisDef[] = [
+  {
+    id: SMOKE_SCENARIO_ID,
+    number: 0, // sentinel — not a real lesson number
+    setup: async (pg) => {
+      write(pg, "rates.txt", RATES);
+      await commitAll(pg, "Open the rate book");
+    },
+    checks: [
+      {
+        label: "Repository has been initialised with at least one commit",
+        hint: "run setup first",
+        test: async (pg) => {
+          const out = await git(pg, ["log", "--format=%s"]);
+          return !!out && out.trim().length > 0;
+        },
+      },
+    ],
+    passLine: "Smoke scenario grader exercised successfully.",
+  },
   {
     id: "crisis-01",
     number: 1,
@@ -397,7 +425,8 @@ router.get("/crisis/scenarios", async (_req, res) => {
   );
   res.json(
     ListCrisisScenariosResponse.parse(
-      SCENARIOS.map((s) => {
+      // Exclude the internal smoke-only sentinel from the learner-facing list.
+      SCENARIOS.filter((s) => s.id !== SMOKE_SCENARIO_ID).map((s) => {
         const pg = playground(s.id);
         const hasPlayground = existsSync(pg);
         return {
