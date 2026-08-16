@@ -169,12 +169,40 @@ async function writeDiskCache(sourceHash: string, buffer: Buffer): Promise<void>
  * On startup, check whether a cached MP4 whose filename matches the current
  * source hash already exists on disk.  If so, load it into the in-memory
  * cache so the first request is served immediately without a re-render.
+ *
+ * Also sweeps any stale `.mp4` files whose name does not match the current
+ * source hash so that orphaned renders don't accumulate and fill /tmp.
+ * Deletion failures are logged but never fatal.
  */
 async function loadDiskCache(): Promise<void> {
   try {
     const sourceHash = await computePromoSourceHash();
     if (!sourceHash) return;
 
+    // ------------------------------------------------------------------
+    // Sweep stale MP4 files from previous renders.
+    // ------------------------------------------------------------------
+    try {
+      const entries = await readdir(CACHE_DIR);
+      for (const entry of entries) {
+        if (!entry.endsWith(".mp4")) continue;
+        if (entry === `${sourceHash}.mp4`) continue; // keep the current one
+        const stalePath = path.join(CACHE_DIR, entry);
+        try {
+          await rm(stalePath);
+          logger.info({ path: stalePath }, "export: removed stale disk-cache file");
+        } catch (rmErr) {
+          logger.warn({ err: rmErr, path: stalePath }, "export: failed to remove stale cache file (non-fatal)");
+        }
+      }
+    } catch (sweepErr) {
+      // CACHE_DIR may not exist yet on a fresh instance — that's fine.
+      logger.debug({ err: sweepErr }, "export: cache sweep skipped (directory may not exist yet)");
+    }
+
+    // ------------------------------------------------------------------
+    // Load the matching cache file if present.
+    // ------------------------------------------------------------------
     const cachePath = diskCachePath(sourceHash);
     if (!existsSync(cachePath)) return;
 
