@@ -119,6 +119,22 @@ describe("POST /api/progress/complete — prerequisite gate", () => {
     expect(ids).toContain("2.4");
   });
 
+  it("returns 400 when 2.3 is completed on the CLI track but not the visual track", async () => {
+    // Seed a CLI-track 2.3 completion — this must NOT satisfy the visual-track gate.
+    mockEntries.push({
+      moduleId: "2.3",
+      track: "cli",
+      completedAt: new Date().toISOString(),
+    });
+
+    const { status, body } = await postComplete("2.4");
+
+    expect(status).toBe(400);
+    expect(body).toMatchObject({
+      error: expect.stringContaining("2.3"),
+    });
+  });
+
   it("is idempotent — replaying the same completion after prereq returns 200", async () => {
     // Seed both 2.3 and 2.4 as already complete.
     mockEntries.push(
