@@ -118,6 +118,11 @@ export function MapPeek({ locationId, variant = "inline", stepIndex }: MapPeekPr
       <SheetTrigger className={triggerClasses} aria-label="Open the Map: where am I?">
         <MapIcon className="w-4 h-4 text-primary" />
         <span>Where am I?</span>
+        {isValidStepChip(stepIndex, location.steps?.length ?? 0) && (
+          <span className="inline-flex items-center px-1.5 py-0.5 rounded-full bg-primary/20 border border-primary/40 text-primary text-xs font-semibold tabular-nums leading-none">
+            {stepIndex}/{location.steps!.length}
+          </span>
+        )}
       </SheetTrigger>
       <SheetContent
         side="bottom"
