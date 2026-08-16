@@ -8,6 +8,7 @@ import { breakthroughs } from "@/content/breakthroughs";
 import { useEffect, useState } from "react";
 import { crises } from "@/content/crises";
 import { safeStorage } from "@/lib/safe-storage";
+import { computeBadgeShelf } from "@/lib/badge-shelf";
 
 export function Home() {
   const [_, setLocation] = useLocation();
@@ -60,14 +61,14 @@ export function Home() {
   const goLiveBadgeEarned = progress?.entries.some(e => e.track === "live") ?? false;
 
   // Badge shelf: completed tiers, earned CLI lesson badges, earned crisis badges, and Go Live
-  const completedTiers = tiers.filter(tier => {
-    if (tier.status !== "active") return false;
-    const tierModules = tier.modules || [];
-    return tierModules.length > 0 && tierModules.every(m => completedVisualModules.includes(m.id));
+  const { completedTiers, earnedCliBadges, earnedCrisisBadges, hasAnyBadge } = computeBadgeShelf({
+    completedVisualModules,
+    completedCliLessons,
+    goLiveBadgeEarned,
+    lessons: lessons || [],
+    allTiers: tiers,
+    allCrises: crises,
   });
-  const earnedCliBadges = (lessons || []).filter(lesson => completedCliLessons.includes(lesson.id));
-  const earnedCrisisBadges = crises.filter(crisis => completedCliLessons.includes(crisis.id));
-  const hasAnyBadge = completedTiers.length > 0 || earnedCliBadges.length > 0 || earnedCrisisBadges.length > 0 || goLiveBadgeEarned;
 
   return (
     <div className="enter-slide-up max-w-7xl mx-auto space-y-12">
