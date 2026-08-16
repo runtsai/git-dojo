@@ -362,6 +362,96 @@ describe("detached HEAD", () => {
     expect(events[0].to).toBe("workbench");
     expect(events[0].text).toMatch(/detached/i);
   });
+
+  // -------------------------------------------------------------------------
+  // Interactive-rebase scenario: HEAD stays detached but moves between commits,
+  // so workbench files differ between two consecutive polls.
+  // -------------------------------------------------------------------------
+
+  it("detached HEAD → detached HEAD: emits at most one workbench-appearance event (no duplicate)", () => {
+    // First detached-HEAD poll: HEAD is on commit A, one file visible.
+    const first = state({
+      detachedHead: true,
+      currentBranch: null,
+      files: [{ path: "old-snapshot.ts", status: "modified" }],
+    });
+    // Second poll: HEAD moved to commit B (rebase step), different file visible,
+    // but still detached — no branch change, no detachedHead flag change.
+    const second = state({
+      detachedHead: true,
+      currentBranch: null,
+      files: [
+        { path: "old-snapshot.ts", status: "modified" },
+        { path: "new-commit-file.ts", status: "untracked" },
+      ],
+    });
+    const events = detectMovements(first, second, counter);
+
+    // There must be no more than one workbench-appearance event.
+    const workbenchEvents = events.filter((e) => e.to === "workbench");
+    expect(workbenchEvents.length).toBeLessThanOrEqual(1);
+  });
+
+  it("detached HEAD → detached HEAD: freshKeys contains only the delta files, not already-present workbench files", () => {
+    // old-snapshot.ts was already on the workbench in the previous detached poll.
+    // new-commit-file.ts is freshly visible after HEAD moved to the next commit.
+    const first = state({
+      detachedHead: true,
+      currentBranch: null,
+      files: [{ path: "old-snapshot.ts", status: "modified" }],
+    });
+    const second = state({
+      detachedHead: true,
+      currentBranch: null,
+      files: [
+        { path: "old-snapshot.ts", status: "modified" },
+        { path: "new-commit-file.ts", status: "untracked" },
+      ],
+    });
+    const events = detectMovements(first, second, counter);
+
+    // The sole workbench event must highlight only the newly-appeared file.
+    const workbenchEv = events.find((e) => e.to === "workbench");
+    expect(workbenchEv).toBeDefined();
+    expect(workbenchEv!.freshKeys).toContain("new-commit-file.ts");
+    // The file that was already visible before the rebase step must NOT be highlighted.
+    expect(workbenchEv!.freshKeys).not.toContain("old-snapshot.ts");
+  });
+
+  it("detached HEAD → detached HEAD: no event fires when workbench files are identical between polls", () => {
+    // HEAD stays on the same commit between two polls — nothing changed.
+    const snap = state({
+      detachedHead: true,
+      currentBranch: null,
+      files: [{ path: "readme.md", status: "modified" }],
+    });
+    const events = detectMovements(snap, snap, counter);
+    expect(events).toHaveLength(0);
+  });
+
+  it("detached HEAD → detached HEAD: no workbench-appearance event when all files were already on the workbench", () => {
+    // Both polls share the exact same workbench files; only an unrelated field
+    // (e.g. a commit subject) differs. The delta is empty → no event.
+    const first = state({
+      detachedHead: true,
+      currentBranch: null,
+      files: [
+        { path: "alpha.ts", status: "modified" },
+        { path: "beta.ts", status: "untracked" },
+      ],
+    });
+    const second = state({
+      detachedHead: true,
+      currentBranch: null,
+      files: [
+        { path: "alpha.ts", status: "modified" },
+        { path: "beta.ts", status: "untracked" },
+      ],
+    });
+    const events = detectMovements(first, second, counter);
+    const workbenchEvents = events.filter((e) => e.to === "workbench");
+    expect(workbenchEvents).toHaveLength(0);
+  });
 });
 
 // ---------------------------------------------------------------------------
