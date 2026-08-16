@@ -26,11 +26,14 @@ assert_clean_playground() {
 
 # Run check.sh for a lesson; parse PASS/FAIL lines and update the global counters.
 # Uses a temp file to avoid pipeline-subshell variable-scope issues.
+# The "|| true" prevents pipefail from aborting selftest when check.sh exits
+# non-zero (e.g. when the playground is missing and check.sh emits a FAIL line
+# then exits 1 — we still want that FAIL line counted, not a hard abort).
 run_check() {
   local lesson_dir="$1"
   local tmpout
   tmpout="$(mktemp)"
-  bash "$lesson_dir/check.sh" 2>&1 | tee "$tmpout"
+  bash "$lesson_dir/check.sh" 2>&1 | tee "$tmpout" || true
   while IFS= read -r line; do
     case "$line" in
       PASS:*) PASS_TOTAL=$((PASS_TOTAL+1)) ;;
@@ -96,6 +99,20 @@ if bash "$LESSONS_DIR/test-setup.sh" 2>&1; then
   PASS_TOTAL=$((PASS_TOTAL+1))
 else
   fail "test-setup.sh — one or more setup checks failed"
+  FAIL_TOTAL=$((FAIL_TOTAL+1))
+fi
+
+# ═════════════════════════════════════════════════════════════════════════════
+# check.sh "no setup" regression tests (lessons 01–09)
+# Verifies that each lesson's check.sh emits at least one FAIL: line (counted
+# by run_check) when the playground folder has never been created.
+# ═════════════════════════════════════════════════════════════════════════════
+step "check.sh no-setup checks (lessons 01–09)"
+if bash "$LESSONS_DIR/test-check-no-setup.sh" 2>&1; then
+  ok "test-check-no-setup.sh — all lessons emit FAIL when playground missing"
+  PASS_TOTAL=$((PASS_TOTAL+1))
+else
+  fail "test-check-no-setup.sh — one or more lessons did not emit a counted FAIL"
   FAIL_TOTAL=$((FAIL_TOTAL+1))
 fi
 
