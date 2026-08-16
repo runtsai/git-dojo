@@ -126,5 +126,27 @@ describe("lessonLocations only references valid mapPlace/mapFlow ids", () => {
         ).toBe(true);
       });
     }
+
+    for (const [stepIndex, step] of (location.steps ?? []).entries()) {
+      for (const placeId of step.placeIds ?? []) {
+        it(`lessonLocations["${lessonId}"].steps[${stepIndex}].placeIds includes valid place "${placeId}"`, () => {
+          expect(
+            placeIds.has(placeId),
+            `lessonLocations["${lessonId}"] step ${stepIndex} references placeId "${placeId}" which does not exist in mapPlaces. ` +
+              `Either add the place to mapPlaces or fix the typo.`,
+          ).toBe(true);
+        });
+      }
+
+      for (const flowId of step.flowIds ?? []) {
+        it(`lessonLocations["${lessonId}"].steps[${stepIndex}].flowIds includes valid flow "${flowId}"`, () => {
+          expect(
+            flowIds.has(flowId),
+            `lessonLocations["${lessonId}"] step ${stepIndex} references flowId "${flowId}" which does not exist in mapFlows. ` +
+              `Either add the flow to mapFlows or fix the typo.`,
+          ).toBe(true);
+        });
+      }
+    }
   }
 });
