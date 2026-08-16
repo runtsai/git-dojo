@@ -156,6 +156,56 @@ describe("getFileDiffDisplay — binary file", () => {
 });
 
 // ---------------------------------------------------------------------------
+// getFileDiffDisplay — renamed binary file (binary + renamedFrom together)
+// ---------------------------------------------------------------------------
+
+describe("getFileDiffDisplay — renamed binary file", () => {
+  it('returns "binary — no line view" as the badge label text', () => {
+    const diff = makeFileDiff({
+      changeKind: "binary",
+      path: "assets/new-name.png",
+      renamedFrom: "assets/old-name.png",
+      lines: [],
+    });
+    const display = getFileDiffDisplay(diff);
+    expect(display.labelText).toBe("binary — no line view");
+  });
+
+  it("returns the old path as a non-null oldPath (shown struck-through in the UI)", () => {
+    const diff = makeFileDiff({
+      changeKind: "binary",
+      path: "assets/new-name.png",
+      renamedFrom: "assets/old-name.png",
+      lines: [],
+    });
+    const display = getFileDiffDisplay(diff);
+    expect(display.oldPath).toBe("assets/old-name.png");
+  });
+
+  it("returns the new path as newPath", () => {
+    const diff = makeFileDiff({
+      changeKind: "binary",
+      path: "assets/new-name.png",
+      renamedFrom: "assets/old-name.png",
+      lines: [],
+    });
+    const display = getFileDiffDisplay(diff);
+    expect(display.newPath).toBe("assets/new-name.png");
+  });
+
+  it("reports hasLines false (binary files never carry line diffs, even when renamed)", () => {
+    const diff = makeFileDiff({
+      changeKind: "binary",
+      path: "images/logo-v2.png",
+      renamedFrom: "images/logo.png",
+      lines: [],
+    });
+    const display = getFileDiffDisplay(diff);
+    expect(display.hasLines).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // getFileDiffDisplay — non-renamed files have null oldPath
 // ---------------------------------------------------------------------------
 

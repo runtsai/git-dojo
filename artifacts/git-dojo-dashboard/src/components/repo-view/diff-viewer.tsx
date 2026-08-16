@@ -89,24 +89,25 @@ export function getFileDiffDisplay(diff: FileDiff): {
 }
 
 function FileDiffCard({ diff }: { diff: FileDiff }) {
+  const { labelText, oldPath, newPath } = getFileDiffDisplay(diff);
   const label = CHANGE_LABEL[diff.changeKind];
   return (
     <div className="border border-white/10 rounded-lg overflow-hidden bg-[#0d1117]" data-testid={`diff-file-${diff.path}`}>
       <div className="bg-[#161b22] px-4 py-2.5 border-b border-white/10 flex flex-wrap items-center gap-2 text-sm text-white/80 font-mono min-w-0">
         <FileText className="w-4 h-4 text-muted-foreground shrink-0" />
         <span className="truncate">
-          {diff.renamedFrom ? (
+          {oldPath ? (
             <>
-              <span className="text-white/50 line-through">{diff.renamedFrom}</span>
+              <span className="text-white/50 line-through">{oldPath}</span>
               <span className="text-white/50"> → </span>
-              {diff.path}
+              {newPath}
             </>
           ) : (
-            diff.path
+            newPath
           )}
         </span>
         <span className={`text-[10px] uppercase font-bold tracking-widest border rounded px-1.5 py-0.5 ${label.cls}`}>
-          {label.text}
+          {labelText}
         </span>
         <span className="ml-auto text-[11px] font-sans shrink-0">
           {diff.added > 0 && <span className="text-emerald-400 font-bold">+{diff.added}</span>}
