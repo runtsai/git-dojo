@@ -34,6 +34,38 @@ write_smoke_result() {
   mv "${tmp}" "${SMOKE_RESULT_FILE}"
 }
 
+# ── Banner / state-file logic (also sourced by test-smoke-banner.sh) ────────
+#
+# handle_smoke_result PREV_STATUS SMOKE_PASSED
+#   PREV_STATUS  — "FAILED", "PASSED", or "UNKNOWN"
+#   SMOKE_PASSED — 0 (passed) or non-zero (failed)
+#
+# Writes the new status to SMOKE_STATE_FILE, calls write_smoke_result, and
+# emits the appropriate banner line(s) to stdout.
+handle_smoke_result() {
+  local prev_status="$1"
+  local smoke_passed="$2"   # 0 = passed, non-zero = failed
+
+  if [ "${smoke_passed}" -eq 0 ]; then
+    echo "PASSED" > "${SMOKE_STATE_FILE}"
+    write_smoke_result "true"
+    echo ""
+    if [ "${prev_status}" = "FAILED" ]; then
+      echo "🟢 ════════════════════════════════════════════════════════════"
+      echo "🟢  SMOKE CHECK RECOVERED  —  previous run had FAILED, now PASSED"
+      echo "🟢  Rollback confirmed: API is healthy again"
+      echo "🟢 ════════════════════════════════════════════════════════════"
+    else
+      echo "✅ Smoke check passed"
+    fi
+  else
+    echo "FAILED" > "${SMOKE_STATE_FILE}"
+    write_smoke_result "false"
+    echo ""
+    echo "⚠️  Smoke check FAILED — check the output above"
+  fi
+}
+
 # ── 1. Start server in background ──────────────────────────────────────────
 node --enable-source-maps ./dist/index.mjs &
 SERVER_PID=$!
@@ -70,24 +102,9 @@ else
   echo ""
   echo "🔍 Running api-smoke check against ${HEALTHZ%/healthz}..."
   echo ""
-  if SKIP_EXPORT_SMOKE=1 API_URL="http://localhost:${PORT}" pnpm --filter @workspace/scripts run api-smoke; then
-    echo "PASSED" > "${SMOKE_STATE_FILE}"
-    write_smoke_result "true"
-    echo ""
-    if [ "${PREV_STATUS}" = "FAILED" ]; then
-      echo "🟢 ════════════════════════════════════════════════════════════"
-      echo "🟢  SMOKE CHECK RECOVERED  —  previous run had FAILED, now PASSED"
-      echo "🟢  Rollback confirmed: API is healthy again"
-      echo "🟢 ════════════════════════════════════════════════════════════"
-    else
-      echo "✅ Smoke check passed"
-    fi
-  else
-    echo "FAILED" > "${SMOKE_STATE_FILE}"
-    write_smoke_result "false"
-    echo ""
-    echo "⚠️  Smoke check FAILED — check the output above"
-  fi
+  SMOKE_EXIT=0
+  SKIP_EXPORT_SMOKE=1 API_URL="http://localhost:${PORT}" pnpm --filter @workspace/scripts run api-smoke || SMOKE_EXIT=$?
+  handle_smoke_result "${PREV_STATUS}" "${SMOKE_EXIT}"
 fi
 
 echo ""
