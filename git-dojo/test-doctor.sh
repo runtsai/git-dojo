@@ -33,6 +33,19 @@ assert_fail() {
   fi
 }
 
+# assert_not_contains <label> <needle> <output>
+# Passes when <needle> does NOT appear anywhere in output.
+assert_not_contains() {
+  local label="$1" needle="$2" output="$3"
+  if echo "$output" | grep -qF "$needle"; then
+    fail "$label — unexpected text found: $needle"
+    echo "    output was:"
+    echo "$output" | sed 's/^/    /'
+  else
+    ok "$label — correctly absent: $needle"
+  fi
+}
+
 # assert_contains <label> <needle> <output>
 # Passes when <needle> appears anywhere in output.
 assert_contains() {
@@ -203,6 +216,26 @@ git config --global init.defaultBranch master   # inject the failure
 OUT="$(run_doctor "$T" "$H")"
 assert_fail     "defaultBranch=master" "$OUT"
 assert_contains "defaultBranch=master fix command" "git config --global init.defaultBranch main" "$OUT"
+rm -rf "$T" "$H"
+
+# ═════════════════════════════════════════════════════════════════════════════
+# TEST — git not on PATH (not installed)
+# ═════════════════════════════════════════════════════════════════════════════
+step "Check 6 — git not on PATH"
+T=$(mktemp -d); H=$(mktemp -d)
+make_base_dojo "$T" "$H"
+# Build a PATH that contains all existing entries EXCEPT the directory that
+# holds the git binary, so 'command -v git' inside doctor.sh returns nothing.
+NO_GIT_PATH=""
+for dir in $(echo "$PATH" | tr ':' '\n'); do
+  [ -x "$dir/git" ] && continue
+  NO_GIT_PATH="${NO_GIT_PATH:+$NO_GIT_PATH:}$dir"
+done
+OUT="$(HOME="$H" GIT_CONFIG_GLOBAL="$H/.gitconfig" PATH="$NO_GIT_PATH" bash "$T/doctor.sh" 2>&1 || true)"
+assert_fail         "git not on PATH" "$OUT"
+assert_contains     "git not on PATH install guidance" "Git is not installed" "$OUT"
+assert_contains     "git not on PATH Windows hint"     "git-scm.com/download/win" "$OUT"
+assert_not_contains "git not on PATH no identity fix"  "git config --global" "$OUT"
 rm -rf "$T" "$H"
 
 # ═════════════════════════════════════════════════════════════════════════════
