@@ -56,6 +56,16 @@ else
 fi
 
 # ═════════════════════════════════════════════════════════════════════════════
+# Sync auto-recovery regression tests
+# ═════════════════════════════════════════════════════════════════════════════
+step "Sync recovery checks (fast-forward merge completeness + divergence detection)"
+if bash "$LESSONS_DIR/test-sync-recovery.sh" 2>&1; then
+  ok "test-sync-recovery.sh — all checks passed"
+else
+  fail "test-sync-recovery.sh — one or more checks failed"
+fi
+
+# ═════════════════════════════════════════════════════════════════════════════
 # Setup script regression tests (lessons 01–09)
 # ═════════════════════════════════════════════════════════════════════════════
 step "Setup script checks (lessons 01–09)"
