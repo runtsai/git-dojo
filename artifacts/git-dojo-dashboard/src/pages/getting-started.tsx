@@ -1,6 +1,6 @@
 import { Link } from "wouter";
 import { useEffect } from "react";
-import { ArrowLeft, Download, Terminal, CheckCircle2, AlertTriangle, FolderTree, Keyboard, Play, Cloud } from "lucide-react";
+import { ArrowLeft, Download, Terminal, CheckCircle2, AlertTriangle, FolderTree, Keyboard, Play, Cloud, Stethoscope } from "lucide-react";
 import { CommandBlock } from "@/components/ui/command-block";
 
 function StepCard({
@@ -160,6 +160,25 @@ export function GettingStarted() {
           live as you type commands.
         </p>
       </StepCard>
+
+      <div className="bg-primary/5 border border-primary/20 rounded-xl p-5 flex items-start gap-3">
+        <Stethoscope className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+        <div className="space-y-2 min-w-0">
+          <p className="text-sm font-semibold text-foreground">Something still not right?</p>
+          <p className="text-sm text-muted-foreground leading-relaxed">
+            Run the <strong className="text-foreground">setup doctor</strong> — it checks all six common
+            mistakes (accidental home-folder repo, nested zip layout, missing playground, identity not set,
+            wrong default branch) and prints the exact command to fix each one:
+          </p>
+          <CommandBlock command="bash ~/git-dojo/doctor.sh" />
+          <p className="text-sm text-muted-foreground leading-relaxed">
+            Fix anything marked <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded">[FAIL]</code>,
+            then re-run it to confirm.{" "}
+            <strong className="text-foreground">Windows Git Bash:</strong> use{" "}
+            <strong className="text-foreground">Shift+Insert</strong> to paste the fix commands.
+          </p>
+        </div>
+      </div>
 
       <div className="surface-card p-6 space-y-3">
         <div className="flex items-center gap-3">
