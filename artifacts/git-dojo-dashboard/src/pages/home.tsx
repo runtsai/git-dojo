@@ -1,4 +1,5 @@
 import { useGetProgress, useListLessons } from "@workspace/api-client-react";
+import { isPrereqLocked } from "@/lib/prereq";
 import { Link, useLocation } from "wouter";
 import { CheckCircle2, Lock, Terminal, Shield, Award, Trophy, Lightbulb, Play, Map, X, Rocket, Siren } from "lucide-react";
 import { ComputerIcon, StickerIcon } from "@/components/git-icons";
@@ -257,9 +258,7 @@ export function Home() {
                     <div className="space-y-3">
                       {tierModules.map((mod, mIdx) => {
                         const isCompleted = completedVisualModules.includes(mod.id);
-                        const prereqLocked = mod.prerequisite
-                          ? !completedVisualModules.includes(mod.prerequisite)
-                          : false;
+                        const prereqLocked = isPrereqLocked(mod.prerequisite, completedVisualModules);
                         const isModuleLocked = !isActive || prereqLocked;
                         return (
                           <Link 

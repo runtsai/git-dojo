@@ -14,6 +14,7 @@ import { WarmUpInterstitial } from "@/components/warm-up-interstitial";
 import { MapPeek } from "@/components/map-peek";
 import type { VisualModuleProps } from "@/types/visual-module";
 import { useGetProgress } from "@workspace/api-client-react";
+import { isPrereqLocked } from "@/lib/prereq";
 import { tiers } from "@/content/tiers";
 
 export type { VisualModuleProps };
@@ -60,7 +61,7 @@ export function LearnModuleView() {
       .filter(e => e.track === "visual")
       .map(e => e.moduleId) ?? [];
     const prereq = moduleDef?.prerequisite;
-    const prereqUnmet = prereq != null && !completedVisualModules.includes(prereq);
+    const prereqUnmet = isPrereqLocked(prereq, completedVisualModules);
 
     if (prereqUnmet && prereq != null) {
       return (

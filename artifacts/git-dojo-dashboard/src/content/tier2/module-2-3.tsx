@@ -1,7 +1,27 @@
 import { useState } from "react";
 import type { VisualModuleProps } from "@/types/visual-module";
 import { useCompleteModule, getGetProgressQueryKey } from "@workspace/api-client-react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, type QueryClient } from "@tanstack/react-query";
+
+/**
+ * Called by the completion mutation's onSuccess callback.
+ *
+ * Exported so it can be tested without rendering the component:
+ * a test can pass a mock QueryClient and spy that invalidateQueries
+ * was called with the correct progress key.
+ *
+ * Removing or changing the invalidateQueries call here would immediately
+ * break the module-2-4-unlock tests.
+ */
+export function handleModule23Success(
+  queryClient: Pick<QueryClient, "invalidateQueries">,
+  setStep: (n: number) => void,
+  onStepChange?: (n: number) => void,
+): void {
+  queryClient.invalidateQueries({ queryKey: getGetProgressQueryKey() });
+  setStep(6);
+  onStepChange?.(6);
+}
 import { Link } from "wouter";
 import { ArrowLeft, CheckCircle2, ChevronRight, AlertCircle, Scale, ShieldAlert } from "lucide-react";
 import {
@@ -45,10 +65,7 @@ export function Module2_3({ onStepChange }: VisualModuleProps = {}) {
     completeModule.mutate(
       { data: { moduleId: "2.3", track: "visual" } },
       {
-        onSuccess: () => {
-          queryClient.invalidateQueries({ queryKey: getGetProgressQueryKey() });
-          setStep(6); onStepChange?.(6);
-        },
+        onSuccess: () => handleModule23Success(queryClient, setStep, onStepChange),
         onSettled: () => setSubmitted(false),
       }
     );
