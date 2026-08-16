@@ -4,8 +4,7 @@ import { ChevronDown, ChevronUp, Download, Repeat, Volume2, VolumeX, X } from 'l
 import VideoTemplate, { SCENE_DURATIONS } from './VideoTemplate';
 import { useSceneControls } from './useSceneControls';
 import { useExportRecorder } from './useExportRecorder';
-
-const TOTAL_DURATION_MS = Object.values(SCENE_DURATIONS).reduce((a, b) => a + b, 0);
+import { TOTAL_RUNTIME_MS } from '@workspace/promo-config';
 
 const PROGRESS_TICK_MS = 60;
 
@@ -177,7 +176,7 @@ function ExportPlayback() {
   const [started, setStarted] = useState(false);
 
   useEffect(() => {
-    window.__exportTotalMs = TOTAL_DURATION_MS;
+    window.__exportTotalMs = TOTAL_RUNTIME_MS;
     window.__startExportPlayback = () => setStarted(true);
     window.__exportReady = true;
     return () => {
@@ -217,7 +216,7 @@ function ExportModal({
   onCancel: () => void;
   onClose: () => void;
 }) {
-  const totalSec = Math.round(TOTAL_DURATION_MS / 1000);
+  const totalSec = Math.round(TOTAL_RUNTIME_MS / 1000);
 
   return (
     <div
