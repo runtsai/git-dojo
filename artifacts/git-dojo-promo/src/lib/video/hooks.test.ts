@@ -16,8 +16,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 import { useVideoPlayer } from "./hooks";
 
-// Scene keys must include 's5' as the last key because the hook hardcodes
-// the check `sceneKeys[currentScene] === 's5'` to identify the final scene.
+// Scene durations used for the main test suite.
 const DURATIONS = { s0: 100, s1: 150, s2: 200, s3: 100, s4: 100, s5: 80 };
 
 describe("useVideoPlayer – isNaturalLoopRef", () => {
@@ -109,6 +108,27 @@ describe("useVideoPlayer – isNaturalLoopRef", () => {
     // Video ended but did not loop, so the hook explicitly clears the flag
     expect(result.current.hasEnded).toBe(true);
     expect(result.current.isNaturalLoopRef.current).toBe(false);
+  });
+
+  it("becomes true after the last scene fires regardless of the final key name", async () => {
+    // Use a completely different key name for the last scene to confirm the
+    // guard no longer depends on the literal string 's5'.
+    const RENAMED_DURATIONS = { intro: 100, middle: 150, finale: 80 };
+
+    const { result } = renderHook(() =>
+      useVideoPlayer({ durations: RENAMED_DURATIONS, loop: true }),
+    );
+
+    for (const key of Object.keys(RENAMED_DURATIONS) as Array<keyof typeof RENAMED_DURATIONS>) {
+      await act(async () => {
+        vi.advanceTimersByTime(RENAMED_DURATIONS[key]);
+      });
+    }
+
+    // Should have looped back to scene 0
+    expect(result.current.currentScene).toBe(0);
+    // The flag must be true – 'finale' is the last scene, not 's5'
+    expect(result.current.isNaturalLoopRef.current).toBe(true);
   });
 
   it("resets to false on the advance immediately after the natural loop", async () => {

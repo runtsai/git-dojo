@@ -80,14 +80,14 @@ export function useVideoPlayer(
       // VideoTemplate's fade effect can read this flag in the same render
       // cycle where currentSceneKey flips to the incoming scene.
       //
-      // The flag is true whenever the outgoing scene is 's5', regardless of
-      // whether the advance is a regular step (rotated sequence) or a
-      // last-index wrap.  It is false on every fresh mount / remount because
-      // useRef() reinitialises to false on each component instance.  Phase 2
-      // of VideoTemplate's fade effect combines this with the prevBase check
-      // (null after a remount) so that a manual jumpTo(0) is never mistaken
-      // for a natural s5→s0 transition.
-      isNaturalLoopRef.current = sceneKeys[currentScene] === 's5';
+      // The flag is true whenever the outgoing scene is the final scene,
+      // regardless of whether the advance is a regular step (rotated sequence)
+      // or a last-index wrap.  It is false on every fresh mount / remount
+      // because useRef() reinitialises to false on each component instance.
+      // Phase 2 of VideoTemplate's fade effect combines this with the
+      // prevBase check (null after a remount) so that a manual jumpTo(0) is
+      // never mistaken for a natural last-scene→s0 transition.
+      isNaturalLoopRef.current = currentScene === totalScenes - 1;
 
       // Last scene just finished playing
       if (currentScene >= totalScenes - 1) {
