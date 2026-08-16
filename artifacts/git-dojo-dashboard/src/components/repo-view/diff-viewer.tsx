@@ -56,13 +56,36 @@ function DiffLines({ lines }: { lines: DiffLine[] }) {
   );
 }
 
-const CHANGE_LABEL: Record<FileDiff["changeKind"], { text: string; cls: string }> = {
+export const CHANGE_LABEL: Record<FileDiff["changeKind"], { text: string; cls: string }> = {
   added: { text: "brand new", cls: "text-emerald-400 bg-emerald-500/10 border-emerald-500/25" },
   modified: { text: "edited", cls: "text-amber-400 bg-amber-500/10 border-amber-500/25" },
   deleted: { text: "removed", cls: "text-red-400 bg-red-500/10 border-red-500/25" },
   renamed: { text: "renamed", cls: "text-sky-400 bg-sky-500/10 border-sky-500/25" },
   binary: { text: "binary — no line view", cls: "text-muted-foreground bg-white/5 border-white/10" },
 };
+
+/**
+ * Returns the display data for a file diff header — the badge label text and
+ * the path display (old path + new path for renames, just path otherwise).
+ * Exported for unit-testing so we can assert rename/binary rendering without
+ * a DOM environment.
+ */
+export function getFileDiffDisplay(diff: FileDiff): {
+  labelText: string;
+  /** Struck-through old path shown before the arrow on a rename; null otherwise */
+  oldPath: string | null;
+  /** The canonical (new) path displayed for the file */
+  newPath: string;
+  /** True when there are no diff lines to render (binary or pure rename) */
+  hasLines: boolean;
+} {
+  return {
+    labelText: CHANGE_LABEL[diff.changeKind].text,
+    oldPath: diff.renamedFrom ?? null,
+    newPath: diff.path,
+    hasLines: diff.lines.length > 0,
+  };
+}
 
 function FileDiffCard({ diff }: { diff: FileDiff }) {
   const label = CHANGE_LABEL[diff.changeKind];
