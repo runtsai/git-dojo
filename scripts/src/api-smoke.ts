@@ -7,7 +7,18 @@
  *   API_URL=http://localhost:5000 tsx scripts/src/api-smoke.ts
  *
  * API_URL defaults to http://localhost:${PORT} where PORT defaults to 5000.
+ *
+ * Set SKIP_EXPORT_SMOKE=1 to skip the slow promo-video export check (e.g. in
+ * environments where Chromium or a display server is unavailable).
  */
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
+import { mkdtemp, writeFile, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import nodePath from "node:path";
+
+const execFileAsync = promisify(execFile);
+
 import {
   HealthCheckResponse,
   GetDojoOverviewResponse,
@@ -138,6 +149,162 @@ async function smoke(path: string, schema: ZodTypeAny): Promise<unknown> {
 }
 
 // ---------------------------------------------------------------------------
+// Promo-video export smoke check
+// ---------------------------------------------------------------------------
+
+/**
+ * Expected total video duration from VideoTemplate.tsx SCENE_DURATIONS.
+ * s0:4000 + s1:4500 + s2:4500 + s3:4000 + s4:4000 + s5:1500 = 22500 ms
+ */
+const EXPECTED_DURATION_SEC = 22.5;
+const DURATION_TOLERANCE_SEC = 3.0;
+
+/** Minimum plausible MP4 size for a ~22 s H.264+AAC video at any sane bitrate. */
+const MIN_EXPORT_BYTES = 200_000; // 200 KB
+
+interface FfprobeOutput {
+  streams: Array<{ codec_type: string; codec_name: string }>;
+  format: { duration: string };
+}
+
+async function smokePromoExport(): Promise<void> {
+  const label = "GET /api/export/promo-video";
+
+  if (process.env["SKIP_EXPORT_SMOKE"] === "1") {
+    console.log(`  -  ${label}  (skipped — SKIP_EXPORT_SMOKE=1)`);
+    return;
+  }
+
+  const url = `${BASE}/api/export/promo-video`;
+  console.log(`  …  ${label}  (this takes ~30 s — rendering full video)`);
+
+  // ── 1. Fetch with a generous timeout ──────────────────────────────────────
+  let res: Response;
+  try {
+    res = await fetch(url, { signal: AbortSignal.timeout(360_000) });
+  } catch (err) {
+    fail(label, `Network error: ${String(err)}`);
+    return;
+  }
+
+  if (res.status !== 200) {
+    let detail = "";
+    try {
+      const body = await res.json() as { error?: string };
+      detail = body.error ?? "";
+    } catch {
+      detail = await res.text().catch(() => "");
+    }
+    fail(label, `HTTP ${res.status}${detail ? ` — ${detail}` : ""}`);
+    return;
+  }
+
+  const ct = res.headers.get("content-type") ?? "";
+  if (!ct.includes("video/mp4")) {
+    fail(label, `Expected Content-Type video/mp4, got "${ct}"`);
+    await res.body?.cancel();
+    return;
+  }
+
+  // ── 2. Buffer the body so we can inspect it ────────────────────────────────
+  let mp4Bytes: Uint8Array;
+  try {
+    mp4Bytes = new Uint8Array(await res.arrayBuffer());
+  } catch (err) {
+    fail(label, `Failed to read response body: ${String(err)}`);
+    return;
+  }
+
+  if (mp4Bytes.byteLength < MIN_EXPORT_BYTES) {
+    fail(
+      label,
+      `MP4 too small: ${mp4Bytes.byteLength} bytes (expected ≥ ${MIN_EXPORT_BYTES})`,
+    );
+    return;
+  }
+
+  // ── 3. Write to a temp file and probe with ffprobe ─────────────────────────
+  let workDir: string | null = null;
+  try {
+    workDir = await mkdtemp(nodePath.join(tmpdir(), "smoke-export-"));
+    const mp4Path = nodePath.join(workDir, "promo.mp4");
+    await writeFile(mp4Path, mp4Bytes);
+
+    let probeJson: FfprobeOutput;
+    try {
+      const { stdout } = await execFileAsync(
+        "ffprobe",
+        [
+          "-v", "error",
+          "-show_streams",
+          "-show_format",
+          "-of", "json",
+          mp4Path,
+        ],
+        { timeout: 30_000 },
+      );
+      probeJson = JSON.parse(stdout) as FfprobeOutput;
+    } catch (err) {
+      fail(label, `ffprobe failed: ${String(err)}`);
+      return;
+    }
+
+    // ── 4. Verify video stream (H.264) ───────────────────────────────────────
+    const videoStream = probeJson.streams.find((s) => s.codec_type === "video");
+    if (!videoStream) {
+      fail(label, "No video stream found in exported MP4");
+      return;
+    }
+    if (videoStream.codec_name !== "h264") {
+      fail(
+        label,
+        `Expected h264 video stream, got "${videoStream.codec_name}"`,
+      );
+      return;
+    }
+
+    // ── 5. Verify audio stream (AAC) ─────────────────────────────────────────
+    const audioStream = probeJson.streams.find((s) => s.codec_type === "audio");
+    if (!audioStream) {
+      fail(label, "No audio stream found in exported MP4 (bg_music.mp3 may be missing or mux failed)");
+      return;
+    }
+    if (audioStream.codec_name !== "aac") {
+      fail(
+        label,
+        `Expected aac audio stream, got "${audioStream.codec_name}"`,
+      );
+      return;
+    }
+
+    // ── 6. Verify duration ───────────────────────────────────────────────────
+    const duration = parseFloat(probeJson.format.duration);
+    if (isNaN(duration)) {
+      fail(label, `Could not parse duration from ffprobe output`);
+      return;
+    }
+    const diff = Math.abs(duration - EXPECTED_DURATION_SEC);
+    if (diff > DURATION_TOLERANCE_SEC) {
+      fail(
+        label,
+        `Duration ${duration.toFixed(2)} s is outside expected ` +
+          `${EXPECTED_DURATION_SEC} ± ${DURATION_TOLERANCE_SEC} s`,
+      );
+      return;
+    }
+
+    ok(
+      `${label}  [${mp4Bytes.byteLength.toLocaleString()} bytes, ` +
+        `${duration.toFixed(2)} s, h264+aac]`,
+    );
+  } finally {
+    if (workDir) {
+      await rm(workDir, { recursive: true, force: true }).catch(() => {});
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
 
@@ -230,6 +397,11 @@ async function main(): Promise<void> {
     { candidates: [{ id: "smoke-probe", sourceId: null }] },
     GetDueDrillsResponse,
   );
+
+  // 10. Promo-video export — renders the full video and verifies the resulting
+  //     MP4 has h264 video + aac audio at the expected ~22.5 s duration.
+  //     Skipped when SKIP_EXPORT_SMOKE=1 (e.g. CI without a display server).
+  await smokePromoExport();
 
   // ---------------------------------------------------------------------------
   // Summary
