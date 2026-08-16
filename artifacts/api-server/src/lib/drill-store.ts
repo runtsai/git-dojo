@@ -275,7 +275,15 @@ export function queryDue(candidates: DueQueryCandidate[]): {
     }
   }
   // Sort by effective (decayed) failures so the list reflects current weak spots.
-  friction.sort((a, b) => b.effectiveFailures - a.effectiveFailures);
+  // Tie-break on raw failure count (descending) then sourceId (ascending) so
+  // two sources whose decayed scores converge to the same rounded value never
+  // swap positions arbitrarily mid-session.
+  friction.sort((a, b) => {
+    const diff = b.effectiveFailures - a.effectiveFailures;
+    if (diff !== 0) return diff;
+    if (b.failures !== a.failures) return b.failures - a.failures;
+    return a.sourceId < b.sourceId ? -1 : a.sourceId > b.sourceId ? 1 : 0;
+  });
 
   return { items, dueCount: items.filter((i) => i.dueNow).length, friction };
 }

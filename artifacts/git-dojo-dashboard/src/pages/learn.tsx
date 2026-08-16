@@ -64,7 +64,7 @@ export function LearnModuleView() {
     }
   }, [moduleId]);
 
-  const modules = learnModules;
+  const modules = learnModules as Record<string, React.ComponentType<VisualModuleProps>>;
   const ModuleComponent = moduleId ? modules[moduleId] : undefined;
   if (ModuleComponent && moduleId) {
     // Check whether this module has an unmet prerequisite.
