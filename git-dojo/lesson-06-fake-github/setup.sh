@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -e
+trap 'echo; echo "Something went wrong — run this for a full diagnosis:"; echo "  bash ~/git-dojo/doctor.sh"; echo "(Windows Git Bash: Shift+Insert to paste)"' ERR
 cd "$(dirname "$0")/.."
 rm -rf playground/lesson-06
 mkdir -p playground/lesson-06/hub
