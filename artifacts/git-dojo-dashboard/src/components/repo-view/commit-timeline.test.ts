@@ -834,3 +834,98 @@ describe("adjacent lane color uniqueness", () => {
     }
   });
 });
+
+// ---------------------------------------------------------------------------
+// Cascading merge: a merge commit is itself merged into a third branch
+// ---------------------------------------------------------------------------
+
+describe("cascading merge (merge commit re-merged into a third branch)", () => {
+  // Topology (newest first in array):
+  //
+  //   M2               ← merge into branch C: parents [c3, M1]   (row 0)
+  //   |  \
+  //   c3   M1          ← branch C tip; M1 is the extra parent     (rows 1, 2)
+  //   |    | \
+  //   |    c1  c2      ← branches A and B                         (rows 3, 4)
+  //   |    |   |
+  //   root              ← shared root                              (row 5)
+  //
+  // M1 merges c1 and c2 — M1 is itself a merge commit.
+  // M2 is produced by "git checkout C; git merge M1", so c3 is the first
+  // parent (the continuing lane) and M1 is the extra parent being merged in.
+  // This topology exercises the path where layoutGraph encounters M1 (already
+  // placed as a merge node) as the non-first parent of a subsequent commit.
+
+  let root: ReturnType<typeof makeCommit>;
+  let c1: ReturnType<typeof makeCommit>;
+  let c2: ReturnType<typeof makeCommit>;
+  let c3: ReturnType<typeof makeCommit>;
+  let m1: ReturnType<typeof makeCommit>;
+  let m2: ReturnType<typeof makeCommit>;
+
+  beforeEach(() => {
+    root = makeCommit("Root");
+    c1   = makeCommit("Branch-A-1", [root.hash]);
+    c2   = makeCommit("Branch-B-1", [root.hash]);
+    c3   = makeCommit("Branch-C-1", [root.hash]);
+    m1   = makeCommit("Merge A+B",  [c1.hash, c2.hash]);
+    // M2 is on branch C; first parent is c3 (continuing lane), extra parent is M1
+    m2   = makeCommit("Merge M1 into C", [c3.hash, m1.hash]);
+  });
+
+  it("every edge endpoint lands on its parent's actual column", () => {
+    // newest first: M2 is tip of branch C (after absorbing M1)
+    const { rows, edges } = layoutGraph([m2, c3, m1, c1, c2, root]);
+    const colByHash = new Map(rows.map((r) => [r.commit.hash, r.col]));
+    for (const e of edges) {
+      const parentCommit = rows[e.toRow]!.commit;
+      expect(e.toCol).toBe(
+        colByHash.get(parentCommit.hash),
+        `edge to "${parentCommit.subject}" should land on col ${colByHash.get(parentCommit.hash)}, got ${e.toCol}`,
+      );
+    }
+  });
+
+  it("no -1 sentinel survives when a merge commit is the extra parent of another merge", () => {
+    const { edges } = layoutGraph([m2, c3, m1, c1, c2, root]);
+    for (const e of edges) {
+      expect(e.toCol).not.toBe(-1);
+      expect(e.fromCol).not.toBe(-1);
+    }
+  });
+
+  it("c1, c2, and c3 all sit on distinct columns (three simultaneous lanes)", () => {
+    const { rows } = layoutGraph([m2, c3, m1, c1, c2, root]);
+    const colByHash = new Map(rows.map((r) => [r.commit.hash, r.col]));
+    const colC1 = colByHash.get(c1.hash)!;
+    const colC2 = colByHash.get(c2.hash)!;
+    const colC3 = colByHash.get(c3.hash)!;
+    expect(colC1).not.toBe(colC2);
+    expect(colC1).not.toBe(colC3);
+    expect(colC2).not.toBe(colC3);
+  });
+
+  it("M1 sits on a valid column (not undefined, not negative)", () => {
+    const { rows } = layoutGraph([m2, c3, m1, c1, c2, root]);
+    const m1Row = rows.find((r) => r.commit.hash === m1.hash)!;
+    expect(m1Row.col).toBeGreaterThanOrEqual(0);
+  });
+
+  it("M2 sits on the same column as c3 (first-parent lane is preserved)", () => {
+    const { rows } = layoutGraph([m2, c3, m1, c1, c2, root]);
+    const colByHash = new Map(rows.map((r) => [r.commit.hash, r.col]));
+    // M2's first parent is c3, so M2 should continue on c3's lane
+    expect(colByHash.get(m2.hash)).toBe(colByHash.get(c3.hash));
+  });
+
+  it("M1 sits on a different column than M2 (extra-parent lane is distinct)", () => {
+    const { rows } = layoutGraph([m2, c3, m1, c1, c2, root]);
+    const colByHash = new Map(rows.map((r) => [r.commit.hash, r.col]));
+    expect(colByHash.get(m2.hash)).not.toBe(colByHash.get(m1.hash));
+  });
+
+  it("maxCol is at least 2 (three branches are simultaneously live before any merge)", () => {
+    const { maxCol } = layoutGraph([m2, c3, m1, c1, c2, root]);
+    expect(maxCol).toBeGreaterThanOrEqual(2);
+  });
+});
