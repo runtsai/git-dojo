@@ -31,10 +31,13 @@ if [ "${READY}" -eq 0 ]; then
   echo "⚠️  Server did not become healthy within 30 s — skipping smoke check"
 else
   # ── 3. Run smoke check ───────────────────────────────────────────────────
+  # SKIP_EXPORT_SMOKE=1: the promo-video export takes ~30 s and requires a
+  # display server; skip it on startup.  Run the dedicated api-smoke workflow
+  # when you need the full export check.
   echo ""
   echo "🔍 Running api-smoke check against ${HEALTHZ%/healthz}..."
   echo ""
-  if API_URL="http://localhost:${PORT}" pnpm --filter @workspace/scripts run api-smoke; then
+  if SKIP_EXPORT_SMOKE=1 API_URL="http://localhost:${PORT}" pnpm --filter @workspace/scripts run api-smoke; then
     echo ""
     echo "✅ Smoke check passed"
   else
