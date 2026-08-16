@@ -46,6 +46,10 @@ export function CrisisView() {
     if (crisis) document.title = `${crisis.title} | Crisis Room`;
   }, [crisis]);
 
+  useEffect(() => {
+    setHintsOpen(0);
+  }, [crisisId]);
+
   const { data: scenarios } = useListCrisisScenarios();
   const setup = useSetupCrisisScenario();
 
