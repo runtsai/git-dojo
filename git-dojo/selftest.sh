@@ -55,6 +55,22 @@ git config --global user.name  "Selftest Runner"
 git config --global user.email "selftest@example.invalid"
 git config --global init.defaultBranch main
 git config --global merge.conflictstyle merge
+# Trust all directories so git 2.35+ dubious-ownership checks never fire in CI.
+git config --global --add safe.directory '*'
+
+# ═════════════════════════════════════════════════════════════════════════════
+# Manifest ↔ folder cross-check
+# Verifies that CLI_LESSON_IDS in lessons.ts matches the lesson folders in
+# git-dojo/ exactly — no orphan folders, no phantom manifest IDs.
+# ═════════════════════════════════════════════════════════════════════════════
+step "Manifest ↔ folder cross-check"
+if bash "$LESSONS_DIR/test-manifest.sh" 2>&1; then
+  ok "test-manifest.sh — all manifest ↔ folder checks passed"
+  PASS_TOTAL=$((PASS_TOTAL+1))
+else
+  fail "test-manifest.sh — manifest and lesson folders are out of sync"
+  FAIL_TOTAL=$((FAIL_TOTAL+1))
+fi
 
 # ═════════════════════════════════════════════════════════════════════════════
 # Doctor script regression tests
@@ -76,6 +92,7 @@ if bash "$LESSONS_DIR/test-sync-recovery.sh" 2>&1; then
   ok "test-sync-recovery.sh — all checks passed"
 else
   fail "test-sync-recovery.sh — one or more checks failed"
+  FAIL_TOTAL=$((FAIL_TOTAL+1))
 fi
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -86,6 +103,7 @@ if bash "$LESSONS_DIR/test-course-sync-recovery.sh" 2>&1; then
   ok "test-course-sync-recovery.sh — all checks passed"
 else
   fail "test-course-sync-recovery.sh — one or more checks failed"
+  FAIL_TOTAL=$((FAIL_TOTAL+1))
 fi
 
 # ═════════════════════════════════════════════════════════════════════════════
