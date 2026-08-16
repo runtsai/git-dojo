@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { layoutGraph } from "./commit-timeline";
+import { layoutGraph, colorForHash } from "./commit-timeline";
 import type { RepoCommit } from "@workspace/api-client-react";
 
 // ---------------------------------------------------------------------------
@@ -415,5 +415,186 @@ describe("branch survives its own merge", () => {
   it("maxCol is at least 1 (two lanes are open while branch and main coexist)", () => {
     const { maxCol } = layoutGraph([b2, merge, main1, b1, root]);
     expect(maxCol).toBeGreaterThanOrEqual(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Color stability: same commit always gets the same color
+// ---------------------------------------------------------------------------
+
+describe("colorForHash", () => {
+  it("returns a non-empty string", () => {
+    expect(colorForHash("abc123")).toBeTruthy();
+  });
+
+  it("is deterministic — same input always produces the same output", () => {
+    expect(colorForHash("deadbeef")).toBe(colorForHash("deadbeef"));
+  });
+
+  it("different hashes can produce different colors", () => {
+    // At least two of these must differ (pigeonhole: 6 colors, many hashes)
+    const hashes = ["aaa", "bbb", "ccc", "ddd", "eee", "fff", "ggg", "hhh"];
+    const colors = hashes.map(colorForHash);
+    const unique = new Set(colors);
+    expect(unique.size).toBeGreaterThan(1);
+  });
+});
+
+describe("color stability when the commit list is filtered", () => {
+  // B and C are both children of root.
+  // B's color must be identical whether C is present or not.
+  it("a commit's color is unchanged when a sibling branch is filtered out", () => {
+    const root = makeCommit("Root");
+    const b    = makeCommit("Branch-B", [root.hash]);
+    const c    = makeCommit("Branch-C", [root.hash]);
+
+    const { rows: rowsFull } = layoutGraph([b, c, root]);
+    const { rows: rowsFiltered } = layoutGraph([b, root]);
+
+    const colorFull     = rowsFull.find((r) => r.commit.hash === b.hash)!.color;
+    const colorFiltered = rowsFiltered.find((r) => r.commit.hash === b.hash)!.color;
+
+    expect(colorFull).toBe(colorFiltered);
+  });
+
+  it("a commit's color is unchanged when it is the only commit in the list", () => {
+    const root = makeCommit("Root");
+    const b    = makeCommit("Branch-B", [root.hash]);
+    const c    = makeCommit("Branch-C", [root.hash]);
+
+    const { rows: rowsFull } = layoutGraph([b, c, root]);
+    const { rows: rowsAlone } = layoutGraph([b]);
+
+    const colorFull  = rowsFull.find((r) => r.commit.hash === b.hash)!.color;
+    const colorAlone = rowsAlone.find((r) => r.commit.hash === b.hash)!.color;
+
+    expect(colorFull).toBe(colorAlone);
+  });
+
+  it("every sibling tip retains its own color after filtering", () => {
+    const root = makeCommit("Root");
+    const b    = makeCommit("Branch-B", [root.hash]);
+    const c    = makeCommit("Branch-C", [root.hash]);
+    const d    = makeCommit("Branch-D", [root.hash]);
+
+    const { rows: rowsAll } = layoutGraph([b, c, d, root]);
+    const { rows: rowsBC  } = layoutGraph([b, c, root]);
+    const { rows: rowsBD  } = layoutGraph([b, d, root]);
+
+    const colorB_all = rowsAll.find((r) => r.commit.hash === b.hash)!.color;
+    const colorB_BC  = rowsBC.find((r) => r.commit.hash === b.hash)!.color;
+    const colorB_BD  = rowsBD.find((r) => r.commit.hash === b.hash)!.color;
+    expect(colorB_all).toBe(colorB_BC);
+    expect(colorB_all).toBe(colorB_BD);
+
+    const colorC_all = rowsAll.find((r) => r.commit.hash === c.hash)!.color;
+    const colorC_BC  = rowsBC.find((r) => r.commit.hash === c.hash)!.color;
+    expect(colorC_all).toBe(colorC_BC);
+  });
+});
+
+describe("color stability when the commit list is re-sorted", () => {
+  it("swapping two sibling tips does not change their colors", () => {
+    const root = makeCommit("Root");
+    const b    = makeCommit("Branch-B", [root.hash]);
+    const c    = makeCommit("Branch-C", [root.hash]);
+
+    const { rows: rows1 } = layoutGraph([b, c, root]);
+    const { rows: rows2 } = layoutGraph([c, b, root]);
+
+    const colorB1 = rows1.find((r) => r.commit.hash === b.hash)!.color;
+    const colorB2 = rows2.find((r) => r.commit.hash === b.hash)!.color;
+    const colorC1 = rows1.find((r) => r.commit.hash === c.hash)!.color;
+    const colorC2 = rows2.find((r) => r.commit.hash === c.hash)!.color;
+
+    expect(colorB1).toBe(colorB2);
+    expect(colorC1).toBe(colorC2);
+  });
+
+  it("inserting extra commits before a tip does not change that tip's color", () => {
+    const root  = makeCommit("Root");
+    const extra = makeCommit("Extra", [root.hash]);
+    const b     = makeCommit("Branch-B", [root.hash]);
+
+    const { rows: rowsWithout } = layoutGraph([b, root]);
+    const { rows: rowsWith    } = layoutGraph([extra, b, root]);
+
+    const colorWithout = rowsWithout.find((r) => r.commit.hash === b.hash)!.color;
+    const colorWith    = rowsWith.find((r) => r.commit.hash === b.hash)!.color;
+
+    expect(colorWithout).toBe(colorWith);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Color stability for ancestor / intermediate commits
+// The root's color must be colorForHash(root.hash), not the color of whichever
+// descendant happened to open its lane first.
+// ---------------------------------------------------------------------------
+
+describe("color stability for ancestor commits when siblings are reordered", () => {
+  it("the shared root keeps its own color regardless of which sibling tip comes first", () => {
+    const root = makeCommit("Root");
+    const b    = makeCommit("Branch-B", [root.hash]);
+    const c    = makeCommit("Branch-C", [root.hash]);
+
+    const { rows: rows1 } = layoutGraph([b, c, root]);
+    const { rows: rows2 } = layoutGraph([c, b, root]);
+
+    const colorRoot1 = rows1.find((r) => r.commit.hash === root.hash)!.color;
+    const colorRoot2 = rows2.find((r) => r.commit.hash === root.hash)!.color;
+
+    // Must match colorForHash(root.hash) in both orderings.
+    expect(colorRoot1).toBe(colorForHash(root.hash));
+    expect(colorRoot2).toBe(colorForHash(root.hash));
+    expect(colorRoot1).toBe(colorRoot2);
+  });
+
+  it("intermediate commits keep their own color regardless of sibling ordering", () => {
+    // Chain: root → mid → tip-A and tip-B both child of mid
+    const root = makeCommit("Root");
+    const mid  = makeCommit("Middle", [root.hash]);
+    const tipA = makeCommit("Tip-A",  [mid.hash]);
+    const tipB = makeCommit("Tip-B",  [mid.hash]);
+
+    const { rows: rows1 } = layoutGraph([tipA, tipB, mid, root]);
+    const { rows: rows2 } = layoutGraph([tipB, tipA, mid, root]);
+
+    const midColor1 = rows1.find((r) => r.commit.hash === mid.hash)!.color;
+    const midColor2 = rows2.find((r) => r.commit.hash === mid.hash)!.color;
+
+    expect(midColor1).toBe(colorForHash(mid.hash));
+    expect(midColor2).toBe(colorForHash(mid.hash));
+    expect(midColor1).toBe(midColor2);
+  });
+
+  it("ancestor color is stable after a sibling branch is filtered out", () => {
+    const root = makeCommit("Root");
+    const b    = makeCommit("Branch-B", [root.hash]);
+    const c    = makeCommit("Branch-C", [root.hash]);
+
+    const { rows: rowsFull     } = layoutGraph([b, c, root]);
+    const { rows: rowsFiltered } = layoutGraph([b, root]);
+
+    const colorFull     = rowsFull.find((r) => r.commit.hash === root.hash)!.color;
+    const colorFiltered = rowsFiltered.find((r) => r.commit.hash === root.hash)!.color;
+
+    expect(colorFull).toBe(colorForHash(root.hash));
+    expect(colorFiltered).toBe(colorForHash(root.hash));
+    expect(colorFull).toBe(colorFiltered);
+  });
+
+  it("every commit's color equals colorForHash(commit.hash) unconditionally", () => {
+    // Verify the invariant holds across a non-trivial graph with merges.
+    const root  = makeCommit("Root");
+    const b     = makeCommit("Branch-B", [root.hash]);
+    const c     = makeCommit("Branch-C", [root.hash]);
+    const merge = makeCommit("Merge",    [b.hash, c.hash]);
+
+    const { rows } = layoutGraph([merge, b, c, root]);
+
+    for (const r of rows) {
+      expect(r.color).toBe(colorForHash(r.commit.hash));
+    }
   });
 });

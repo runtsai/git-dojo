@@ -21,6 +21,19 @@ const LANE_COLORS = [
   "#fb7185", // rose
 ];
 
+/**
+ * Deterministically map any string (commit hash, parent hash) to a lane color.
+ * Using a stable hash means the same commit always gets the same color regardless
+ * of what other commits are present in the list or the order they appear.
+ */
+export function colorForHash(str: string): string {
+  let h = 0;
+  for (let i = 0; i < str.length; i++) {
+    h = (Math.imul(31, h) + str.charCodeAt(i)) | 0;
+  }
+  return LANE_COLORS[Math.abs(h) % LANE_COLORS.length]!;
+}
+
 type LayoutRow = {
   commit: RepoCommit;
   col: number;
@@ -31,15 +44,13 @@ type Edge = { fromRow: number; fromCol: number; toRow: number; toCol: number; co
 
 export function layoutGraph(commits: RepoCommit[]): { rows: LayoutRow[]; edges: Edge[]; maxCol: number } {
   // lanes[i] = hash the lane is waiting for (the next expected commit), or null.
+  // Note: laneColor is no longer tracked here — every row's color comes directly
+  // from colorForHash(commit.hash) so it is stable regardless of list order or filtering.
   const lanes: (string | null)[] = [];
-  const laneColor: string[] = [];
   const rowIndexByHash = new Map(commits.map((c, i) => [c.hash, i]));
   const rows: LayoutRow[] = [];
   const edges: Edge[] = [];
-  let colorCursor = 0;
   let maxCol = 0;
-
-  const nextColor = () => LANE_COLORS[colorCursor++ % LANE_COLORS.length]!;
 
   commits.forEach((c, i) => {
     // Find every lane waiting for this commit; the leftmost becomes its column.
@@ -56,15 +67,11 @@ export function layoutGraph(commits: RepoCommit[]): { rows: LayoutRow[]; edges: 
       // New tip: take the first free lane or open a new one.
       const free = lanes.indexOf(null);
       col = free >= 0 ? free : lanes.length;
-      if (col === lanes.length) {
-        lanes.push(null);
-        laneColor.push(nextColor());
-      } else if (!laneColor[col]) {
-        laneColor[col] = nextColor();
-      }
+      if (col === lanes.length) lanes.push(null);
     }
-    if (!laneColor[col]) laneColor[col] = nextColor();
-    const color = laneColor[col]!;
+    // Color is unconditionally derived from this commit's own hash — never from
+    // whichever descendant happened to open the lane first.
+    const color = colorForHash(c.hash);
     rows.push({ commit: c, col, color });
     maxCol = Math.max(maxCol, col);
 
@@ -75,31 +82,26 @@ export function layoutGraph(commits: RepoCommit[]): { rows: LayoutRow[]; edges: 
       const ph = parents[p]!;
       const existing = lanes.indexOf(ph);
       let pcol: number;
-      if (existing >= 0) pcol = existing;
-      else {
+      if (existing >= 0) {
+        pcol = existing;
+      } else {
         const free = lanes.indexOf(null);
         pcol = free >= 0 ? free : lanes.length;
-        if (pcol === lanes.length) {
-          lanes.push(ph);
-          laneColor.push(nextColor());
-        } else lanes[pcol] = ph;
-        if (!laneColor[pcol]) laneColor[pcol] = nextColor();
+        if (pcol === lanes.length) lanes.push(ph);
+        else lanes[pcol] = ph;
       }
       maxCol = Math.max(maxCol, pcol);
       const pRow = rowIndexByHash.get(ph);
       if (pRow !== undefined) {
-        // Endpoint column is provisional (lanes can collapse at branch
-        // points); resolve to the parent's final column after layout.
-        edges.push({ fromRow: i, fromCol: col, toRow: pRow, toCol: -1, color: laneColor[pcol] ?? color });
+        // Merge-parent edge: colored by the parent's hash (the incoming branch line).
+        edges.push({ fromRow: i, fromCol: col, toRow: pRow, toCol: -1, color: colorForHash(ph) });
       }
     }
-    // Edge to first parent.
+    // Edge to first parent: colored by this commit's hash (the main line continues).
     const p0 = parents[0];
     if (p0) {
       const pRow = rowIndexByHash.get(p0);
       if (pRow !== undefined) {
-        // The parent's final column is decided when it is laid out; we record
-        // the child's column and fix the endpoint up afterwards.
         edges.push({ fromRow: i, fromCol: col, toRow: pRow, toCol: -1, color });
       }
     }
