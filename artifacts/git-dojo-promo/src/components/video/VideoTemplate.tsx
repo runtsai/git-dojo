@@ -18,6 +18,13 @@ export const SCENE_DURATIONS: Record<string, number> = {
   s5: 1500,
 };
 
+/** How many ms before s5 ends the fade-to-black starts. */
+const LOOP_FADE_LEAD_MS = 600;
+/** Duration of the fade-in (transparent → black) in ms. */
+const LOOP_FADE_IN_MS = 500;
+/** Duration of the fade-out (black → transparent) in ms. */
+const LOOP_FADE_OUT_MS = 700;
+
 const SCENE_COMPONENTS: Record<string, React.ComponentType> = {
   s0: Scene0,
   s1: Scene1,
@@ -277,7 +284,7 @@ export default function VideoTemplate({
     // --- Phase 1: entering the last scene — schedule the fade-in so it peaks
     //     just before the scene timer fires and advances to s0.
     if (baseKey === 's5') {
-      const fadeInDelay = Math.max(0, SCENE_DURATIONS.s5 - 600); // 900 ms
+      const fadeInDelay = Math.max(0, durations.s5 - LOOP_FADE_LEAD_MS);
       const t1 = setTimeout(() => setLoopFading('in'), fadeInDelay);
       return () => clearTimeout(t1);
     }
@@ -295,7 +302,7 @@ export default function VideoTemplate({
     ) {
       setFeedKey((k) => k + 1);
       setLoopFading('out');
-      const t1 = setTimeout(() => setLoopFading('idle'), 700);
+      const t1 = setTimeout(() => setLoopFading('idle'), LOOP_FADE_OUT_MS);
       return () => clearTimeout(t1);
     }
 
@@ -320,7 +327,7 @@ export default function VideoTemplate({
         className="absolute inset-0 z-50 bg-black pointer-events-none"
         animate={{ opacity: loopFading === 'in' ? 1 : 0 }}
         transition={{
-          duration: loopFading === 'in' ? 0.5 : 0.6,
+          duration: loopFading === 'in' ? LOOP_FADE_IN_MS / 1000 : LOOP_FADE_OUT_MS / 1000,
           ease: 'easeInOut',
         }}
       />
