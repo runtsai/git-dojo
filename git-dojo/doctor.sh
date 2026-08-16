@@ -52,7 +52,7 @@ if [ -d "$HERE/.git" ]; then
     "The git-dojo course folder ($HERE) is itself a Git repository." \
     "Lesson repos must be separate; having a .git here interferes with them." \
     "Fix — remove it (your lesson files are NOT deleted):" \
-    "  rm -rf ~/git-dojo/.git"
+    "  rm -rf $HERE/.git"
 else
   pass "No accidental Git repo inside the dojo folder."
 fi
@@ -76,7 +76,7 @@ if [ -n "$NESTED_FOUND" ]; then
     "Lessons are inside an extra '$NESTED_FOUND' subfolder." \
     "This is a zip-extraction artifact — GitHub wraps files in an extra folder." \
     "Fix — run setup.sh from the nested path; it will flatten the layout for you:" \
-    "  bash ~/git-dojo/$NESTED_FOUND/setup.sh"
+    "  bash $HERE/$NESTED_FOUND/setup.sh"
 else
   pass "No nested folder layout detected."
 fi
@@ -93,7 +93,7 @@ else
     "Expected to see lesson-01-first-snapshot/, lesson-02-the-ledger/, etc." \
     "Possible causes:" \
     "  • Lessons are in a subfolder — re-run this script from that subfolder:" \
-    "    bash ~/git-dojo/git-dojo/doctor.sh" \
+    "    bash $HERE/git-dojo/doctor.sh" \
     "  • Wrong repo downloaded — you need the course-only repo:" \
     "    https://github.com/runtsai/git-dojo-course" \
     "    Download ZIP → extract into ~ → rename the folder to git-dojo."
@@ -109,7 +109,7 @@ else
   fail \
     "The playground/ folder is missing from $HERE." \
     "Fix — create it:" \
-    "  mkdir ~/git-dojo/playground"
+    "  mkdir $HERE/playground"
 fi
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -167,8 +167,8 @@ fi
 echo
 if [ "$ISSUES" -eq 0 ]; then
   echo "All checks passed. You're good to go!"
-  echo "Next: cd ~/git-dojo/lesson-01-first-snapshot && bash setup.sh"
+  echo "Next: cd $HERE/lesson-01-first-snapshot && bash setup.sh"
 else
   echo "$ISSUES issue(s) found — see the [FAIL] blocks above for the fix commands."
-  echo "After fixing, run 'bash ~/git-dojo/doctor.sh' again to confirm."
+  echo "After fixing, run 'bash $HERE/doctor.sh' again to confirm."
 fi

@@ -116,7 +116,7 @@ make_base_dojo "$T" "$H"
 mkdir "$T/.git"                   # inject the failure
 OUT="$(run_doctor "$T" "$H")"
 assert_fail     "dojo .git present" "$OUT"
-assert_contains "dojo .git fix command" "rm -rf ~/git-dojo/.git" "$OUT"
+assert_contains "dojo .git fix command" "rm -rf $T/.git" "$OUT"
 rm -rf "$T" "$H"
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -130,7 +130,7 @@ mkdir -p "$T/git-dojo"
 touch    "$T/git-dojo/setup.sh"   # inject the failure
 OUT="$(run_doctor "$T" "$H")"
 assert_fail     "nested folder detected" "$OUT"
-assert_contains "nested folder fix command" "bash ~/git-dojo/git-dojo/setup.sh" "$OUT"
+assert_contains "nested folder fix command" "bash $T/git-dojo/setup.sh" "$OUT"
 rm -rf "$T" "$H"
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -142,7 +142,7 @@ make_base_dojo "$T" "$H"
 rm -rf "$T/lesson-01-first-snapshot"   # inject the failure
 OUT="$(run_doctor "$T" "$H")"
 assert_fail     "lesson-01 missing" "$OUT"
-assert_contains "lesson-01 missing fix command" "bash ~/git-dojo/git-dojo/doctor.sh" "$OUT"
+assert_contains "lesson-01 missing fix command" "bash $T/git-dojo/doctor.sh" "$OUT"
 rm -rf "$T" "$H"
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -154,7 +154,7 @@ make_base_dojo "$T" "$H"
 rm -rf "$T/playground"            # inject the failure
 OUT="$(run_doctor "$T" "$H")"
 assert_fail     "playground missing" "$OUT"
-assert_contains "playground missing fix command" "mkdir ~/git-dojo/playground" "$OUT"
+assert_contains "playground missing fix command" "mkdir $T/playground" "$OUT"
 rm -rf "$T" "$H"
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -214,6 +214,47 @@ make_base_dojo "$T" "$H"
 OUT="$(run_doctor "$T" "$H")"
 assert_pass "happy path" "$OUT"
 rm -rf "$T" "$H"
+
+# ═════════════════════════════════════════════════════════════════════════════
+# TEST — renamed dojo folder: fix commands must reference the actual path
+# Verifies that none of the fix commands contain the old hardcoded ~/git-dojo
+# and that they contain the real directory path instead.
+# ═════════════════════════════════════════════════════════════════════════════
+step "Renamed folder — fix commands use actual path, not hardcoded ~/git-dojo"
+
+# Use a distinctly non-default name so any leak of ~/git-dojo is obvious.
+RENAMED_DIR=$(mktemp -d)
+RENAMED_HOME=$(mktemp -d)
+RENAMED_DOJO="$RENAMED_DIR/git-dojo-course"
+mkdir -p "$RENAMED_DOJO"
+make_base_dojo "$RENAMED_DOJO" "$RENAMED_HOME"
+
+# Trigger check 2 (dojo .git) — fix command must show the real path.
+mkdir "$RENAMED_DOJO/.git"
+OUT="$(HOME="$RENAMED_HOME" GIT_CONFIG_GLOBAL="$RENAMED_HOME/.gitconfig" bash "$RENAMED_DOJO/doctor.sh" 2>&1)"
+assert_fail     "renamed: dojo .git detected" "$OUT"
+assert_contains "renamed: fix uses actual path" "rm -rf $RENAMED_DOJO/.git" "$OUT"
+# The old hardcoded string must not appear anywhere in the output.
+if echo "$OUT" | grep -qF '~/git-dojo'; then
+  fail "renamed: output still contains hardcoded ~/git-dojo"
+else
+  ok "renamed: no hardcoded ~/git-dojo found in output"
+fi
+rm -rf "$RENAMED_DOJO/.git"
+
+# Trigger check 5 (playground missing) — fix command must show the real path.
+rm -rf "$RENAMED_DOJO/playground"
+OUT="$(HOME="$RENAMED_HOME" GIT_CONFIG_GLOBAL="$RENAMED_HOME/.gitconfig" bash "$RENAMED_DOJO/doctor.sh" 2>&1)"
+assert_fail     "renamed: playground missing detected" "$OUT"
+assert_contains "renamed: playground fix uses actual path" "mkdir $RENAMED_DOJO/playground" "$OUT"
+if echo "$OUT" | grep -qF '~/git-dojo'; then
+  fail "renamed: playground fix still contains hardcoded ~/git-dojo"
+else
+  ok "renamed: no hardcoded ~/git-dojo in playground fix"
+fi
+mkdir "$RENAMED_DOJO/playground"
+
+rm -rf "$RENAMED_DIR" "$RENAMED_HOME"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Summary
