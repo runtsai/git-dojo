@@ -44,6 +44,18 @@ git config --global init.defaultBranch main
 git config --global merge.conflictstyle merge
 
 # ═════════════════════════════════════════════════════════════════════════════
+# Doctor script regression tests
+# ═════════════════════════════════════════════════════════════════════════════
+step "Doctor script checks"
+if bash "$LESSONS_DIR/test-doctor.sh" 2>&1; then
+  ok "test-doctor.sh — all checks passed"
+  PASS_TOTAL=$((PASS_TOTAL+1))
+else
+  fail "test-doctor.sh — one or more checks failed"
+  FAIL_TOTAL=$((FAIL_TOTAL+1))
+fi
+
+# ═════════════════════════════════════════════════════════════════════════════
 # Lesson 08 — The Collision
 # ═════════════════════════════════════════════════════════════════════════════
 LESSON_08="$LESSONS_DIR/lesson-08-the-collision"
