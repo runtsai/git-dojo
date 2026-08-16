@@ -2,13 +2,12 @@ import { useState } from "react";
 import type { VisualModuleProps } from "@/types/visual-module";
 import { useCompleteModule, getGetProgressQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Link, useLocation } from "wouter";
-import { ArrowLeft, CheckCircle2, ChevronRight, AlertCircle, Shield, Settings2, Trash2 } from "lucide-react";
+import { Shield, Trash2 } from "lucide-react";
 import { SimSettingsContainer, SimSettingsSection, SimSettingsField, SimSettingsVisibilityToggle, SimSettingsDangerZone, SimSettingsDangerAction } from "@/components/sim/sim-settings";
+import { VisualModuleShell } from "@/components/visual-module-shell";
 
 export function Module1_4({ onStepChange }: VisualModuleProps = {}) {
   const [step, setStep] = useState(1);
-  const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
   const completeModule = useCompleteModule();
   
@@ -61,285 +60,214 @@ export function Module1_4({ onStepChange }: VisualModuleProps = {}) {
   );
 
   return (
-    <div className="max-w-4xl mx-auto space-y-8 enter-slide-up pb-20">
-      <Link href="/" className="inline-flex items-center gap-2 text-xs font-bold text-muted-foreground hover:text-foreground mb-4 transition-all active:scale-95 uppercase tracking-wider bg-black/40 border border-white/5 shadow-inner px-3 py-1.5 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
-        <ArrowLeft className="w-3.5 h-3.5" /> Back to Ledger
-      </Link>
+    <VisualModuleShell
+      title="Repo settings basics"
+      step={step}
+      completionTitle="Module Passed!"
+      completionText="You know how to lock the vault. You understand the difference between public visibility and the permanent destruction of history."
+      nextModuleHref="/learn/1-5"
+      nextModuleLabel="Next: Global Nav →"
+      onPrev={step > 1 ? handlePrev : undefined}
+      onNext={step < 5 ? handleNext : undefined}
+      nextLabel={step === 4 ? "Begin Hands-On Task" : "Continue"}
+      onSubmit={step === 5 ? handleQuizSubmit : undefined}
+      submitLabel="Submit Answers"
+      isPending={completeModule.isPending}
+      error={showError}
+    >
+      {step === 1 && (
+        <>
+          <div className="inline-block px-3 py-1 bg-primary/10 text-primary border border-primary/20 rounded text-xs font-bold uppercase tracking-wider mb-2">Part 1: The Vault</div>
+          <h2 className="text-3xl font-bold">Configuring the Vault</h2>
+          
+          <p className="text-muted-foreground reading-text text-lg">
+            The settings screen is where you control the meta-rules of your repository. It defines who is allowed to look at your files, what the repository is called, and how dangerous actions are handled.
+          </p>
+          <p className="text-muted-foreground reading-text text-lg">
+            By default, repositories should be locked down. You only open them up when absolutely necessary.
+          </p>
+        </>
+      )}
 
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-extrabold text-foreground tracking-tight">Repo settings basics</h1>
-        <div className="flex gap-2">
-          {[1, 2, 3, 4, 5].map(i => (
-            <div 
-              key={i} 
-              className={`w-2 h-2 rounded-full transition-all ${
-                i === step ? 'bg-primary scale-150' : i < step ? 'bg-primary/50' : 'bg-white/10'
-              }`} 
-            />
-          ))}
-        </div>
-      </div>
+      {step === 2 && (
+        <>
+          <div className="inline-block px-3 py-1 bg-primary/10 text-primary border border-primary/20 rounded text-xs font-bold uppercase tracking-wider mb-2">Part 2: The Interface</div>
+          <h2 className="text-3xl font-bold">The Controls</h2>
+          <p className="text-muted-foreground reading-text text-lg max-w-2xl">
+            Let's look at the basic settings screen for a typical repository. Notice how the most destructive actions are grouped at the very bottom.
+          </p>
 
-      <div className="surface-card overflow-hidden">
-        {step === 1 && (
-          <div className="p-8 md:p-12 space-y-6">
-            <div className="inline-block px-3 py-1 bg-primary/10 text-primary border border-primary/20 rounded text-xs font-bold uppercase tracking-wider mb-2">Part 1: The Vault</div>
-            <h2 className="text-3xl font-bold">Configuring the Vault</h2>
-            
-            <p className="text-muted-foreground reading-text text-lg">
-              The settings screen is where you control the meta-rules of your repository. It defines who is allowed to look at your files, what the repository is called, and how dangerous actions are handled.
-            </p>
-            <p className="text-muted-foreground reading-text text-lg">
-              By default, repositories should be locked down. You only open them up when absolutely necessary.
-            </p>
-            
-            <div className="pt-6 flex justify-end">
-              <button onClick={handleNext} className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-6 py-3 rounded-lg flex items-center gap-2 transition-all active:scale-95 shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background">
-                Continue <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-        )}
-
-        {step === 2 && (
-          <div className="p-8 md:p-12 space-y-6">
-            <div className="inline-block px-3 py-1 bg-primary/10 text-primary border border-primary/20 rounded text-xs font-bold uppercase tracking-wider mb-2">Part 2: The Interface</div>
-            <h2 className="text-3xl font-bold">The Controls</h2>
-            <p className="text-muted-foreground reading-text text-lg max-w-2xl">
-              Let's look at the basic settings screen for a typical repository. Notice how the most destructive actions are grouped at the very bottom.
-            </p>
-
-            <div className="mt-8 relative pointer-events-none opacity-90">
-              <SimSettingsContainer>
-                <SimSettingsSection 
-                  title="General" 
-                  callout={<Callout num={1} />}
-                >
-                  <SimSettingsField label="Repository Name">
-                    <input type="text" value="company-handbook" readOnly className="w-full bg-[#010409] border border-white/10 rounded-md px-3 py-2 text-white text-sm" />
-                  </SimSettingsField>
-                  <SimSettingsField label="Description">
-                    <input type="text" value="The official company record for RTS.AI" readOnly className="w-full bg-[#010409] border border-white/10 rounded-md px-3 py-2 text-white text-sm" />
-                  </SimSettingsField>
-                </SimSettingsSection>
-
-                <SimSettingsSection 
-                  title="Default Branch" 
-                  description="The default branch is considered the base branch in your repository."
-                  callout={<Callout num={2} />}
-                >
-                  <select className="bg-[#21262d] border border-white/10 rounded-md px-3 py-2 text-white text-sm outline-none">
-                    <option>main</option>
-                  </select>
-                </SimSettingsSection>
-
-                <SimSettingsSection 
-                  title="Visibility" 
-                  description="Choose who can see this repository."
-                  callout={<Callout num={3} />}
-                >
-                  <SimSettingsVisibilityToggle value="public" />
-                </SimSettingsSection>
-
-                <SimSettingsDangerZone callout={<Callout num={4} />}>
-                  <SimSettingsDangerAction 
-                    title="Change repository visibility"
-                    description="This repository is currently public."
-                    buttonText="Change visibility"
-                  />
-                  <SimSettingsDangerAction 
-                    title="Delete this repository"
-                    description="Once you delete a repository, there is no going back. Please be certain."
-                    buttonText="Delete this repository"
-                  />
-                </SimSettingsDangerZone>
-              </SimSettingsContainer>
-            </div>
-            
-            <div className="grid grid-cols-2 gap-4 mt-6">
-              <div className="bg-black/30 p-4 rounded border border-white/5 text-sm">
-                <span className="text-primary font-bold mr-2">1. General:</span> The name and description that appear on the repo home screen.
-              </div>
-              <div className="bg-black/30 p-4 rounded border border-white/5 text-sm">
-                <span className="text-primary font-bold mr-2">2. Default Branch:</span> The timeline everyone sees first. Always leave this as 'main'.
-              </div>
-              <div className="bg-black/30 p-4 rounded border border-white/5 text-sm">
-                <span className="text-primary font-bold mr-2">3. Visibility:</span> Public (everyone sees it) vs Private (only you and invited people).
-              </div>
-              <div className="bg-black/30 p-4 rounded border border-white/5 text-sm">
-                <span className="text-primary font-bold mr-2">4. Danger Zone:</span> Actions that can break links or permanently destroy history.
-              </div>
-            </div>
-
-            <div className="pt-4 flex justify-between">
-              <button onClick={handlePrev} className="text-muted-foreground hover:text-foreground font-bold px-4 py-2 transition-all active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded">Back</button>
-              <button onClick={handleNext} className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-6 py-3 rounded-lg flex items-center gap-2 transition-all active:scale-95 shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background">
-                Continue <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-        )}
-
-        {step === 3 && (
-          <div className="p-8 md:p-12 space-y-6">
-            <div className="inline-block px-3 py-1 bg-primary/10 text-primary border border-primary/20 rounded text-xs font-bold uppercase tracking-wider mb-2">Part 3: The Point</div>
-            <h2 className="text-3xl font-bold">Why protect it so heavily?</h2>
-            
-            <div className="space-y-6 mt-8">
-              <div className="flex gap-4 items-start bg-black/40 p-6 rounded-lg border border-white/5">
-                <div className="bg-emerald-500/20 p-3 rounded-lg border border-emerald-500/30">
-                  <Shield className="w-6 h-6 text-emerald-400" />
-                </div>
-                <div>
-                  <h3 className="text-xl font-bold text-foreground mb-2">Default to Closed</h3>
-                  <p className="text-muted-foreground reading-text">
-                    A company handbook might be public, but internal pay records or API keys should never be. Setting a repo to private ensures that even if you make a mistake, the outside world cannot see it.
-                  </p>
-                </div>
-              </div>
-              
-              <div className="flex gap-4 items-start bg-black/40 p-6 rounded-lg border border-white/5">
-                <div className="bg-red-500/20 p-3 rounded-lg border border-red-500/30">
-                  <Trash2 className="w-6 h-6 text-red-400" />
-                </div>
-                <div>
-                  <h3 className="text-xl font-bold text-foreground mb-2">The Danger Zone is Real</h3>
-                  <p className="text-muted-foreground reading-text">
-                    Deleting a repository destroys the entire custody trail forever. There is no undo. GitHub puts these actions in a red box at the bottom for a reason — to make you pause.
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="pt-6 flex justify-between">
-              <button onClick={handlePrev} className="text-muted-foreground hover:text-foreground font-bold px-4 py-2 transition-all active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded">Back</button>
-              <button onClick={handleNext} className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-6 py-3 rounded-lg flex items-center gap-2 transition-all active:scale-95 shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background">
-                Continue <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-        )}
-
-        {step === 4 && (
-          <div className="p-8 md:p-12 space-y-6">
-            <div className="inline-block px-3 py-1 bg-primary/10 text-primary border border-primary/20 rounded text-xs font-bold uppercase tracking-wider mb-2">Part 4: The Trigger</div>
-            <h2 className="text-3xl font-bold">When to reach for it</h2>
-            
-            <div className="bg-primary border border-primary-foreground/20 text-primary-foreground p-8 rounded-lg mt-8 text-xl font-bold leading-relaxed shadow-lg shadow-primary/20">
-              "You reach for settings the day you create a repository to ensure it's locked down, or the day you finally retire a project and need to archive or delete it."
-            </div>
-
-            <div className="pt-10 flex justify-between">
-              <button onClick={handlePrev} className="text-muted-foreground hover:text-foreground font-bold px-4 py-2 transition-all active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded">Back</button>
-              <button onClick={handleNext} className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-6 py-3 rounded-lg flex items-center gap-2 transition-all active:scale-95 shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background">
-                Begin Hands-On Task <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
-        )}
-
-        {step === 5 && (
-          <div className="p-8 md:p-12 space-y-6 relative">
-            <div className="inline-block px-3 py-1 bg-primary/10 text-primary border border-primary/20 rounded text-xs font-bold uppercase tracking-wider mb-2">Part 5: Prove It</div>
-            <h2 className="text-3xl font-bold mb-2">Configure the Vault</h2>
-            <p className="text-muted-foreground text-lg mb-8 reading-text">
-              This repository (<code>rts-records/pay-records</code>) will hold your company's internal payroll data. 
-              Configure it correctly below. Leave the default branch alone.
-            </p>
-
-            <div className="mt-8">
-              <SimSettingsContainer>
-                <SimSettingsSection title="General">
-                  <SimSettingsField label="Description">
-                    <input 
-                      type="text" 
-                      value={description}
-                      onChange={e => setDescription(e.target.value)}
-                      placeholder="What is this repository for?"
-                      className="w-full bg-[#010409] border border-white/20 focus:border-primary focus:ring-1 focus:ring-primary rounded-md px-3 py-2 text-white text-sm outline-none transition-all" 
-                    />
-                  </SimSettingsField>
-                </SimSettingsSection>
-
-                <SimSettingsSection title="Default Branch" description="The default branch is considered the base branch in your repository.">
-                  <select 
-                    value={branch}
-                    onChange={e => setBranch(e.target.value)}
-                    className="bg-[#21262d] border border-white/20 focus:border-primary rounded-md px-3 py-2 text-white text-sm outline-none cursor-pointer"
-                  >
-                    <option value="main">main</option>
-                    <option value="master">master</option>
-                    <option value="development">development</option>
-                  </select>
-                </SimSettingsSection>
-
-                <SimSettingsSection title="Visibility" description="Choose who can see this repository.">
-                  <SimSettingsVisibilityToggle 
-                    value={visibility as 'public' | 'private'} 
-                    onChange={v => setVisibility(v)} 
-                  />
-                </SimSettingsSection>
-              </SimSettingsContainer>
-            </div>
-
-            <div className="mt-8 bg-black/30 border border-white/5 p-6 rounded-lg">
-              <h3 className="font-bold text-foreground mb-4">Judgment Question: Why is deleting a repository placed in the "Danger Zone" red box?</h3>
-              <div className="space-y-3">
-                <label className={`flex items-center gap-3 p-3 rounded border cursor-pointer transition-colors ${quizAnswer === 'name' ? 'bg-primary/10 border-primary' : 'bg-black/40 border-white/10 hover:border-white/30'}`}>
-                  <input type="radio" name="quiz" value="name" checked={quizAnswer === 'name'} onChange={(e) => setQuizAnswer(e.target.value)} className="accent-primary" />
-                  <span className="text-sm">Because it frees up the repository name for someone else to steal.</span>
-                </label>
-                <label className={`flex items-center gap-3 p-3 rounded border cursor-pointer transition-colors ${quizAnswer === 'delete' ? 'bg-primary/10 border-primary' : 'bg-black/40 border-white/10 hover:border-white/30'}`}>
-                  <input type="radio" name="quiz" value="delete" checked={quizAnswer === 'delete'} onChange={(e) => setQuizAnswer(e.target.value)} className="accent-primary" />
-                  <span className="text-sm">Because it permanently destroys the sealed record of history and cannot be easily undone.</span>
-                </label>
-                <label className={`flex items-center gap-3 p-3 rounded border cursor-pointer transition-colors ${quizAnswer === 'admin' ? 'bg-primary/10 border-primary' : 'bg-black/40 border-white/10 hover:border-white/30'}`}>
-                  <input type="radio" name="quiz" value="admin" checked={quizAnswer === 'admin'} onChange={(e) => setQuizAnswer(e.target.value)} className="accent-primary" />
-                  <span className="text-sm">Because it emails the administrators to ask for permission.</span>
-                </label>
-              </div>
-            </div>
-
-            {showError && (
-              <div className="mt-4 p-4 bg-destructive/10 border border-destructive/20 text-destructive rounded flex items-start gap-3">
-                <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
-                <p className="font-medium text-sm">{showError}</p>
-              </div>
-            )}
-
-            <div className="pt-6 flex justify-between">
-              <button onClick={handlePrev} className="text-muted-foreground hover:text-foreground font-bold px-4 py-2 transition-all active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded">Back</button>
-              <button 
-                onClick={handleQuizSubmit}
-                disabled={completeModule.isPending}
-                className="bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-6 py-3 rounded flex items-center gap-2 transition-colors disabled:opacity-70"
+          <div className="mt-8 relative pointer-events-none opacity-90">
+            <SimSettingsContainer>
+              <SimSettingsSection 
+                title="General" 
+                callout={<Callout num={1} />}
               >
-                {completeModule.isPending ? "Grading..." : "Submit Answers"}
-              </button>
-            </div>
-          </div>
-        )}
+                <SimSettingsField label="Repository Name">
+                  <input type="text" value="company-handbook" readOnly className="w-full bg-[#010409] border border-white/10 rounded-md px-3 py-2 text-white text-sm" />
+                </SimSettingsField>
+                <SimSettingsField label="Description">
+                  <input type="text" value="The official company record for RTS.AI" readOnly className="w-full bg-[#010409] border border-white/10 rounded-md px-3 py-2 text-white text-sm" />
+                </SimSettingsField>
+              </SimSettingsSection>
 
-        {step === 6 && (
-          <div className="p-12 text-center space-y-6 animate-in zoom-in-95 duration-500">
-            <div className="w-24 h-24 bg-emerald-500/10 border border-emerald-500/30 text-emerald-500 rounded-full flex items-center justify-center mx-auto mb-6 shadow-[0_0_30px_rgba(16,185,129,0.3)]">
-              <CheckCircle2 className="w-12 h-12" />
+              <SimSettingsSection 
+                title="Default Branch" 
+                description="The default branch is considered the base branch in your repository."
+                callout={<Callout num={2} />}
+              >
+                <select className="bg-[#21262d] border border-white/10 rounded-md px-3 py-2 text-white text-sm outline-none">
+                  <option>main</option>
+                </select>
+              </SimSettingsSection>
+
+              <SimSettingsSection 
+                title="Visibility" 
+                description="Choose who can see this repository."
+                callout={<Callout num={3} />}
+              >
+                <SimSettingsVisibilityToggle value="public" />
+              </SimSettingsSection>
+
+              <SimSettingsDangerZone callout={<Callout num={4} />}>
+                <SimSettingsDangerAction 
+                  title="Change repository visibility"
+                  description="This repository is currently public."
+                  buttonText="Change visibility"
+                />
+                <SimSettingsDangerAction 
+                  title="Delete this repository"
+                  description="Once you delete a repository, there is no going back. Please be certain."
+                  buttonText="Delete this repository"
+                />
+              </SimSettingsDangerZone>
+            </SimSettingsContainer>
+          </div>
+          
+          <div className="grid grid-cols-2 gap-4 mt-6">
+            <div className="bg-black/30 p-4 rounded border border-white/5 text-sm">
+              <span className="text-primary font-bold mr-2">1. General:</span> The name and description that appear on the repo home screen.
             </div>
-            <h2 className="text-4xl font-extrabold text-foreground">Module Passed!</h2>
-            <p className="text-lg text-muted-foreground max-w-md mx-auto leading-relaxed">
-              You know how to lock the vault. You understand the difference between public visibility and the permanent destruction of history.
-            </p>
-            <div className="pt-8 flex gap-4 justify-center">
-              <Link href="/" className="inline-flex items-center justify-center bg-secondary hover:bg-secondary/80 text-foreground font-bold px-8 py-4 rounded-lg transition-colors border border-white/5">
-                Return to Ledger
-              </Link>
-              <Link href="/learn/1-5" className="inline-flex items-center justify-center bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-8 py-4 rounded-lg transition-all active:scale-95 shadow-[0_0_15px_rgba(255,107,0,0.2)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background">
-                Next: Global Nav &rarr;
-              </Link>
+            <div className="bg-black/30 p-4 rounded border border-white/5 text-sm">
+              <span className="text-primary font-bold mr-2">2. Default Branch:</span> The timeline everyone sees first. Always leave this as 'main'.
+            </div>
+            <div className="bg-black/30 p-4 rounded border border-white/5 text-sm">
+              <span className="text-primary font-bold mr-2">3. Visibility:</span> Public (everyone sees it) vs Private (only you and invited people).
+            </div>
+            <div className="bg-black/30 p-4 rounded border border-white/5 text-sm">
+              <span className="text-primary font-bold mr-2">4. Danger Zone:</span> Actions that can break links or permanently destroy history.
             </div>
           </div>
-        )}
-      </div>
-    </div>
+        </>
+      )}
+
+      {step === 3 && (
+        <>
+          <div className="inline-block px-3 py-1 bg-primary/10 text-primary border border-primary/20 rounded text-xs font-bold uppercase tracking-wider mb-2">Part 3: The Point</div>
+          <h2 className="text-3xl font-bold">Why protect it so heavily?</h2>
+          
+          <div className="space-y-6 mt-8">
+            <div className="flex gap-4 items-start bg-black/40 p-6 rounded-lg border border-white/5">
+              <div className="bg-emerald-500/20 p-3 rounded-lg border border-emerald-500/30">
+                <Shield className="w-6 h-6 text-emerald-400" />
+              </div>
+              <div>
+                <h3 className="text-xl font-bold text-foreground mb-2">Default to Closed</h3>
+                <p className="text-muted-foreground reading-text">
+                  A company handbook might be public, but internal pay records or API keys should never be. Setting a repo to private ensures that even if you make a mistake, the outside world cannot see it.
+                </p>
+              </div>
+            </div>
+            
+            <div className="flex gap-4 items-start bg-black/40 p-6 rounded-lg border border-white/5">
+              <div className="bg-red-500/20 p-3 rounded-lg border border-red-500/30">
+                <Trash2 className="w-6 h-6 text-red-400" />
+              </div>
+              <div>
+                <h3 className="text-xl font-bold text-foreground mb-2">The Danger Zone is Real</h3>
+                <p className="text-muted-foreground reading-text">
+                  Deleting a repository destroys the entire custody trail forever. There is no undo. GitHub puts these actions in a red box at the bottom for a reason — to make you pause.
+                </p>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {step === 4 && (
+        <>
+          <div className="inline-block px-3 py-1 bg-primary/10 text-primary border border-primary/20 rounded text-xs font-bold uppercase tracking-wider mb-2">Part 4: The Trigger</div>
+          <h2 className="text-3xl font-bold">When to reach for it</h2>
+          
+          <div className="bg-primary border border-primary-foreground/20 text-primary-foreground p-8 rounded-lg mt-8 text-xl font-bold leading-relaxed shadow-lg shadow-primary/20">
+            "You reach for settings the day you create a repository to ensure it's locked down, or the day you finally retire a project and need to archive or delete it."
+          </div>
+        </>
+      )}
+
+      {step === 5 && (
+        <>
+          <div className="inline-block px-3 py-1 bg-primary/10 text-primary border border-primary/20 rounded text-xs font-bold uppercase tracking-wider mb-2">Part 5: Prove It</div>
+          <h2 className="text-3xl font-bold mb-2">Configure the Vault</h2>
+          <p className="text-muted-foreground text-lg mb-8 reading-text">
+            This repository (<code>rts-records/pay-records</code>) will hold your company's internal payroll data. 
+            Configure it correctly below. Leave the default branch alone.
+          </p>
+
+          <div className="mt-8">
+            <SimSettingsContainer>
+              <SimSettingsSection title="General">
+                <SimSettingsField label="Description">
+                  <input 
+                    type="text" 
+                    value={description}
+                    onChange={e => setDescription(e.target.value)}
+                    placeholder="What is this repository for?"
+                    className="w-full bg-[#010409] border border-white/20 focus:border-primary focus:ring-1 focus:ring-primary rounded-md px-3 py-2 text-white text-sm outline-none transition-all" 
+                  />
+                </SimSettingsField>
+              </SimSettingsSection>
+
+              <SimSettingsSection title="Default Branch" description="The default branch is considered the base branch in your repository.">
+                <select 
+                  value={branch}
+                  onChange={e => setBranch(e.target.value)}
+                  className="bg-[#21262d] border border-white/20 focus:border-primary rounded-md px-3 py-2 text-white text-sm outline-none cursor-pointer"
+                >
+                  <option value="main">main</option>
+                  <option value="master">master</option>
+                  <option value="development">development</option>
+                </select>
+              </SimSettingsSection>
+
+              <SimSettingsSection title="Visibility" description="Choose who can see this repository.">
+                <SimSettingsVisibilityToggle 
+                  value={visibility as 'public' | 'private'} 
+                  onChange={v => setVisibility(v)} 
+                />
+              </SimSettingsSection>
+            </SimSettingsContainer>
+          </div>
+
+          <div className="mt-8 bg-black/30 border border-white/5 p-6 rounded-lg">
+            <h3 className="font-bold text-foreground mb-4">Judgment Question: Why is deleting a repository placed in the "Danger Zone" red box?</h3>
+            <div className="space-y-3">
+              <label className={`flex items-center gap-3 p-3 rounded border cursor-pointer transition-colors ${quizAnswer === 'name' ? 'bg-primary/10 border-primary' : 'bg-black/40 border-white/10 hover:border-white/30'}`}>
+                <input type="radio" name="quiz" value="name" checked={quizAnswer === 'name'} onChange={(e) => setQuizAnswer(e.target.value)} className="accent-primary" />
+                <span className="text-sm">Because it frees up the repository name for someone else to steal.</span>
+              </label>
+              <label className={`flex items-center gap-3 p-3 rounded border cursor-pointer transition-colors ${quizAnswer === 'delete' ? 'bg-primary/10 border-primary' : 'bg-black/40 border-white/10 hover:border-white/30'}`}>
+                <input type="radio" name="quiz" value="delete" checked={quizAnswer === 'delete'} onChange={(e) => setQuizAnswer(e.target.value)} className="accent-primary" />
+                <span className="text-sm">Because it permanently destroys the sealed record of history and cannot be easily undone.</span>
+              </label>
+              <label className={`flex items-center gap-3 p-3 rounded border cursor-pointer transition-colors ${quizAnswer === 'admin' ? 'bg-primary/10 border-primary' : 'bg-black/40 border-white/10 hover:border-white/30'}`}>
+                <input type="radio" name="quiz" value="admin" checked={quizAnswer === 'admin'} onChange={(e) => setQuizAnswer(e.target.value)} className="accent-primary" />
+                <span className="text-sm">Because it emails the administrators to ask for permission.</span>
+              </label>
+            </div>
+          </div>
+        </>
+      )}
+    </VisualModuleShell>
   );
 }
