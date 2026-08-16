@@ -3,7 +3,7 @@ import { execFile } from "node:child_process";
 import { execSync } from "node:child_process";
 import { promisify } from "node:util";
 import { createHash } from "node:crypto";
-import { mkdtemp, rm, stat, readdir, readFile } from "node:fs/promises";
+import { mkdtemp, mkdir, rm, stat, readdir, readFile, writeFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -34,6 +34,11 @@ const PROMO_SRC_DIR = path.resolve(
   "git-dojo-promo",
   "src",
 );
+
+// Directory where the rendered MP4 is persisted across server restarts.
+// Filename encodes the source hash so stale files are ignored automatically.
+const CACHE_DIR =
+  process.env["PROMO_EXPORT_CACHE_DIR"] ?? "/tmp/promo-export-cache";
 
 // Extra wall-clock padding after the declared video duration so the last
 // scene's final frames are captured before the recorder stops.
@@ -113,6 +118,59 @@ let renderCache: RenderCache | null = null;
  * new one, so they all share the same result without fighting for CPU.
  */
 let renderPromise: Promise<Buffer> | null = null;
+
+// ---------------------------------------------------------------------------
+// Disk-cache helpers
+// ---------------------------------------------------------------------------
+
+/** Absolute path where the MP4 for the given source hash is stored on disk. */
+function diskCachePath(sourceHash: string): string {
+  return path.join(CACHE_DIR, `${sourceHash}.mp4`);
+}
+
+/**
+ * Persist the rendered MP4 to disk so it survives server restarts.
+ * Failures are logged but never propagated — a write error must not break
+ * an already-successful render.
+ */
+async function writeDiskCache(sourceHash: string, buffer: Buffer): Promise<void> {
+  try {
+    await mkdir(CACHE_DIR, { recursive: true });
+    await writeFile(diskCachePath(sourceHash), buffer);
+    logger.info({ path: diskCachePath(sourceHash) }, "export: disk cache written");
+  } catch (err) {
+    logger.warn({ err }, "export: failed to write disk cache (non-fatal)");
+  }
+}
+
+/**
+ * On startup, check whether a cached MP4 whose filename matches the current
+ * source hash already exists on disk.  If so, load it into the in-memory
+ * cache so the first request is served immediately without a re-render.
+ */
+async function loadDiskCache(): Promise<void> {
+  try {
+    const sourceHash = await computePromoSourceHash();
+    if (!sourceHash) return;
+
+    const cachePath = diskCachePath(sourceHash);
+    if (!existsSync(cachePath)) return;
+
+    const buffer = await readFile(cachePath);
+    if (buffer.length === 0) return;
+
+    renderCache = { sourceHash, buffer };
+    logger.info(
+      { bytes: buffer.length, path: cachePath },
+      "export: disk cache loaded on startup",
+    );
+  } catch (err) {
+    logger.warn({ err }, "export: startup disk-cache load failed (non-fatal)");
+  }
+}
+
+// Kick off cache warming immediately when this module is first imported.
+loadDiskCache().catch(() => {});
 
 // ---------------------------------------------------------------------------
 // Core render logic (runs at most once at a time)
@@ -309,9 +367,10 @@ router.get("/export/promo-video", async (req, res) => {
     return;
   }
 
-  // Render succeeded — update cache and clear the in-flight promise.
+  // Render succeeded — update in-memory cache, persist to disk, clear promise.
   renderCache = { sourceHash: currentHash, buffer };
   renderPromise = null;
+  void writeDiskCache(currentHash, buffer);
 
   sendMp4(res, buffer);
 });
