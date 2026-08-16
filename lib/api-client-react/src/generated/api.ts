@@ -34,6 +34,7 @@ import type {
   DrillCandidateSet,
   DrillDueResult,
   DrillItemStats,
+  GetCrisisFileDiffParams,
   GetWorkingFileDiffParams,
   HealthStatus,
   Lesson,
@@ -997,6 +998,96 @@ export const useRunCrisisCheck = <TError = ErrorType<ApiMessage>,
       > => {
       return useMutation(getRunCrisisCheckMutationOptions(options));
     }
+
+export const getGetCrisisFileDiffUrl = (crisisId: string,
+    params: GetCrisisFileDiffParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/crisis/scenarios/${crisisId}/file-diff?${stringifiedParams}` : `/api/crisis/scenarios/${crisisId}/file-diff`
+}
+
+/**
+ * How a file differs from the last snapshot, split into what is already staged (Loading Dock) and what is still unstaged (Workbench)
+ * @summary Working-copy changes for one file in a crisis scenario
+ */
+export const getCrisisFileDiff = async (crisisId: string,
+    params: GetCrisisFileDiffParams, options?: Parameters<typeof customFetch>[1]): Promise<WorkingFileDiff> => {
+
+  return customFetch<WorkingFileDiff>(getGetCrisisFileDiffUrl(crisisId,params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetCrisisFileDiffQueryKey = (crisisId: string,
+    params?: GetCrisisFileDiffParams,) => {
+    return [
+    `/api/crisis/scenarios/${crisisId}/file-diff`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetCrisisFileDiffQueryOptions = <TData = Awaited<ReturnType<typeof getCrisisFileDiff>>, TError = ErrorType<ApiMessage>>(crisisId: string,
+    params: GetCrisisFileDiffParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCrisisFileDiff>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetCrisisFileDiffQueryKey(crisisId,params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getCrisisFileDiff>>> = ({ signal }) => getCrisisFileDiff(crisisId,params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, enabled: crisisId !== null && crisisId !== undefined, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getCrisisFileDiff>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetCrisisFileDiffQueryResult = NonNullable<Awaited<ReturnType<typeof getCrisisFileDiff>>>
+export type GetCrisisFileDiffQueryError = ErrorType<ApiMessage>
+
+
+/**
+ * @summary Working-copy changes for one file in a crisis scenario
+ */
+
+export function useGetCrisisFileDiff<TData = Awaited<ReturnType<typeof getCrisisFileDiff>>, TError = ErrorType<ApiMessage>>(
+ crisisId: string,
+    params: GetCrisisFileDiffParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getCrisisFileDiff>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetCrisisFileDiffQueryOptions(crisisId,params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
 
 export const getGetCrisisCommitDiffUrl = (crisisId: string,
     commitHash: string,) => {

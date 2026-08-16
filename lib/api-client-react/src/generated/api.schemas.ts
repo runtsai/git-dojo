@@ -392,3 +392,10 @@ export type GetWorkingFileDiffParams = {
 filePath: string;
 };
 
+export type GetCrisisFileDiffParams = {
+/**
+ * Repo-relative path of the file, as reported by the repo state
+ */
+filePath: string;
+};
+

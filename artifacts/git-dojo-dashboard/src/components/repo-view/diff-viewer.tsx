@@ -3,6 +3,7 @@ import {
   useGetCommitDiff,
   useGetWorkingFileDiff,
   useGetCrisisCommitDiff,
+  useGetCrisisFileDiff,
   FileDiff,
   DiffLine,
 } from "@workspace/api-client-react";
@@ -241,11 +242,17 @@ function CommitDiffPanel({ source, hash, onClose }: { source: DiffSource; hash: 
 }
 
 function WorkingDiffPanel({ source, path, onClose }: { source: DiffSource; path: string; onClose: () => void }) {
-  // Crisis Room has no working-file diff endpoint; only lesson sources use this panel.
-  const { data, isLoading, isError } = useGetWorkingFileDiff(
+  // Both hooks must be called unconditionally (Rules of Hooks). The inactive
+  // one receives a sentinel ID so it will skip fetching.
+  const lessonResult = useGetWorkingFileDiff(
     source.kind === "lesson" ? source.id : (null as unknown as string),
     { filePath: path },
   );
+  const crisisResult = useGetCrisisFileDiff(
+    source.kind === "crisis" ? source.id : (null as unknown as string),
+    { filePath: path },
+  );
+  const { data, isLoading, isError } = source.kind === "crisis" ? crisisResult : lessonResult;
   return (
     <PanelShell
       onClose={onClose}

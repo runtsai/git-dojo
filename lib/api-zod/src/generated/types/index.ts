@@ -28,6 +28,7 @@ export * from './drillDueResult';
 export * from './drillItemStats';
 export * from './fileDiff';
 export * from './fileDiffChangeKind';
+export * from './getCrisisFileDiffParams';
 export * from './getWorkingFileDiffParams';
 export * from './healthStatus';
 export * from './lesson';

@@ -296,6 +296,49 @@ export const RunCrisisCheckResponse = zod.object({
 
 
 /**
+ * How a file differs from the last snapshot, split into what is already staged (Loading Dock) and what is still unstaged (Workbench)
+ * @summary Working-copy changes for one file in a crisis scenario
+ */
+export const GetCrisisFileDiffParams = zod.object({
+  "crisisId": zod.coerce.string()
+})
+
+export const GetCrisisFileDiffQueryParams = zod.object({
+  "filePath": zod.coerce.string()
+})
+
+export const GetCrisisFileDiffResponse = zod.object({
+  "path": zod.string(),
+  "status": zod.enum(['staged', 'modified', 'staged_and_modified', 'untracked', 'deleted', 'conflicted']),
+  "summary": zod.string().describe('Plain-English explanation of where this file\'s changes sit'),
+  "staged": zod.union([zod.object({
+  "path": zod.string(),
+  "changeKind": zod.enum(['added', 'modified', 'deleted', 'renamed', 'binary']),
+  "renamedFrom": zod.string().nullable().describe('Previous path when the file was renamed'),
+  "added": zod.number().describe('Count of added lines'),
+  "removed": zod.number().describe('Count of removed lines'),
+  "truncated": zod.boolean().describe('True when the diff was cut off for size'),
+  "lines": zod.array(zod.object({
+  "kind": zod.enum(['added', 'removed', 'context', 'hunk']).describe('hunk marks a \"skip ahead\" separator between change regions'),
+  "text": zod.string()
+}))
+}),zod.null()]).describe('Changes already boxed on the Loading Dock (staged), if any'),
+  "unstaged": zod.union([zod.object({
+  "path": zod.string(),
+  "changeKind": zod.enum(['added', 'modified', 'deleted', 'renamed', 'binary']),
+  "renamedFrom": zod.string().nullable().describe('Previous path when the file was renamed'),
+  "added": zod.number().describe('Count of added lines'),
+  "removed": zod.number().describe('Count of removed lines'),
+  "truncated": zod.boolean().describe('True when the diff was cut off for size'),
+  "lines": zod.array(zod.object({
+  "kind": zod.enum(['added', 'removed', 'context', 'hunk']).describe('hunk marks a \"skip ahead\" separator between change regions'),
+  "text": zod.string()
+}))
+}),zod.null()]).describe('Changes still on the Workbench (unstaged), if any')
+})
+
+
+/**
  * Changed files and readable line-by-line diff for one sealed snapshot in a crisis scenario's playground (merges are compared against their first parent)
  * @summary What a crisis commit actually changed
  */

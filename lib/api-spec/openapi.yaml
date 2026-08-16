@@ -295,6 +295,37 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiMessage"
+  /crisis/scenarios/{crisisId}/file-diff:
+    get:
+      operationId: getCrisisFileDiff
+      tags: [crisis]
+      summary: Working-copy changes for one file in a crisis scenario
+      description: How a file differs from the last snapshot, split into what is already staged (Loading Dock) and what is still unstaged (Workbench)
+      parameters:
+        - name: crisisId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: filePath
+          in: query
+          required: true
+          schema:
+            type: string
+            description: Repo-relative path of the file, as reported by the repo state
+      responses:
+        "200":
+          description: Working file diff
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkingFileDiff"
+        "404":
+          description: Scenario not found or file has no changes
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiMessage"
   /crisis/scenarios/{crisisId}/commits/{commitHash}/diff:
     get:
       operationId: getCrisisCommitDiff

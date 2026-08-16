@@ -10,10 +10,11 @@ import {
   GetCrisisRepoStateResponse,
   RunCrisisCheckResponse,
   GetCommitDiffResponse,
+  GetCrisisFileDiffResponse,
 } from "@workspace/api-zod";
 import { recordCompletion, loadEntries } from "../lib/progress-store";
 import { recordGraderResult } from "../lib/drill-store";
-import { readRepoState, buildSummary, isRepo, git, readCommitDiff, COMMIT_HASH_RE } from "../lib/repo-state";
+import { readRepoState, buildSummary, isRepo, git, readCommitDiff, readWorkingFileDiff, COMMIT_HASH_RE } from "../lib/repo-state";
 import { requireOwner } from "../middlewares/require-owner";
 
 const run = promisify(execFile);
@@ -478,6 +479,30 @@ router.get("/crisis/scenarios/:crisisId/commits/:commitHash/diff", async (req, r
     return;
   }
   res.json(GetCommitDiffResponse.parse(diff));
+});
+
+router.get("/crisis/scenarios/:crisisId/file-diff", async (req, res) => {
+  const scenario = findScenario(String(req.params.crisisId ?? ""));
+  if (!scenario) {
+    res.status(404).json({ error: `Scenario not found: ${req.params.crisisId}` });
+    return;
+  }
+  const filePath = String(req.query.filePath ?? "");
+  if (!filePath) {
+    res.status(400).json({ error: "filePath query parameter is required." });
+    return;
+  }
+  const pg = playground(scenario.id);
+  if (!existsSync(pg) || !isRepo(pg)) {
+    res.status(404).json({ error: "This scenario's practice repository doesn't exist yet." });
+    return;
+  }
+  const diff = await readWorkingFileDiff(pg, filePath);
+  if (!diff) {
+    res.status(404).json({ error: `No working-copy changes found for: ${filePath}` });
+    return;
+  }
+  res.json(GetCrisisFileDiffResponse.parse(diff));
 });
 
 router.post("/crisis/scenarios/:crisisId/check", requireOwner, async (req, res) => {
