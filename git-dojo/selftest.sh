@@ -66,6 +66,18 @@ else
 fi
 
 # ═════════════════════════════════════════════════════════════════════════════
+# Reset script regression tests
+# ═════════════════════════════════════════════════════════════════════════════
+step "Reset script checks (populated / empty / missing playground)"
+if bash "$LESSONS_DIR/test-reset.sh" 2>&1; then
+  ok "test-reset.sh — all reset checks passed"
+  PASS_TOTAL=$((PASS_TOTAL+1))
+else
+  fail "test-reset.sh — one or more reset checks failed"
+  FAIL_TOTAL=$((FAIL_TOTAL+1))
+fi
+
+# ═════════════════════════════════════════════════════════════════════════════
 # Setup script regression tests (lessons 01–09)
 # ═════════════════════════════════════════════════════════════════════════════
 step "Setup script checks (lessons 01–09)"
