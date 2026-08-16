@@ -26,6 +26,13 @@ interface DrillItemRecord {
   dueAt: string | null;
 }
 
+/**
+ * Number of recent grader runs to use for trend detection.
+ * The last RECENT_WINDOW entries of `runs` are split into two halves so the
+ * client can compare older vs newer pass rates.
+ */
+const RECENT_WINDOW = 10;
+
 interface FrictionEntry {
   at: string; // ISO 8601
   passed: boolean;
@@ -191,10 +198,18 @@ export interface DrillFrictionEntry {
   failures: number;
   passes: number;
   /**
-   * Recency-weighted failure score (0–10 range).  Use this for ranking
+   * Recency-weighted failure score (0–10 range). Use this for ranking
    * weak-spot lists instead of the raw count so old failures don't dominate.
    */
   effectiveFailures: number;
+  /** Passes in the newer half of the last RECENT_WINDOW runs. */
+  recentPasses: number;
+  /** Failures in the newer half of the last RECENT_WINDOW runs. */
+  recentFailures: number;
+  /** Passes in the older half of the last RECENT_WINDOW runs. */
+  olderPasses: number;
+  /** Failures in the older half of the last RECENT_WINDOW runs. */
+  olderFailures: number;
 }
 
 /** Stats for every candidate, due items first (highest priority first). */
@@ -215,7 +230,7 @@ export function queryDue(candidates: DueQueryCandidate[]): {
   });
 
   // Collect unique sourceIds from candidates and return friction for any that
-  // have at least one failure, sorted by failures descending.
+  // have at least one failure, sorted by effective (decayed) failures descending.
   const seenSourceIds = new Set<string>();
   for (const c of candidates) {
     if (c.sourceId) seenSourceIds.add(c.sourceId);
@@ -225,7 +240,25 @@ export function queryDue(candidates: DueQueryCandidate[]): {
     const rec = data.friction[sourceId];
     if (rec && rec.failures > 0) {
       const effectiveFailures = Math.round(decayedFailureScore(rec, now) * 10) / 10;
-      friction.push({ sourceId, failures: rec.failures, passes: rec.passes, effectiveFailures });
+      // Split the last RECENT_WINDOW runs into two halves for trend detection.
+      const trendRuns = rec.runs.slice(-RECENT_WINDOW);
+      const half = Math.floor(RECENT_WINDOW / 2);
+      const olderHalf = trendRuns.slice(0, Math.max(0, trendRuns.length - half));
+      const newerHalf = trendRuns.slice(Math.max(0, trendRuns.length - half));
+      const recentPasses = newerHalf.filter((r) => r.passed).length;
+      const recentFailures = newerHalf.length - recentPasses;
+      const olderPasses = olderHalf.filter((r) => r.passed).length;
+      const olderFailures = olderHalf.length - olderPasses;
+      friction.push({
+        sourceId,
+        failures: rec.failures,
+        passes: rec.passes,
+        effectiveFailures,
+        recentPasses,
+        recentFailures,
+        olderPasses,
+        olderFailures,
+      });
     }
   }
   // Sort by effective (decayed) failures so the list reflects current weak spots.

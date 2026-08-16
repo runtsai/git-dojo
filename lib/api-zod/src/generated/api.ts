@@ -428,7 +428,11 @@ export const GetDueDrillsResponse = zod.object({
   "sourceId": zod.string().describe('Lesson or crisis id (e.g. \"lesson-01\", \"crisis-03\")'),
   "failures": zod.number().describe('Number of failed grader runs on this source'),
   "passes": zod.number().describe('Number of passed grader runs on this source'),
-  "effectiveFailures": zod.number().describe('Recency-weighted failure score (0–10 range). Failures decay exponentially with a 14-day half-life so old misses stop dominating the ranking once the learner has improved.\n')
+  "effectiveFailures": zod.number().describe('Recency-weighted failure score (0–10 range). Failures decay exponentially with a 14-day half-life so old misses stop dominating the ranking once the learner has improved.'),
+  "recentPasses": zod.number().describe('Passes in the newer half of the last 10 grader runs'),
+  "recentFailures": zod.number().describe('Failures in the newer half of the last 10 grader runs'),
+  "olderPasses": zod.number().describe('Passes in the older half of the last 10 grader runs'),
+  "olderFailures": zod.number().describe('Failures in the older half of the last 10 grader runs')
 }).describe('Grader friction for one lesson or crisis source')).describe('Per-source grader friction for sources referenced by the candidates, sorted by failures descending. Only sources with at least one failure are included.')
 })
 
@@ -570,5 +574,3 @@ export const VerifyCapstoneMissionResponse = zod.object({
   "badgeEarnedAt": zod.string().nullable().describe('Set only when every mission has been verified against GitHub')
 })
 })
-
-

@@ -317,8 +317,20 @@ export interface DrillFrictionEntry {
   failures: number;
   /** Number of passed grader runs on this source */
   passes: number;
-  /** Recency-weighted failure score (0–10 range). Failures decay exponentially with a 14-day half-life so old misses stop dominating the ranking once the learner has improved. */
+  /**
+   * Recency-weighted failure score (0–10 range). Failures decay exponentially
+   * with a 14-day half-life so old misses stop dominating the ranking once the
+   * learner has improved.
+   */
   effectiveFailures: number;
+  /** Passes in the newer half of the last 10 grader runs */
+  recentPasses: number;
+  /** Failures in the newer half of the last 10 grader runs */
+  recentFailures: number;
+  /** Passes in the older half of the last 10 grader runs */
+  olderPasses: number;
+  /** Failures in the older half of the last 10 grader runs */
+  olderFailures: number;
 }
 
 export interface DrillDueResult {
@@ -414,4 +426,3 @@ export type GetCrisisFileDiffParams = {
  */
 filePath: string;
 };
-

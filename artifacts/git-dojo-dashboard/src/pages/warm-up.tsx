@@ -11,6 +11,9 @@ import {
   X,
   Sparkles,
   AlertTriangle,
+  TrendingUp,
+  TrendingDown,
+  Minus,
 } from "lucide-react";
 import { useDrillStatus } from "@/hooks/use-drills";
 import {
@@ -286,6 +289,48 @@ export function WarmUp() {
 }
 
 // ─────────────────────────────────────────────────────────────────────
+type Trend = "improving" | "regressing" | "stable";
+
+function computeTrend(entry: DrillFrictionEntry): Trend {
+  const { recentPasses, recentFailures, olderPasses, olderFailures } = entry;
+  const newerTotal = recentPasses + recentFailures;
+  if (newerTotal === 0) return "stable";
+  const newerRate = recentPasses / newerTotal;
+  const olderTotal = olderPasses + olderFailures;
+  if (olderTotal === 0) {
+    // Only newer-half data available — compare against 50% baseline.
+    if (newerRate > 0.5) return "improving";
+    if (newerRate < 0.5) return "regressing";
+    return "stable";
+  }
+  const olderRate = olderPasses / olderTotal;
+  if (newerRate > olderRate) return "improving";
+  if (newerRate < olderRate) return "regressing";
+  return "stable";
+}
+
+function TrendBadge({ trend }: { trend: Trend }) {
+  if (trend === "improving") {
+    return (
+      <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-400">
+        <TrendingUp className="w-3.5 h-3.5" /> improving
+      </span>
+    );
+  }
+  if (trend === "regressing") {
+    return (
+      <span className="inline-flex items-center gap-1 text-xs font-medium text-destructive">
+        <TrendingDown className="w-3.5 h-3.5" /> still struggling
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground">
+      <Minus className="w-3.5 h-3.5" /> mixed
+    </span>
+  );
+}
+
 function WeakSpotsPanel({ friction }: { friction: DrillFrictionEntry[] }) {
   if (friction.length === 0) return null;
 
@@ -300,6 +345,7 @@ function WeakSpotsPanel({ friction }: { friction: DrillFrictionEntry[] }) {
           const label = sourceLabelMap.get(entry.sourceId) ?? entry.sourceId;
           const href = sourceLink(entry.sourceId);
           const totalRuns = entry.failures + entry.passes;
+          const trend = computeTrend(entry);
           return (
             <div key={entry.sourceId} className="flex items-center justify-between gap-4 p-4">
               <div className="min-w-0">
@@ -309,12 +355,15 @@ function WeakSpotsPanel({ friction }: { friction: DrillFrictionEntry[] }) {
                 >
                   {label}
                 </Link>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  {entry.failures} failed check{entry.failures === 1 ? "" : "s"}
-                  {totalRuns > 0 && (
-                    <> · {entry.passes} of {totalRuns} passed</>
-                  )}
-                </p>
+                <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                  <p className="text-xs text-muted-foreground">
+                    {entry.failures} failed check{entry.failures === 1 ? "" : "s"}
+                    {totalRuns > 0 && (
+                      <> · {entry.passes} of {totalRuns} passed</>
+                    )}
+                  </p>
+                  <TrendBadge trend={trend} />
+                </div>
               </div>
               <Link
                 href={href}
