@@ -108,18 +108,37 @@ else
   # Check whether remote has commits that local does not
   BASE_SHA=$(git merge-base "$BRANCH" "${REMOTE}/${BRANCH}" 2>/dev/null || echo "")
   if [ -n "$BASE_SHA" ] && [ "$BASE_SHA" != "$REMOTE_SHA" ] && [ "$LOCAL_SHA" != "$REMOTE_SHA" ]; then
-    echo ""
-    echo "ERROR: Divergence detected."
-    echo "  Local  ${BRANCH}: ${LOCAL_SHA}"
-    echo "  Remote ${BRANCH}: ${REMOTE_SHA}"
-    echo "  Common ancestor:  ${BASE_SHA}"
-    echo ""
-    echo "GitHub has commits that are NOT in local main."
-    echo "Refusing to push — a force-push would destroy that history."
-    echo ""
-    echo "To resolve: fetch, inspect the diverging commits, then merge or rebase"
-    echo "before running this script again."
-    exit 1
+    if [ "$BASE_SHA" = "$LOCAL_SHA" ]; then
+      # Fast-forward case: local has not diverged — remote is simply ahead.
+      # Merge the remote commits into local before pushing so we include them.
+      echo ""
+      echo "Fast-forward detected: remote has commits not present in local."
+      echo "  Local  ${BRANCH}: ${LOCAL_SHA}"
+      echo "  Remote ${BRANCH}: ${REMOTE_SHA}"
+      echo "  Common ancestor:  ${BASE_SHA}"
+      echo "Merging remote into local (fast-forward only) ..."
+      git merge --ff-only "${REMOTE}/${BRANCH}"
+      LOCAL_SHA=$(git rev-parse "$BRANCH")
+      echo "✓ Fast-forward merge complete. Local is now at ${LOCAL_SHA}."
+      echo ""
+    else
+      # Genuine divergence: both local and remote have moved beyond the common
+      # ancestor.  Refusing to push avoids destroying either side's history.
+      echo ""
+      echo "ERROR: Divergence detected."
+      echo "  Local  ${BRANCH}: ${LOCAL_SHA}"
+      echo "  Remote ${BRANCH}: ${REMOTE_SHA}"
+      echo "  Common ancestor:  ${BASE_SHA}"
+      echo ""
+      echo "GitHub has commits that are NOT in local main, and local also has"
+      echo "commits not present on GitHub. This is a genuine non-fast-forward"
+      echo "divergence that cannot be resolved automatically."
+      echo "Refusing to push — a force-push would destroy that history."
+      echo ""
+      echo "To resolve: fetch, inspect the diverging commits, then merge or rebase"
+      echo "before running this script again."
+      exit 1
+    fi
   fi
 
   if [ "$LOCAL_SHA" = "$REMOTE_SHA" ]; then

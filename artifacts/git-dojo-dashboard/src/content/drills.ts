@@ -239,16 +239,17 @@ export const drillBank: DrillItem[] = [
   {
     id: "t2-close-the-loop",
     type: "concept",
-    prompt: "You requested changes on a PR. The author pushes a fix. What should you do next?",
+    prompt:
+      "Ruth fixed both blockers you raised in your review. What should you do next?",
     options: [
-      "The PR merges automatically once the author replies",
-      "Re-read the changed lines, confirm the issues are fixed, then approve",
-      "Request changes again to be safe",
-      "Leave the review open — it will time out eventually",
+      "Leave the PR open — she'll follow up when she's ready",
+      "Approve and leave a short note confirming the fixes look good",
+      "Request changes again to be thorough",
+      "Merge without reviewing — you already checked once",
     ],
     answerIndex: 1,
     explain:
-      "Closing the loop is your responsibility: re-read the exact lines you flagged, confirm they are fixed, then approve. PRs do not merge themselves.",
+      "Once all blockers are resolved, a brief approval closes the loop: it unblocks the merge and lets the author know their work is done. Staying silent or re-requesting changes leaves the PR in limbo.",
     sourceLabel: "Module 2.4 — Ruth's fix: close the loop",
     unlockedBy: ["2.4"],
   },
