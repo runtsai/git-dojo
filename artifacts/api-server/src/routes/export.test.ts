@@ -13,6 +13,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import express from "express";
 import http from "node:http";
+import path from "node:path";
 import type { AddressInfo } from "node:net";
 
 // ---------------------------------------------------------------------------
@@ -152,8 +153,12 @@ vi.mock("node:fs", async (importOriginal) => {
 // Module state is reset between tests via resetRenderCacheForTest() rather
 // than vi.resetModules() (which breaks built-in module mock re-application).
 // ---------------------------------------------------------------------------
-import exportRouter, { resetRenderCacheForTest, getRenderCacheForTest } from "./export.js";
-import { logger } from "../lib/logger.js";
+import exportRouter, {
+  resetRenderCacheForTest,
+  loadDiskCache,
+  computePromoSourceHash,
+  getRenderCacheForTest,
+} from "./export.js";
 
 // ---------------------------------------------------------------------------
 // HTTP helper — collect status + full body from a GET request.
@@ -184,15 +189,8 @@ describe("GET /export/promo-video", () => {
   let port: number;
 
   beforeEach(async () => {
-    // Reset the render counter, module state, and evaluate behaviour.
+    // Reset the render counter and module state before each test.
     renderCallCount = 0;
-    evaluateImpl = (expr) => {
-      if (typeof expr === "string" && expr.includes("__exportTotalMs")) {
-        // Match MOCK_TOTAL_RUNTIME_MS so the hard assertion in renderMp4 passes.
-        return Promise.resolve(2);
-      }
-      return Promise.resolve(undefined);
-    };
     resetRenderCacheForTest(); // clears renderCache + renderPromise
 
     const app = express();
@@ -355,5 +353,210 @@ describe("export duration-mismatch guard", () => {
     expect(result.body.length).toBeGreaterThan(0);
     // Cache must be populated so subsequent requests don't re-render.
     expect(getRenderCacheForTest()).not.toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Minimal valid MP4 buffer that passes isValidMp4Buffer().
+//
+// Layout:  [ftyp 16 bytes] [moov 8 bytes] [mdat 8 bytes]  = 32 bytes total
+//
+// ftyp (size=16): size(4) + "ftyp"(4) + "isom"(4) + version(4)
+// moov (size=8):  size(4) + "moov"(4)
+// mdat (size=8):  size(4) + "mdat"(4)
+// ---------------------------------------------------------------------------
+function makeMinimalValidMp4(): Buffer {
+  const buf = Buffer.alloc(32);
+  buf.writeUInt32BE(16, 0);  // ftyp box size
+  buf.write("ftyp", 4, "ascii");
+  buf.write("isom", 8, "ascii");
+  // minor version stays 0
+  buf.writeUInt32BE(8, 16);  // moov box size
+  buf.write("moov", 20, "ascii");
+  buf.writeUInt32BE(8, 24);  // mdat box size
+  buf.write("mdat", 28, "ascii");
+  return buf;
+}
+
+// ---------------------------------------------------------------------------
+// Cache-sweep unit tests
+//
+// These tests call loadDiskCache() directly, controlling the file-system mocks
+// to verify that:
+//   • stale .mp4 files (names ≠ current hash) are removed via rm()
+//   • the file whose name matches the current hash is left alone
+//   • non-.mp4 files are never touched
+//   • a missing cache directory is handled gracefully (no throw)
+//   • when the current-hash file is present and valid it is loaded into the
+//     in-memory renderCache
+// ---------------------------------------------------------------------------
+
+describe("loadDiskCache – cache sweep", () => {
+  // Point the module at an isolated, fake cache directory for every test so
+  // the real /tmp is never involved.
+  const FAKE_CACHE_DIR = "/tmp/test-promo-sweep-cache";
+
+  // Grab references to the mocked fs functions.  Because vi.mock() hoists the
+  // factory, these re-imports resolve to the same mock objects the route module
+  // sees.
+  let readdirMock: ReturnType<typeof vi.fn>;
+  let rmMock: ReturnType<typeof vi.fn>;
+  let readFileMock: ReturnType<typeof vi.fn>;
+  let existsSyncMock: ReturnType<typeof vi.fn>;
+
+  beforeEach(async () => {
+    // Clear all mock call history accumulated by earlier tests before touching
+    // anything else, so call-count assertions start from a clean slate.
+    vi.clearAllMocks();
+
+    process.env["PROMO_EXPORT_CACHE_DIR"] = FAKE_CACHE_DIR;
+    resetRenderCacheForTest();
+
+    // Re-resolve the mocked modules inside the test so we get the live mock
+    // objects that vi hoisted into place.
+    const fsp = await import("node:fs/promises");
+    const fs = await import("node:fs");
+
+    readdirMock   = vi.mocked(fsp.readdir);
+    rmMock        = vi.mocked(fsp.rm);
+    readFileMock  = vi.mocked(fsp.readFile);
+    existsSyncMock = vi.mocked(fs.existsSync);
+
+    // Default: source dirs return [] (keeps hash deterministic), cache dir
+    // returns an empty list (no stale files), and no cache file on disk.
+    readdirMock.mockResolvedValue([]);
+    rmMock.mockResolvedValue(undefined);
+    existsSyncMock.mockReturnValue(false);
+    readFileMock.mockResolvedValue(Buffer.from("fake"));
+  });
+
+  afterEach(() => {
+    delete process.env["PROMO_EXPORT_CACHE_DIR"];
+    vi.clearAllMocks();
+  });
+
+  it("removes every stale .mp4 file and does not touch the current-hash file", async () => {
+    // Derive the hash that loadDiskCache will compute under the current mocks
+    // (readdir returns [] for all source-dir calls → deterministic empty hash).
+    const currentHash = await computePromoSourceHash();
+    const currentFile = `${currentHash}.mp4`;
+
+    const staleFiles = ["aabbcc.mp4", "112233.mp4"];
+
+    // Override readdir: source dirs → [], cache dir → stale + current files.
+    readdirMock.mockImplementation(async (dir: unknown) => {
+      if (String(dir) === FAKE_CACHE_DIR) {
+        return [...staleFiles, currentFile] as unknown as Awaited<ReturnType<typeof import("node:fs/promises").readdir>>;
+      }
+      return [] as unknown as Awaited<ReturnType<typeof import("node:fs/promises").readdir>>;
+    });
+
+    await loadDiskCache();
+
+    // rm() must have been called exactly for each stale file.
+    for (const stale of staleFiles) {
+      expect(rmMock).toHaveBeenCalledWith(path.join(FAKE_CACHE_DIR, stale));
+    }
+
+    // rm() must NOT have been called for the current-hash file.
+    expect(rmMock).not.toHaveBeenCalledWith(
+      path.join(FAKE_CACHE_DIR, currentFile),
+    );
+
+    // Exactly two rm() calls — one per stale file.
+    expect(rmMock).toHaveBeenCalledTimes(staleFiles.length);
+  });
+
+  it("does not call rm() for non-.mp4 entries in the cache directory", async () => {
+    readdirMock.mockImplementation(async (dir: unknown) => {
+      if (String(dir) === FAKE_CACHE_DIR) {
+        // Mix of non-mp4 entries and one stale mp4.
+        return ["README.txt", ".gitkeep", "old-render.mp4"] as unknown as Awaited<ReturnType<typeof import("node:fs/promises").readdir>>;
+      }
+      return [] as unknown as Awaited<ReturnType<typeof import("node:fs/promises").readdir>>;
+    });
+
+    await loadDiskCache();
+
+    // Only the .mp4 entry should have been removed.
+    expect(rmMock).toHaveBeenCalledWith(
+      path.join(FAKE_CACHE_DIR, "old-render.mp4"),
+    );
+    expect(rmMock).not.toHaveBeenCalledWith(
+      path.join(FAKE_CACHE_DIR, "README.txt"),
+    );
+    expect(rmMock).not.toHaveBeenCalledWith(
+      path.join(FAKE_CACHE_DIR, ".gitkeep"),
+    );
+    expect(rmMock).toHaveBeenCalledTimes(1);
+  });
+
+  it("handles a missing cache directory gracefully without throwing", async () => {
+    // Simulate the directory not existing yet.
+    readdirMock.mockImplementation(async (dir: unknown) => {
+      if (String(dir) === FAKE_CACHE_DIR) {
+        const err = Object.assign(new Error("ENOENT"), { code: "ENOENT" });
+        throw err;
+      }
+      return [] as unknown as Awaited<ReturnType<typeof import("node:fs/promises").readdir>>;
+    });
+
+    await expect(loadDiskCache()).resolves.toBeUndefined();
+    expect(rmMock).not.toHaveBeenCalled();
+  });
+
+  it("loads the current-hash file into renderCache when it exists and is valid", async () => {
+    const currentHash = await computePromoSourceHash();
+    const currentFile = `${currentHash}.mp4`;
+    const validMp4 = makeMinimalValidMp4();
+
+    readdirMock.mockImplementation(async (dir: unknown) => {
+      if (String(dir) === FAKE_CACHE_DIR) {
+        return [currentFile] as unknown as Awaited<ReturnType<typeof import("node:fs/promises").readdir>>;
+      }
+      return [] as unknown as Awaited<ReturnType<typeof import("node:fs/promises").readdir>>;
+    });
+
+    // The cache file exists on disk and contains a valid MP4.
+    existsSyncMock.mockImplementation((p: unknown) => {
+      const s = String(p);
+      if (s.endsWith(".mp3")) return true; // BG music check
+      if (s === path.join(FAKE_CACHE_DIR, currentFile)) return true;
+      return false;
+    });
+    readFileMock.mockImplementation(async (p: unknown) => {
+      if (String(p) === path.join(FAKE_CACHE_DIR, currentFile)) {
+        return validMp4 as unknown as Awaited<ReturnType<typeof import("node:fs/promises").readFile>>;
+      }
+      return Buffer.from("") as unknown as Awaited<ReturnType<typeof import("node:fs/promises").readFile>>;
+    });
+
+    await loadDiskCache();
+
+    // In-memory cache must be populated with the loaded buffer.
+    const cache = getRenderCacheForTest();
+    expect(cache).not.toBeNull();
+    expect(cache?.sourceHash).toBe(currentHash);
+    expect(cache?.buffer).toEqual(validMp4);
+
+    // No stale files to remove — rm() should not have been called.
+    expect(rmMock).not.toHaveBeenCalled();
+  });
+
+  it("does not populate renderCache when rm() fails for a stale file (non-fatal)", async () => {
+    readdirMock.mockImplementation(async (dir: unknown) => {
+      if (String(dir) === FAKE_CACHE_DIR) {
+        return ["stale-error.mp4"] as unknown as Awaited<ReturnType<typeof import("node:fs/promises").readdir>>;
+      }
+      return [] as unknown as Awaited<ReturnType<typeof import("node:fs/promises").readdir>>;
+    });
+
+    // rm() throws a permission error — must not propagate.
+    rmMock.mockRejectedValue(Object.assign(new Error("EACCES"), { code: "EACCES" }));
+
+    await expect(loadDiskCache()).resolves.toBeUndefined();
+
+    // Cache remains empty because the current-hash file was not present.
+    expect(getRenderCacheForTest()).toBeNull();
   });
 });
