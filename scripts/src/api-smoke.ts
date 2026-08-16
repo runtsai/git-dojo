@@ -32,6 +32,7 @@ import {
   GetDueDrillsResponse,
   GetCommitDiffResponse,
   GetWorkingFileDiffResponse,
+  RecordDrillAttemptResponse,
 } from "@workspace/api-zod";
 import type { ZodTypeAny, ZodIssue } from "zod";
 
@@ -396,6 +397,16 @@ async function main(): Promise<void> {
     "/api/drills/due",
     { candidates: [{ id: "smoke-probe", sourceId: null }] },
     GetDueDrillsResponse,
+  );
+
+  // 9a. Record a drill attempt — persists an answer and reschedules the item.
+  //     Uses a synthetic itemId so it never collides with real learner data.
+  //     The operation is idempotent in practice (re-running just updates the
+  //     existing scheduling record for "smoke-probe").
+  await smokePost(
+    "/api/drills/attempt",
+    { itemId: "smoke-probe", correct: true, sourceId: null },
+    RecordDrillAttemptResponse,
   );
 
   // 10. Promo-video export — renders the full video and verifies the resulting
