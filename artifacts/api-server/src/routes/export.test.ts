@@ -16,11 +16,42 @@ import http from "node:http";
 import type { AddressInfo } from "node:net";
 
 // ---------------------------------------------------------------------------
+// Mock the shared promo-config so that TOTAL_RUNTIME_MS is a small sentinel
+// value (2 ms) rather than the real ~22 s.  This keeps every test that
+// inspects the duration-mismatch path fast while still exercising the guard
+// logic inside export.ts (which imports from the same mock).
+//
+// IMPORTANT: vi.mock() factories are hoisted before any const/let/var in this
+// file, so the literal 2 must appear directly inside the factory rather than
+// referencing a module-level variable.
+// ---------------------------------------------------------------------------
+vi.mock("@workspace/promo-config", () => ({
+  TOTAL_RUNTIME_MS: 2,
+  TOTAL_RUNTIME_SEC: 0.002,
+  SCENE_DURATIONS: { s0: 2 },
+}));
+// Constant for use in test assertions — must match the literal above.
+const MOCK_TOTAL_RUNTIME_MS = 2;
+
+// ---------------------------------------------------------------------------
 // Render-call counter — reset in beforeEach, inspected in tests.
 // The mock factory increments this every time puppeteer.launch() is invoked,
 // which is a reliable proxy for "renderMp4 was called".
 // ---------------------------------------------------------------------------
 let renderCallCount = 0;
+
+// ---------------------------------------------------------------------------
+// Shared evaluate implementation — swap this per-test to control what
+// window.__exportTotalMs the mock page reports back to the renderer.
+// ---------------------------------------------------------------------------
+let evaluateImpl: (expr: unknown) => Promise<unknown> = (expr) => {
+  if (typeof expr === "string" && expr.includes("__exportTotalMs")) {
+    // Default: return MOCK_TOTAL_RUNTIME_MS (2 ms) so the renderer's hard
+    // assertion passes and sleep is only 2 + 400 TAIL_PADDING ms.
+    return Promise.resolve(2);
+  }
+  return Promise.resolve(undefined);
+};
 
 // ---------------------------------------------------------------------------
 // Mock heavy dependencies.
@@ -37,13 +68,9 @@ vi.mock("puppeteer-core", () => {
     setViewport: vi.fn().mockResolvedValue(undefined),
     goto: vi.fn().mockResolvedValue(undefined),
     waitForFunction: vi.fn().mockResolvedValue(undefined),
-    // Return a tiny duration so renderMp4's sleep() is only ~401 ms total.
-    evaluate: vi.fn().mockImplementation((expr: unknown) => {
-      if (typeof expr === "string" && expr.includes("__exportTotalMs")) {
-        return Promise.resolve(1); // 1 ms + 400 ms TAIL_PADDING
-      }
-      return Promise.resolve(undefined);
-    }),
+    // Delegate to the module-level evaluateImpl so individual tests can
+    // control what the page reports without re-mocking the whole module.
+    evaluate: vi.fn().mockImplementation((expr: unknown) => evaluateImpl(expr)),
     screencast: vi.fn().mockResolvedValue(mockRecorder),
   };
 
@@ -125,7 +152,8 @@ vi.mock("node:fs", async (importOriginal) => {
 // Module state is reset between tests via resetRenderCacheForTest() rather
 // than vi.resetModules() (which breaks built-in module mock re-application).
 // ---------------------------------------------------------------------------
-import exportRouter, { resetRenderCacheForTest } from "./export.js";
+import exportRouter, { resetRenderCacheForTest, getRenderCacheForTest } from "./export.js";
+import { logger } from "../lib/logger.js";
 
 // ---------------------------------------------------------------------------
 // HTTP helper — collect status + full body from a GET request.
@@ -156,8 +184,15 @@ describe("GET /export/promo-video", () => {
   let port: number;
 
   beforeEach(async () => {
-    // Reset the render counter and module state before each test.
+    // Reset the render counter, module state, and evaluate behaviour.
     renderCallCount = 0;
+    evaluateImpl = (expr) => {
+      if (typeof expr === "string" && expr.includes("__exportTotalMs")) {
+        // Match MOCK_TOTAL_RUNTIME_MS so the hard assertion in renderMp4 passes.
+        return Promise.resolve(2);
+      }
+      return Promise.resolve(undefined);
+    };
     resetRenderCacheForTest(); // clears renderCache + renderPromise
 
     const app = express();
@@ -233,5 +268,92 @@ describe("GET /export/promo-video", () => {
     expect(r3.status).toBe(200);
     expect(r3.body.length).toBeGreaterThan(0);
     expect(renderCallCount).toBe(countAfterFirstRound); // no additional render
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Duration-mismatch guard
+//
+// Verifies that renderMp4 emits a logger.warn when window.__exportTotalMs
+// (reported by the promo page) differs from TOTAL_RUNTIME_MS (from the
+// shared promo-config package), and stays silent when they agree.
+// ---------------------------------------------------------------------------
+
+describe("export duration-mismatch guard", () => {
+  let server: http.Server;
+  let port: number;
+
+  beforeEach(async () => {
+    renderCallCount = 0;
+    resetRenderCacheForTest();
+
+    const app = express();
+    app.use((req, _res, next) => {
+      (req as unknown as Record<string, unknown>)["log"] = {
+        info: () => {},
+        warn: () => {},
+        error: () => {},
+      };
+      next();
+    });
+    app.use("/", exportRouter);
+
+    server = http.createServer(app);
+    await new Promise<void>((resolve) =>
+      server.listen(0, "127.0.0.1", resolve),
+    );
+    port = (server.address() as AddressInfo).port;
+  });
+
+  afterEach(async () => {
+    await new Promise<void>((resolve, reject) =>
+      server.close((err) => (err ? reject(err) : resolve())),
+    );
+  });
+
+  it("returns 500 and does not populate the cache when the page-reported duration differs from TOTAL_RUNTIME_MS", async () => {
+    // Any value that differs from MOCK_TOTAL_RUNTIME_MS (2) triggers the hard
+    // assertion.  Use +1 so the value is still small and the throw fires before
+    // any sleep or disk-write occurs.
+    const mismatchedMs = MOCK_TOTAL_RUNTIME_MS + 1;
+    evaluateImpl = (expr) => {
+      if (typeof expr === "string" && expr.includes("__exportTotalMs")) {
+        return Promise.resolve(mismatchedMs);
+      }
+      return Promise.resolve(undefined);
+    };
+
+    const result = await makeRequest(port, "/export/promo-video");
+
+    // Route must surface the mismatch as a hard error, not a successful MP4.
+    expect(result.status).toBe(500);
+
+    // The error body must name both values so the operator knows which side
+    // needs updating without having to grep the source.
+    const body = JSON.parse(result.body.toString()) as { error: string };
+    expect(body.error).toContain(String(mismatchedMs));
+    expect(body.error).toContain(String(MOCK_TOTAL_RUNTIME_MS));
+
+    // Nothing must have been written to the in-memory cache; a future request
+    // must trigger a fresh render rather than serving a wrong-length video.
+    expect(getRenderCacheForTest()).toBeNull();
+  });
+
+  it("returns 200 and populates the cache when the page agrees with TOTAL_RUNTIME_MS", async () => {
+    // Exact match — assertion passes, render completes, cache is filled.
+    // Sleep = MOCK_TOTAL_RUNTIME_MS (2) + 400 TAIL_PADDING ms.
+    evaluateImpl = (expr) => {
+      if (typeof expr === "string" && expr.includes("__exportTotalMs")) {
+        return Promise.resolve(MOCK_TOTAL_RUNTIME_MS);
+      }
+      return Promise.resolve(undefined);
+    };
+
+    const result = await makeRequest(port, "/export/promo-video");
+
+    expect(result.status).toBe(200);
+    expect(result.body.length).toBeGreaterThan(0);
+    // Cache must be populated so subsequent requests don't re-render.
+    expect(getRenderCacheForTest()).not.toBeNull();
   });
 });

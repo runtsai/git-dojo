@@ -8,6 +8,7 @@ import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { logger } from "../lib/logger";
+import { TOTAL_RUNTIME_MS } from "@workspace/promo-config";
 
 const execFileAsync = promisify(execFile);
 
@@ -401,6 +402,24 @@ async function renderMp4(): Promise<Buffer> {
     if (typeof totalDurationMs !== "number" || totalDurationMs <= 0) {
       throw new Error(
         `Export page did not declare a valid total duration (got ${String(totalDurationMs)})`,
+      );
+    }
+
+    // Hard assertion: the page and the shared config must agree on total
+    // duration before a single frame is recorded.  If they diverge (e.g.
+    // someone edits VideoWithControls without updating SCENE_DURATIONS in
+    // promo-config, or vice-versa) we throw immediately so that:
+    //   • no wrong-length WebM is captured
+    //   • no wrong-length MP4 is transcoded or written to the disk cache
+    //   • the route returns a 500 that is immediately visible to the caller
+    // A warning that lets the render proceed would silently cache and serve
+    // a video trimmed at the wrong point until someone noticed the log entry.
+    if (totalDurationMs !== TOTAL_RUNTIME_MS) {
+      throw new Error(
+        `Export aborted: window.__exportTotalMs (${totalDurationMs} ms) does not ` +
+          `match TOTAL_RUNTIME_MS from @workspace/promo-config (${TOTAL_RUNTIME_MS} ms). ` +
+          `Update SCENE_DURATIONS in lib/promo-config/src/index.ts or VideoWithControls ` +
+          `so both sides agree before re-exporting.`,
       );
     }
 
