@@ -1,4 +1,5 @@
 import { useGetDojoOverview, useListLessons } from "@workspace/api-client-react";
+import { lessonDisplayTitle } from "@/lib/lesson-display";
 import { Link } from "wouter";
 import { Terminal, ChevronRight, BookOpen, GitCommit, LayoutGrid, CheckCircle2, ShieldAlert, Map, Info } from "lucide-react";
 import { useEffect } from "react";
@@ -111,7 +112,7 @@ export function TestCenter() {
                 )}
               </div>
               
-              <h3 className="text-xl font-bold mb-4 text-foreground group-hover:text-primary transition-colors">{lesson.title}</h3>
+              <h3 className="text-xl font-bold mb-4 text-foreground group-hover:text-primary transition-colors">{lessonDisplayTitle(lesson.title, lesson.id)}</h3>
               
               <div className="mt-auto pt-8 flex items-center justify-between text-sm text-muted-foreground">
                 <div className="flex items-center gap-2 font-mono bg-black/60 shadow-inner border border-white/5 px-3 py-1.5 rounded text-xs text-foreground/80">
