@@ -363,6 +363,55 @@ describe("detached HEAD", () => {
     expect(events[0].text).toMatch(/detached/i);
   });
 
+  it("populates freshKeys with files newly appearing on the workbench when entering detached HEAD", () => {
+    // Before: on main branch with no workbench files
+    const prev = state({
+      detachedHead: false,
+      currentBranch: "main",
+      branches: [{ name: "main", isCurrent: true, headHash: "abc" }],
+      files: [],
+    });
+    // After: detached HEAD — old commit checked out, two files now visible on workbench
+    const next = state({
+      detachedHead: true,
+      currentBranch: null,
+      branches: [{ name: "main", isCurrent: false, headHash: "abc" }],
+      files: [
+        { path: "ancient.ts", status: "modified" },
+        { path: "history.md", status: "untracked" },
+      ],
+    });
+    const events = detectMovements(prev, next, counter);
+    const ev = events.find((e) => e.from === "sealed" && e.to === "workbench");
+    expect(ev).toBeDefined();
+    expect(ev!.text).toMatch(/detached/i);
+    expect(ev!.freshKeys).toContain("ancient.ts");
+    expect(ev!.freshKeys).toContain("history.md");
+  });
+
+  it("freshKeys is empty when entering detached HEAD with no new workbench files", () => {
+    // Before: on main branch, already has a modified file on the workbench
+    const prev = state({
+      detachedHead: false,
+      currentBranch: "main",
+      branches: [{ name: "main", isCurrent: true, headHash: "abc" }],
+      files: [{ path: "carried.ts", status: "modified" }],
+    });
+    // After: detached HEAD — same file is still on the workbench (no new files appeared)
+    const next = state({
+      detachedHead: true,
+      currentBranch: null,
+      branches: [{ name: "main", isCurrent: false, headHash: "abc" }],
+      files: [{ path: "carried.ts", status: "modified" }],
+    });
+    const events = detectMovements(prev, next, counter);
+    const ev = events.find((e) => e.from === "sealed" && e.to === "workbench");
+    expect(ev).toBeDefined();
+    expect(ev!.text).toMatch(/detached/i);
+    // carried.ts was already on the workbench before — it must NOT be highlighted
+    expect(ev!.freshKeys).toEqual([]);
+  });
+
   // -------------------------------------------------------------------------
   // Interactive-rebase scenario: HEAD stays detached but moves between commits,
   // so workbench files differ between two consecutive polls.
