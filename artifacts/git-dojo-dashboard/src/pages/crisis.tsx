@@ -38,7 +38,11 @@ export function CrisisView() {
   const { crisisId } = useParams<{ crisisId: string }>();
   const queryClient = useQueryClient();
   const crisis = crises.find((c) => c.id === crisisId);
-  const [hintsOpen, setHintsOpen] = useState(0);
+  const [hintsOpen, setHintsOpen] = useState(() => {
+    if (!crisisId) return 0;
+    const stored = localStorage.getItem(`crisis-hints-${crisisId}`);
+    return stored ? parseInt(stored, 10) : 0;
+  });
   const [justPassed, setJustPassed] = useState(false);
   const [diffSelection, setDiffSelection] = useState<DiffSelection | null>(null);
 
@@ -47,8 +51,16 @@ export function CrisisView() {
   }, [crisis]);
 
   useEffect(() => {
-    setHintsOpen(0);
+    const stored = localStorage.getItem(`crisis-hints-${crisisId}`);
+    setHintsOpen(stored ? parseInt(stored, 10) : 0);
   }, [crisisId]);
+
+  const setHintsOpenPersisted = (value: number) => {
+    setHintsOpen(value);
+    if (crisisId) {
+      localStorage.setItem(`crisis-hints-${crisisId}`, String(value));
+    }
+  };
 
   const { data: scenarios } = useListCrisisScenarios();
   const setup = useSetupCrisisScenario();
@@ -70,6 +82,7 @@ export function CrisisView() {
     setJustPassed(false);
     setDiffSelection(null);
     setHintsOpen(0);
+    if (crisisId) localStorage.removeItem(`crisis-hints-${crisisId}`);
     setup.mutate(
       { crisisId: crisis.id },
       {
@@ -208,7 +221,7 @@ export function CrisisView() {
                     return (
                       <div key={step.key}>
                         <button
-                          onClick={() => setHintsOpen(revealed ? idx : idx + 1)}
+                          onClick={() => setHintsOpenPersisted(revealed ? idx : idx + 1)}
                           disabled={!revealed && idx > hintsOpen}
                           className="w-full flex items-center justify-between px-6 py-4 text-left text-sm font-bold text-foreground hover:bg-secondary/30 transition-colors disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                         >
