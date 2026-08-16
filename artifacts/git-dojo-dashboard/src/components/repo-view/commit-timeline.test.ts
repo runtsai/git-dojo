@@ -419,6 +419,97 @@ describe("branch survives its own merge", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Long-running branch merged twice into main
+// ---------------------------------------------------------------------------
+
+describe("long-running branch merged twice into main", () => {
+  // Topology (newest → oldest, left = branch, right = main):
+  //
+  //   b4              ← branch continues after second merge  (row 0)
+  //   |
+  //   b3       merge2 ← second merge: parents [main2, b3]   (rows 1, 2 or swapped)
+  //   |        |
+  //   b2      main2   ← main advances between merges        (row 3)
+  //   |        |
+  //   b1      merge1  ← first merge: parents [main1, b1]   (rows 4, 5 or swapped)
+  //   |        |
+  //   |       main1                                          (row 6)
+  //   |        |
+  //   root                                                   (row 7 or 8)
+  //
+  // The branch (b1→b2→b3→b4) is merged into main at two separate points.
+  // Between the two merges the branch keeps accumulating commits (b2, b3).
+  // After the second merge the branch continues (b4).
+  // This topology can cause lane re-assignment that produces crossing edges.
+
+  let root: ReturnType<typeof makeCommit>;
+  let main1: ReturnType<typeof makeCommit>;
+  let main2: ReturnType<typeof makeCommit>;
+  let b1: ReturnType<typeof makeCommit>;
+  let b2: ReturnType<typeof makeCommit>;
+  let b3: ReturnType<typeof makeCommit>;
+  let b4: ReturnType<typeof makeCommit>;
+  let merge1: ReturnType<typeof makeCommit>;
+  let merge2: ReturnType<typeof makeCommit>;
+
+  beforeEach(() => {
+    root   = makeCommit("Root");
+    main1  = makeCommit("Main-1",  [root.hash]);
+    b1     = makeCommit("Branch-1",[root.hash]);
+    merge1 = makeCommit("Merge-1-into-main", [main1.hash, b1.hash]);
+    b2     = makeCommit("Branch-2",[b1.hash]);
+    main2  = makeCommit("Main-2",  [merge1.hash]);
+    b3     = makeCommit("Branch-3",[b2.hash]);
+    merge2 = makeCommit("Merge-2-into-main", [main2.hash, b3.hash]);
+    b4     = makeCommit("Branch-4",[b3.hash]);
+  });
+
+  it("every edge endpoint lands on its parent's actual column", () => {
+    // newest first: b4 and merge2 are tips; parents must follow
+    const { rows, edges } = layoutGraph([b4, merge2, main2, b3, merge1, b2, main1, b1, root]);
+    const colByHash = new Map(rows.map((r) => [r.commit.hash, r.col]));
+    for (const e of edges) {
+      const parentCommit = rows[e.toRow]!.commit;
+      expect(e.toCol).toBe(
+        colByHash.get(parentCommit.hash),
+        `edge to "${parentCommit.subject}" should land on col ${colByHash.get(parentCommit.hash)}, got ${e.toCol}`,
+      );
+    }
+  });
+
+  it("no -1 sentinel survives when a branch is merged twice", () => {
+    const { edges } = layoutGraph([b4, merge2, main2, b3, merge1, b2, main1, b1, root]);
+    for (const e of edges) {
+      expect(e.toCol).not.toBe(-1);
+      expect(e.fromCol).not.toBe(-1);
+    }
+  });
+
+  it("branch commits all sit on the same column (lane is preserved across both merges)", () => {
+    const { rows } = layoutGraph([b4, merge2, main2, b3, merge1, b2, main1, b1, root]);
+    const colByHash = new Map(rows.map((r) => [r.commit.hash, r.col]));
+    // b1 → b2 → b3 → b4 must share a single column so no crossing occurs.
+    const branchCol = colByHash.get(b1.hash)!;
+    expect(colByHash.get(b2.hash)).toBe(branchCol);
+    expect(colByHash.get(b3.hash)).toBe(branchCol);
+    expect(colByHash.get(b4.hash)).toBe(branchCol);
+  });
+
+  it("merge commits sit on a different column than the branch (lanes never overlap)", () => {
+    const { rows } = layoutGraph([b4, merge2, main2, b3, merge1, b2, main1, b1, root]);
+    const colByHash = new Map(rows.map((r) => [r.commit.hash, r.col]));
+    const branchCol = colByHash.get(b1.hash)!;
+    expect(colByHash.get(merge1.hash)).not.toBe(branchCol);
+    expect(colByHash.get(merge2.hash)).not.toBe(branchCol);
+  });
+
+  it("maxCol is at least 1 (two lanes are open while branch and main coexist)", () => {
+    const { maxCol } = layoutGraph([b4, merge2, main2, b3, merge1, b2, main1, b1, root]);
+    expect(maxCol).toBeGreaterThanOrEqual(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Color stability: same commit always gets the same color
 // ---------------------------------------------------------------------------
 
