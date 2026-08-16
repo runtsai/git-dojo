@@ -253,6 +253,24 @@ export const drillBank: DrillItem[] = [
     unlockedBy: ["2.4"],
   },
 
+  {
+    id: "m2-4-close-loop",
+    type: "concept",
+    prompt:
+      "You requested changes on a PR. Ruth pushes a fix. What should you do next?",
+    options: [
+      "Merge the PR immediately — the fix is probably fine",
+      "Re-open your review and check whether your original concern is resolved",
+      "Close the PR and ask Ruth to open a new one",
+      "Leave a comment but take no further action",
+    ],
+    answerIndex: 1,
+    explain:
+      "Requesting changes puts the ball back in the author's court. Once they push a fix, you return to the PR, verify the concern is addressed, and approve or request further changes.",
+    sourceLabel: "Module 2.4 — Ruth's fix: close the loop",
+    unlockedBy: ["2.4"],
+  },
+
   // ── Breakthroughs ────────────────────────────────────────────────────
   {
     id: "bt-two-machines",

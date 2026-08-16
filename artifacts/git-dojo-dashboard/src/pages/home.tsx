@@ -257,31 +257,57 @@ export function Home() {
                     <div className="space-y-3">
                       {tierModules.map((mod, mIdx) => {
                         const isCompleted = completedVisualModules.includes(mod.id);
+                        const prereqLocked = mod.prerequisite
+                          ? !completedVisualModules.includes(mod.prerequisite)
+                          : false;
+                        const isModuleLocked = !isActive || prereqLocked;
                         return (
                           <Link 
                             key={mod.id} 
-                            href={isActive ? `/learn/${mod.id}` : '#'}
+                            href={isModuleLocked ? '#' : `/learn/${mod.id}`}
+                            onClick={prereqLocked ? (e: React.MouseEvent) => e.preventDefault() : undefined}
                             className={`flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-lg border transition-all ${
                               isActive
-                                ? isCompleted
-                                  ? 'bg-black/30 border-white/5 hover:border-emerald-500/30 group'
-                                  : 'bg-black/50 border-white/10 hover:border-primary/50 hover:bg-black/80 cursor-pointer shadow-sm group hover:-translate-y-0.5'
+                                ? prereqLocked
+                                  ? 'bg-black/20 border-white/5 cursor-not-allowed opacity-60'
+                                  : isCompleted
+                                    ? 'bg-black/30 border-white/5 hover:border-emerald-500/30 group'
+                                    : 'bg-black/50 border-white/10 hover:border-primary/50 hover:bg-black/80 cursor-pointer shadow-sm group hover:-translate-y-0.5'
                                 : 'bg-black/20 border-white/5 cursor-not-allowed'
                             }`}
                           >
                             <div className="flex items-start sm:items-center gap-4 mb-3 sm:mb-0">
                               <div className={`mt-0.5 sm:mt-0 flex-shrink-0 ${
                                 isActive
-                                  ? isCompleted ? 'text-emerald-500' : 'text-primary/50 group-hover:text-primary transition-colors'
+                                  ? prereqLocked
+                                    ? 'text-muted-foreground/30'
+                                    : isCompleted ? 'text-emerald-500' : 'text-primary/50 group-hover:text-primary transition-colors'
                                   : 'text-muted-foreground/30'
                               }`}>
-                                {isCompleted ? <CheckCircle2 className="w-5 h-5" /> : <Play className="w-5 h-5" />}
+                                {prereqLocked
+                                  ? <Lock className="w-5 h-5" />
+                                  : isCompleted
+                                    ? <CheckCircle2 className="w-5 h-5" />
+                                    : <Play className="w-5 h-5" />}
                               </div>
                               <div>
                                 <div className="text-xs font-bold text-muted-foreground mb-1">Module {idx + 1}.{mIdx + 1}</div>
-                                <div className={`font-bold ${isActive ? (isCompleted ? 'text-foreground/70' : 'text-foreground group-hover:text-primary transition-colors') : 'text-muted-foreground'}`}>
+                                <div className={`font-bold ${
+                                  isActive
+                                    ? prereqLocked
+                                      ? 'text-muted-foreground'
+                                      : isCompleted
+                                        ? 'text-foreground/70'
+                                        : 'text-foreground group-hover:text-primary transition-colors'
+                                    : 'text-muted-foreground'
+                                }`}>
                                   {mod.title}
                                 </div>
+                                {prereqLocked && (
+                                  <div className="text-xs text-muted-foreground/60 mt-0.5">
+                                    Complete module {mod.prerequisite} to unlock
+                                  </div>
+                                )}
                               </div>
                             </div>
                             
@@ -289,7 +315,7 @@ export function Home() {
                               <div className="text-xs text-muted-foreground/70 flex items-center gap-1.5 bg-black/40 px-2 py-1 rounded border border-white/5">
                                 
                               </div>
-                              {isActive && !isCompleted && (
+                              {isActive && !isCompleted && !prereqLocked && (
                                 <div className="text-xs font-bold text-primary bg-primary/10 px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap border border-primary/20">
                                   Start Module
                                 </div>

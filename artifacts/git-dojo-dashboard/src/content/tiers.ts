@@ -2,6 +2,8 @@ export type ModuleDef = {
   id: string;
   title: string;
   path: string;
+  /** Module ID that must be completed before this one is accessible. */
+  prerequisite?: string;
 };
 
 export type TierDef = {
@@ -35,7 +37,7 @@ export const tiers: TierDef[] = [
       { id: "2.1", title: "What a pull request really is", path: "/learn/2-1" },
       { id: "2.2", title: "Files changed: read every line", path: "/learn/2-2" },
       { id: "2.3", title: "The verdict: approve or block", path: "/learn/2-3" },
-      { id: "2.4", title: "Ruth's fix: close the loop", path: "/learn/2-4" },
+      { id: "2.4", title: "Ruth's fix: close the loop", path: "/learn/2-4", prerequisite: "2.3" },
     ]
   },
   {
