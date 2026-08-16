@@ -17,6 +17,7 @@ import {
   GetCrisisRepoStateResponse,
   GetCapstoneStatusResponse,
   GetProgressResponse,
+  CompleteModuleResponse,
   GetDueDrillsResponse,
   GetCommitDiffResponse,
   GetWorkingFileDiffResponse,
@@ -211,6 +212,15 @@ async function main(): Promise<void> {
 
   // 8. Progress
   await smoke("/api/progress", GetProgressResponse);
+
+  // 8a. Complete a visual module — uses a known-valid visual module id so the
+  //     endpoint accepts the body.  The operation is idempotent: re-running the
+  //     smoke test won't create duplicate entries.
+  await smokePost(
+    "/api/progress/complete",
+    { moduleId: "1.1", track: "visual" },
+    CompleteModuleResponse,
+  );
 
   // 9. Drills due — POST because the candidate set is client-owned, but it is
   //    a pure query with no persistence.  A non-empty candidates array ensures
