@@ -37,17 +37,6 @@ task = "workflow.run"
 args = "api-smoke"
 
 [[workflows.workflow]]
-name = "api-smoke"
-author = "agent"
-
-[workflows.workflow.metadata]
-isValidation = true
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "SKIP_EXPORT_SMOKE=1 API_URL=http://localhost:8080 pnpm --filter @workspace/scripts run api-smoke"
-
-[[workflows.workflow]]
 name = "dashboard-unit-tests"
 author = "agent"
 
@@ -68,6 +57,17 @@ args = "bash git-dojo/selftest.sh"
 
 [workflows.workflow.metadata]
 isValidation = true
+
+[[workflows.workflow]]
+name = "api-smoke"
+author = "agent"
+
+[workflows.workflow.metadata]
+isValidation = true
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd artifacts/api-server && PORT=8080 node dist/index.mjs & sleep 4 && SKIP_EXPORT_SMOKE=1 API_URL=http://localhost:8080 pnpm --filter @workspace/scripts run api-smoke; status=$?; kill %1 2>/dev/null; exit $status"
 
 [agent]
 stack = "PNPM_WORKSPACE"

@@ -52,6 +52,10 @@ export function CrisisView() {
     setHintsOpen(stored ? parseInt(stored, 10) : 0);
   }, [crisisId]);
 
+  useEffect(() => {
+    setDiffSelection(null);
+  }, [crisisId]);
+
   const setHintsOpenPersisted = (value: number) => {
     setHintsOpen(value);
     if (crisisId) {
