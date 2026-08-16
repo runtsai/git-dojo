@@ -65,6 +65,7 @@ export function CrisisView() {
   const handleSetup = () => {
     setJustPassed(false);
     setDiffSelection(null);
+    setHintsOpen(0);
     setup.mutate(
       { crisisId: crisis.id },
       {
