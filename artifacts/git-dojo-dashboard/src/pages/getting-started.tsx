@@ -100,27 +100,43 @@ export function GettingStarted() {
 
       <StepCard number={3} title="Download and extract the dojo" icon={<FolderTree className="w-5 h-5" />}>
         <ul className="space-y-2 list-disc pl-5">
-          <li>On the GitHub repo page, click the green <strong className="text-foreground">Code</strong> button → <strong className="text-foreground">Download ZIP</strong>.</li>
+          <li>
+            Go to{" "}
+            <a
+              href="https://github.com/runtsai/git-dojo-course"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-primary font-bold hover:underline"
+            >
+              github.com/runtsai/git-dojo-course
+            </a>{" "}
+            — the course-only repo (lessons and setup scripts, nothing else).
+          </li>
+          <li>Click the green <strong className="text-foreground">Code</strong> button → <strong className="text-foreground">Download ZIP</strong>.</li>
           <li>Extract it into your home folder (<code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded">~</code>).</li>
-          <li>If the folder is named <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded">git-dojo-main</code>, rename it to <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded">git-dojo</code>.</li>
+          <li>
+            If the folder is named{" "}
+            <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded">git-dojo-course-main</code>,
+            rename it to <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded">git-dojo</code>.
+          </li>
         </ul>
       </StepCard>
 
       <StepCard number={4} title="Verify the folder structure" icon={<CheckCircle2 className="w-5 h-5" />}>
-        <p>Check what your download actually contains:</p>
+        <p>Check what your download contains:</p>
         <CommandBlock command="ls ~/git-dojo" />
         <p>
-          If you see the lesson folders and{" "}
-          <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded">setup.sh</code>, run:
+          You should see the lesson folders and{" "}
+          <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded">setup.sh</code>. Run the
+          setup script to confirm your Git install:
         </p>
         <CommandBlock command="cd ~/git-dojo && bash setup.sh" />
         <p>
-          <strong className="text-foreground">More likely you'll see a pile of app files instead</strong>{" "}
-          (<code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded">artifacts</code>,{" "}
-          <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded">package.json</code>, and a{" "}
-          <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded">git-dojo</code> folder) — that's
-          normal. The GitHub download is the whole Git Dojo project, with the course inside. One command
-          moves the lessons up to where they belong and double-checks your Git install:
+          <strong className="text-foreground">Downloaded the wrong repo?</strong>{" "}
+          If you see app files (<code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded">artifacts</code>,{" "}
+          <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded">package.json</code>, a{" "}
+          <code className="text-primary bg-primary/10 px-1.5 py-0.5 rounded">git-dojo</code> folder) instead,
+          one command fixes it — it moves the lessons up and checks your Git install:
         </p>
         <CommandBlock command="cd ~/git-dojo && bash git-dojo/setup.sh" />
       </StepCard>

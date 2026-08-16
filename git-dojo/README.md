@@ -46,10 +46,11 @@ found", close and reopen Git Bash, or reinstall.
 
 ### Step 3: Download and extract the dojo
 
-- Download the zip of this repo from GitHub (green **Code** button →
-  **Download ZIP**).
+- Go to **https://github.com/runtsai/git-dojo-course** (the course-only repo —
+  lessons and setup scripts, nothing else).
+- Click the green **Code** button → **Download ZIP**.
 - Extract it to your home folder (`~`).
-- If the folder is named `git-dojo-main`, rename it to `git-dojo`.
+- If the folder is named `git-dojo-course-main`, rename it to `git-dojo`.
 
 ### Step 4: Verify the folder structure
 
@@ -60,11 +61,15 @@ ls ~/git-dojo
 You should see the lesson folders (`lesson-01-first-snapshot`, etc.) and
 `setup.sh`.
 
-**More likely, you won't — and that's normal.** The GitHub download contains
-the whole Git Dojo project (the app's code: `artifacts`, `package.json`, and
-so on), with the course sitting in a `git-dojo` folder inside it. If your
-`ls` shows that pile of files instead of lesson folders, one command fixes
-everything — it moves the lessons up to where the course expects them:
+If you see them, run the setup script to confirm your Git install:
+
+```
+cd ~/git-dojo && bash setup.sh
+```
+
+**Downloaded from the wrong repo?** If your `ls` shows app files
+(`artifacts`, `package.json`, a `git-dojo` folder) instead of lesson folders,
+you grabbed the full project repo — one command fixes it:
 
 ```
 cd ~/git-dojo && bash git-dojo/setup.sh
@@ -72,13 +77,6 @@ cd ~/git-dojo && bash git-dojo/setup.sh
 
 (The same command also fixes the "folder inside a folder" quirk some zip
 extractors create.)
-
-Or run the setup script any time — it detects and flattens the nesting
-automatically, and checks your Git install:
-
-```
-cd ~/git-dojo && bash setup.sh
-```
 
 (PowerShell holdouts: `setup.ps1` does the same, then tells you to switch to
 Git Bash.)
