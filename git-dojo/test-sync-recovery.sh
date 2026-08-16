@@ -671,6 +671,99 @@ for MSG in "Commit alpha" "Commit beta" "Commit gamma"; do
   fi
 done
 
+# ═════════════════════════════════════════════════════════════════════════════
+# Test 9: Course sync — completely empty remote (first-ever push)
+#
+#   Simulates the very first time sync-course-to-github.sh is run against a
+#   brand-new GitHub repository that has no commits at all.
+#
+#   When ls-remote returns nothing:
+#     • REMOTE_SHA is empty → the fetch / checkout FETCH_HEAD / git rm block
+#       is skipped entirely
+#     • The script creates a fresh branch directly (`git checkout -b main`)
+#     • Course content is copied and committed
+#     • A plain push (not a force-push, not a rebase) delivers the content
+#
+#   After the sync:
+#     • The remote must have exactly the content that was pushed
+#     • The exit code must be 0
+# ═════════════════════════════════════════════════════════════════════════════
+printf "\n» Test 9: course sync – first-ever push to empty remote exits cleanly\n"
+
+REMOTE9="$TMP/remote9.git"
+git init --bare -q "$REMOTE9"
+
+# Confirm the remote really is empty (ls-remote returns nothing for refs/heads/main)
+EARLY_SHA=$(git ls-remote "$REMOTE9" refs/heads/main | awk '{print $1}')
+if [ -z "$EARLY_SHA" ]; then
+  pass "empty remote confirmed: ls-remote returns nothing for refs/heads/main"
+else
+  fail "test setup error: remote9 already has a main ref ($EARLY_SHA)"
+fi
+
+# Workspace with a realistic course layout
+WS9="$TMP/ws9"
+mkdir -p "$WS9/lesson-01"
+echo "# Lesson 01 — Welcome to Git Dojo" > "$WS9/lesson-01/README.md"
+echo "echo 'Setting up course...'"       > "$WS9/setup.sh"
+echo "echo 'Resetting playground...'"    > "$WS9/reset.sh"
+echo "# Git Dojo Course"                 > "$WS9/README.md"
+
+# Run the simulate_course_sync against the empty remote — must succeed
+SYNC9_EXIT=0
+SYNC9_OUT=$(simulate_course_sync "$REMOTE9" "$WS9" 2>&1) || SYNC9_EXIT=$?
+
+if [ "$SYNC9_EXIT" = "0" ]; then
+  pass "empty remote: course sync exited 0 — did not abort on first-ever push"
+else
+  fail "empty remote: course sync exited $SYNC9_EXIT — aborted instead of pushing"
+fi
+
+# The remote must now have a main branch
+PUSHED9=$(git ls-remote "$REMOTE9" refs/heads/main | awk '{print $1}')
+if [ -n "$PUSHED9" ]; then
+  pass "empty remote: refs/heads/main now exists on the remote after first-ever push"
+else
+  fail "empty remote: refs/heads/main still absent — nothing was pushed"
+fi
+
+# Clone the bare remote and verify the course content arrived intact
+VERIFY9="$TMP/verify9"
+git clone -q "$REMOTE9" "$VERIFY9"
+
+LOG9=$(git -C "$VERIFY9" log --oneline main 2>/dev/null || echo "")
+COUNT9=$(echo "$LOG9" | grep -c . || echo "0")
+if [ "$COUNT9" -ge "1" ]; then
+  pass "empty remote: at least one commit present on the remote after first-ever push"
+else
+  fail "empty remote: no commits found on the remote — push may have silently failed"
+fi
+
+# Confirm individual course files were delivered
+for fname in "lesson-01/README.md" "setup.sh" "reset.sh" "README.md"; do
+  if [ -f "$VERIFY9/$fname" ]; then
+    pass "empty remote: '$fname' present in pushed remote"
+  else
+    fail "empty remote: '$fname' missing from pushed remote"
+  fi
+done
+
+# Confirm file content is correct (not empty, not garbled)
+if grep -q "Git Dojo" "$VERIFY9/lesson-01/README.md" 2>/dev/null; then
+  pass "empty remote: lesson-01/README.md content matches workspace"
+else
+  fail "empty remote: lesson-01/README.md content does not match workspace"
+fi
+
+# The push must be a root commit (no parent) — there was nothing to build on.
+# Use --verify so git exits non-zero silently rather than printing the ref name.
+PARENT9=$(git -C "$VERIFY9" rev-parse --verify "HEAD^" 2>/dev/null || echo "no-parent")
+if [ "$PARENT9" = "no-parent" ]; then
+  pass "empty remote: pushed commit is a root commit (no parent) — rebase block was skipped"
+else
+  fail "empty remote: pushed commit has a parent ($PARENT9) — rebase block may have run unexpectedly"
+fi
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Summary
 # ─────────────────────────────────────────────────────────────────────────────
