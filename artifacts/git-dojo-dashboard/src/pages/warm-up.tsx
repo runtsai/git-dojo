@@ -289,25 +289,7 @@ export function WarmUp() {
 }
 
 // ─────────────────────────────────────────────────────────────────────
-type Trend = "improving" | "regressing" | "stable";
-
-function computeTrend(entry: DrillFrictionEntry): Trend {
-  const { recentPasses, recentFailures, olderPasses, olderFailures } = entry;
-  const newerTotal = recentPasses + recentFailures;
-  if (newerTotal === 0) return "stable";
-  const newerRate = recentPasses / newerTotal;
-  const olderTotal = olderPasses + olderFailures;
-  if (olderTotal === 0) {
-    // Only newer-half data available — compare against 50% baseline.
-    if (newerRate > 0.5) return "improving";
-    if (newerRate < 0.5) return "regressing";
-    return "stable";
-  }
-  const olderRate = olderPasses / olderTotal;
-  if (newerRate > olderRate) return "improving";
-  if (newerRate < olderRate) return "regressing";
-  return "stable";
-}
+import { computeTrend, type Trend } from "@/lib/trend";
 
 function TrendBadge({ trend }: { trend: Trend }) {
   if (trend === "improving") {
@@ -321,6 +303,13 @@ function TrendBadge({ trend }: { trend: Trend }) {
     return (
       <span className="inline-flex items-center gap-1 text-xs font-medium text-destructive">
         <TrendingDown className="w-3.5 h-3.5" /> still struggling
+      </span>
+    );
+  }
+  if (trend === "unknown") {
+    return (
+      <span className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground/60">
+        <Minus className="w-3.5 h-3.5" /> no recent data
       </span>
     );
   }
