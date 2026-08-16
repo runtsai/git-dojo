@@ -4,6 +4,7 @@ import { breakthroughs } from "../breakthroughs/index";
 import { tiers } from "../tiers";
 import { CLI_LESSON_IDS } from "../lessons";
 import { crises } from "../crises";
+import { HINT_STEPS } from "../hint-steps";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -76,6 +77,26 @@ describe("crisis scenarios are covered by lessonLocations", () => {
         `lessonLocations is missing an entry for crisis id "${crisis.id}". ` +
           `Add one to src/content/map/index.ts so MapPeek works for this scenario.`,
       ).toHaveProperty(crisis.id);
+    });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Every crisis lessonLocations entry must have steps.length === HINT_STEPS.length
+// ---------------------------------------------------------------------------
+
+describe("crisis lessonLocations step count matches HINT_STEPS", () => {
+  const expectedCount = HINT_STEPS.length;
+
+  for (const crisis of crises) {
+    it(`crisis "${crisis.id}" has exactly ${expectedCount} map steps (one per hint level)`, () => {
+      const location = lessonLocations[crisis.id];
+      const actualCount = location?.steps?.length ?? 0;
+      expect(
+        actualCount,
+        `lessonLocations["${crisis.id}"].steps has ${actualCount} step(s) but HINT_STEPS has ${expectedCount}. ` +
+          `Add or remove steps in src/content/map/index.ts to match the hint ladder in src/pages/crisis.tsx.`,
+      ).toBe(expectedCount);
     });
   }
 });

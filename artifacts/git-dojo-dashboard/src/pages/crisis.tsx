@@ -27,12 +27,7 @@ import { useEffect, useState } from "react";
 import { crises } from "@/content/crises";
 import NotFound from "@/pages/not-found";
 import { MapPeek } from "@/components/map-peek";
-
-const HINT_STEPS = [
-  { key: "nudge", label: "Hint 1 — A nudge" },
-  { key: "concept", label: "Hint 2 — The concept" },
-  { key: "command", label: "Hint 3 — The exact command" },
-] as const;
+import { HINT_STEPS } from "@/content/hint-steps";
 
 export function CrisisView() {
   const { crisisId } = useParams<{ crisisId: string }>();
