@@ -342,3 +342,78 @@ describe("back-to-back merges (fan-in)", () => {
     expect(colC).not.toBe(colD);
   });
 });
+
+// ---------------------------------------------------------------------------
+// Branch survives its own merge (merged-in branch continues forward)
+// ---------------------------------------------------------------------------
+
+describe("branch survives its own merge", () => {
+  // History shape (newest first in array):
+  //
+  //   b2            ← branch continues AFTER it was merged into main  (row 0)
+  //   |
+  //   b1            ← this commit is BOTH a merge parent AND has a child on the branch  (row 3)
+  //   |  \
+  //   |   merge     ← merge commit on main: parents [main1, b1]       (row 1)
+  //   |   |
+  //   |  main1                                                         (row 2)
+  //   |   |
+  //   root                                                             (row 4)
+  //
+  // b1 sits in two roles simultaneously:
+  //   • it is the second parent of `merge`  (branch was merged in)
+  //   • it is the first parent of `b2`      (branch kept going)
+  // This topology can cause column re-assignment and crossing edge lines.
+
+  let root: ReturnType<typeof makeCommit>;
+  let main1: ReturnType<typeof makeCommit>;
+  let b1: ReturnType<typeof makeCommit>;
+  let b2: ReturnType<typeof makeCommit>;
+  let merge: ReturnType<typeof makeCommit>;
+
+  beforeEach(() => {
+    root  = makeCommit("Root");
+    main1 = makeCommit("Main-1",  [root.hash]);
+    b1    = makeCommit("Branch-1",[root.hash]);
+    merge = makeCommit("Merge B1 into main", [main1.hash, b1.hash]);
+    b2    = makeCommit("Branch-2",[b1.hash]);
+  });
+
+  it("every edge endpoint lands on the parent's actual column", () => {
+    // newest first: b2 is the tip on the still-live branch, merge is on main
+    const { rows, edges } = layoutGraph([b2, merge, main1, b1, root]);
+    const colByHash = new Map(rows.map((r) => [r.commit.hash, r.col]));
+    for (const e of edges) {
+      const parentCommit = rows[e.toRow]!.commit;
+      expect(e.toCol).toBe(
+        colByHash.get(parentCommit.hash),
+        `edge to "${parentCommit.subject}" should land on col ${colByHash.get(parentCommit.hash)}, got ${e.toCol}`,
+      );
+    }
+  });
+
+  it("no -1 sentinel survives when a branch outlives its own merge", () => {
+    const { edges } = layoutGraph([b2, merge, main1, b1, root]);
+    for (const e of edges) {
+      expect(e.toCol).not.toBe(-1);
+      expect(e.fromCol).not.toBe(-1);
+    }
+  });
+
+  it("b1 and b2 sit on the same column (branch lane is preserved after the merge)", () => {
+    const { rows } = layoutGraph([b2, merge, main1, b1, root]);
+    const colByHash = new Map(rows.map((r) => [r.commit.hash, r.col]));
+    expect(colByHash.get(b1.hash)).toBe(colByHash.get(b2.hash));
+  });
+
+  it("b1 and merge sit on different columns (they coexist in the graph)", () => {
+    const { rows } = layoutGraph([b2, merge, main1, b1, root]);
+    const colByHash = new Map(rows.map((r) => [r.commit.hash, r.col]));
+    expect(colByHash.get(b1.hash)).not.toBe(colByHash.get(merge.hash));
+  });
+
+  it("maxCol is at least 1 (two lanes are open while branch and main coexist)", () => {
+    const { maxCol } = layoutGraph([b2, merge, main1, b1, root]);
+    expect(maxCol).toBeGreaterThanOrEqual(1);
+  });
+});
