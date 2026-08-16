@@ -375,6 +375,217 @@ else
   fail "expected 'up-to-date' but got '$CASE5'"
 fi
 
+# ═════════════════════════════════════════════════════════════════════════════
+# Tests 6 & 7: Course mirror — sync-course-to-github.sh checkout/replace semantics
+#
+# The script no longer uses rebase. Instead it:
+#   • If remote has commits: fetches, checks out FETCH_HEAD, does `git rm -rq .`
+#   • Copies workspace content wholesale, runs `git add -A`
+#   • If `git diff --cached --quiet` → exit 0 (nothing changed)
+#   • Otherwise commits and fast-forward pushes
+#
+# This means the workspace is always the authoritative source.  A remote-only
+# manual fix will be overwritten whenever the workspace content differs from
+# the remote's tree.  These tests document and guard both paths:
+#
+#   Test 6 — Non-conflicting: remote has a fix to file B; workspace sync only
+#             changes file A.  After the checkout/replace/commit cycle the
+#             remote fix to B is NOT preserved (workspace wins), and the push
+#             is a clean fast-forward.
+#
+#   Test 7 — Workspace overrides remote fix: remote and workspace both modify
+#             the same file to different values.  The push still succeeds (no
+#             merge conflict is possible in this design) and the result tree
+#             reflects workspace content, not the remote fix.
+# ═════════════════════════════════════════════════════════════════════════════
+
+# ── Shared course-sync helper (mirrors the script's core loop) ───────────────
+# simulate_course_sync <bare-remote> <workspace-dir>
+# Checks out the remote tip, replaces content with workspace-dir, commits if
+# changed, pushes.  Exits non-zero only on git errors.
+simulate_course_sync() {
+  local remote_url="$1"
+  local workspace_dir="$2"
+
+  local syncdir
+  syncdir="$(mktemp -d)"
+  (
+    cd "$syncdir"
+    git init -q
+    git config user.email "sync-bot@replit"
+    git config user.name "Replit Sync"
+
+    local remote_sha
+    remote_sha=$(git ls-remote "$remote_url" "refs/heads/main" 2>/dev/null | awk '{print $1}' || echo "")
+
+    if [ -n "$remote_sha" ]; then
+      git fetch -q "$remote_url" main
+      git checkout -q -b main FETCH_HEAD
+      git rm -rq . 2>/dev/null || true
+    else
+      git checkout -q -b main
+    fi
+
+    cp -r "$workspace_dir"/. .
+    git add -A
+
+    if git diff --cached --quiet; then
+      echo "SYNC_RESULT=up-to-date"
+      exit 0
+    fi
+
+    git commit -q -m "Sync course from workspace@test"
+    git push -q "$remote_url" main:main
+    echo "SYNC_RESULT=pushed"
+  )
+  local exit_code=$?
+  rm -rf "$syncdir"
+  return $exit_code
+}
+
+# ═════════════════════════════════════════════════════════════════════════════
+# Test 6: Non-conflicting remote commit — workspace changes a different file
+#   The remote has a manual fix to setup.sh; the workspace update only changes
+#   lesson-01/README.md.  The sync must succeed (fast-forward push) and the
+#   resulting tree on the remote must reflect the workspace content.
+# ═════════════════════════════════════════════════════════════════════════════
+printf "\n» Test 6: course mirror – non-conflicting remote fix; sync is a clean fast-forward\n"
+
+REMOTE6="$TMP/remote6.git"
+git init --bare -q "$REMOTE6"
+
+# ── Initial sync: populate the bare remote with course v1 ────────────────────
+INITIAL6="$TMP/initial6"
+git init -q "$INITIAL6"
+cd "$INITIAL6"
+git checkout -q -b main
+mkdir -p lesson-01
+echo "Lesson 01 initial content" > lesson-01/README.md
+echo "Shared setup instructions" > setup.sh
+git add -A
+git commit -qm "Sync course from workspace@aabbcc"
+git push -q "$REMOTE6" main
+
+INITIAL6_SHA=$(git -C "$INITIAL6" rev-parse HEAD)
+
+# ── Manual fix pushed directly to the course mirror (setup.sh only) ──────────
+FIX6="$TMP/fix6"
+git clone -q "$REMOTE6" "$FIX6"
+cd "$FIX6"
+echo "# Fixed typo in setup" >> setup.sh
+git add setup.sh
+git commit -qm "Fix typo in setup.sh (manual fix to course mirror)"
+git push -q origin main
+
+REMOTE6_TIP=$(git ls-remote "$REMOTE6" refs/heads/main | awk '{print $1}')
+
+# ── Workspace: same setup.sh as v1 but updated README ────────────────────────
+# (the manual fix to setup.sh exists only on the remote, not in the workspace)
+WS6="$TMP/ws6"
+mkdir -p "$WS6/lesson-01"
+echo "Lesson 01 UPDATED content" > "$WS6/lesson-01/README.md"
+echo "Shared setup instructions" > "$WS6/setup.sh"   # original, without the remote fix
+
+# ── Run the simulate_course_sync — must succeed ───────────────────────────────
+SYNC6_EXIT=0
+simulate_course_sync "$REMOTE6" "$WS6" 2>/dev/null || SYNC6_EXIT=$?
+
+if [ "$SYNC6_EXIT" = "0" ]; then
+  pass "course sync: sync succeeded (fast-forward push) when remote has a non-conflicting fix"
+else
+  fail "course sync: sync exited non-zero ($SYNC6_EXIT) — expected clean fast-forward"
+fi
+
+# The push must be a fast-forward from REMOTE6_TIP
+NEW6_TIP=$(git ls-remote "$REMOTE6" refs/heads/main | awk '{print $1}')
+PARENT6=$(git -C "$REMOTE6" rev-parse "${NEW6_TIP}^" 2>/dev/null || echo "unknown")
+
+if [ "$PARENT6" = "$REMOTE6_TIP" ]; then
+  pass "course sync: resulting commit is a fast-forward on top of the remote-fix commit"
+else
+  fail "course sync: resulting commit is not a fast-forward (parent=$PARENT6, expected=$REMOTE6_TIP)"
+fi
+
+# The pushed tree must reflect workspace content (workspace is authoritative)
+VERIFY6="$TMP/verify6"
+git clone -q "$REMOTE6" "$VERIFY6"
+if grep -q "UPDATED content" "$VERIFY6/lesson-01/README.md" 2>/dev/null; then
+  pass "course sync: workspace README content is present in the pushed result"
+else
+  fail "course sync: workspace README content missing from pushed result"
+fi
+
+# ═════════════════════════════════════════════════════════════════════════════
+# Test 7: Remote and workspace both modify the same file to different values
+#   The sync script's checkout/replace design means workspace always wins — no
+#   merge conflict is possible.  The push must still succeed as a fast-forward
+#   and the final tree must contain the workspace version of the file.
+# ═════════════════════════════════════════════════════════════════════════════
+printf "\n» Test 7: course mirror – workspace overrides a conflicting remote edit (workspace wins)\n"
+
+REMOTE7="$TMP/remote7.git"
+git init --bare -q "$REMOTE7"
+
+# ── Initial sync ──────────────────────────────────────────────────────────────
+INITIAL7="$TMP/initial7"
+git init -q "$INITIAL7"
+cd "$INITIAL7"
+git checkout -q -b main
+echo "Delivery fee: \$90" > pricing.txt
+git add pricing.txt
+git commit -qm "Sync course from workspace@112233"
+git push -q "$REMOTE7" main
+
+# ── Manual fix on the remote: someone corrects the fee to $85 ────────────────
+FIX7="$TMP/fix7"
+git clone -q "$REMOTE7" "$FIX7"
+cd "$FIX7"
+echo "Delivery fee: \$85" > pricing.txt
+git add pricing.txt
+git commit -qm "Correct delivery fee to 85 (manual fix to course mirror)"
+git push -q origin main
+
+REMOTE7_TIP=$(git ls-remote "$REMOTE7" refs/heads/main | awk '{print $1}')
+
+# ── Workspace: a different fee value ($95) — both sides changed the same line ─
+WS7="$TMP/ws7"
+mkdir -p "$WS7"
+echo "Delivery fee: \$95" > "$WS7/pricing.txt"
+
+# ── Run the simulate_course_sync — must succeed (workspace takes precedence) ──
+SYNC7_EXIT=0
+simulate_course_sync "$REMOTE7" "$WS7" 2>/dev/null || SYNC7_EXIT=$?
+
+if [ "$SYNC7_EXIT" = "0" ]; then
+  pass "course sync: sync succeeded even when remote and workspace edited the same file"
+else
+  fail "course sync: sync failed ($SYNC7_EXIT) when it should have taken workspace content"
+fi
+
+# Push must be a fast-forward from the remote-fix tip
+NEW7_TIP=$(git ls-remote "$REMOTE7" refs/heads/main | awk '{print $1}')
+PARENT7=$(git -C "$REMOTE7" rev-parse "${NEW7_TIP}^" 2>/dev/null || echo "unknown")
+
+if [ "$PARENT7" = "$REMOTE7_TIP" ]; then
+  pass "course sync: same-file conflict resolved as fast-forward (no divergence left on remote)"
+else
+  fail "course sync: push is not a fast-forward of the remote-fix commit (parent=$PARENT7)"
+fi
+
+# Final tree must contain workspace's value ($95), not the remote fix ($85)
+VERIFY7="$TMP/verify7"
+git clone -q "$REMOTE7" "$VERIFY7"
+if grep -q '\$95' "$VERIFY7/pricing.txt" 2>/dev/null; then
+  pass "course sync: workspace value (\$95) present in pushed result — workspace is authoritative"
+else
+  fail "course sync: workspace value (\$95) missing from pushed result"
+fi
+if ! grep -q '\$85' "$VERIFY7/pricing.txt" 2>/dev/null; then
+  pass "course sync: remote-only edit (\$85) correctly overwritten by workspace content"
+else
+  fail "course sync: remote-only edit (\$85) survived — workspace did not take precedence"
+fi
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Summary
 # ─────────────────────────────────────────────────────────────────────────────
