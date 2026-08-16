@@ -103,15 +103,24 @@ if [ -n "$REMOTE_SHA" ]; then
     echo "Already up-to-date (course content unchanged since last sync)."
     exit 0
   fi
-  # Rebase our commit on top of remote so we don't lose its history
-  git fetch -q "$AUTH_REMOTE" "${BRANCH}" 2>/dev/null || true
+  # Fast-forward case: remote has commits that our throwaway repo doesn't (this
+  # is always the case for a freshly-built repo).  Rebase our new sync commit on
+  # top of the remote so we preserve remote history, then push.
+  echo ""
+  echo "Fast-forward detected: remote has commits not present in local."
+  echo "  Remote ${BRANCH}: ${REMOTE_SHA}"
+  echo "Rebasing course commit on top of remote ..."
   GIT_AUTHOR_NAME="Replit Sync" GIT_AUTHOR_EMAIL="sync-bot@replit" \
-    git rebase "refs/remotes/origin/${BRANCH}" 2>/dev/null || {
-    echo "Rebase failed — forcing a merge commit instead."
+    git rebase "refs/remotes/origin/${BRANCH}" || {
+    echo ""
+    echo "ERROR: Rebase failed — genuine divergence between the local course"
+    echo "       content and the remote course mirror."
+    echo "       Inspect the conflict and resolve manually before re-running."
     git rebase --abort 2>/dev/null || true
-    git reset --soft "refs/remotes/origin/${BRANCH}"
-    git commit --allow-empty -m "Sync course from workspace@${WORKSPACE_SHA}"
+    exit 1
   }
+  echo "✓ Rebase complete. Ready to push."
+  echo ""
 fi
 
 # ── 5. Push ───────────────────────────────────────────────────────────────────
