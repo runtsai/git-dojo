@@ -219,12 +219,15 @@ export function Module2_3({ onStepChange }: VisualModuleProps = {}) {
             <div className="w-24 h-24 bg-emerald-500/10 border border-emerald-500/30 text-emerald-500 rounded-full flex items-center justify-center mx-auto mb-6 shadow-[0_0_30px_rgba(16,185,129,0.3)]">
               <CheckCircle2 className="w-12 h-12" />
             </div>
-            <h2 className="text-4xl font-extrabold text-foreground">Tier 2 Complete!</h2>
+            <h2 className="text-4xl font-extrabold text-foreground">Changes requested.</h2>
             <p className="text-lg text-muted-foreground max-w-md mx-auto leading-relaxed">
-              You reviewed a contractor's delivery like an owner: read every line, pinned the problems, and blocked the merge with a courteous, specific verdict. That is the whole craft of code review.
+              You blocked the merge with a courteous, specific verdict. Ruth just pushed a fix — the story isn't over yet.
             </p>
-            <div className="pt-8 flex gap-4 justify-center">
-              <Link href="/" className="inline-flex items-center justify-center bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-8 py-4 rounded-lg transition-all active:scale-95 shadow-[0_0_15px_rgba(255,107,0,0.2)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background">
+            <div className="pt-8 flex flex-col sm:flex-row gap-4 justify-center items-center">
+              <Link href="/learn/2-4" className="inline-flex items-center justify-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-8 py-4 rounded-lg transition-all active:scale-95 shadow-[0_0_15px_rgba(255,107,0,0.2)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background">
+                See Ruth's reply <ChevronRight className="w-5 h-5" />
+              </Link>
+              <Link href="/" className="inline-flex items-center justify-center text-muted-foreground hover:text-foreground font-bold px-6 py-4 rounded-lg transition-all active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
                 Return to Ledger
               </Link>
             </div>
