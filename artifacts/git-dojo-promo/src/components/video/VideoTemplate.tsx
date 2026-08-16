@@ -19,6 +19,36 @@ const LOOP_FADE_IN_MS = 500;
 /** Duration of the fade-out (black → transparent) in ms. */
 const LOOP_FADE_OUT_MS = 700;
 
+// Startup assertion: verify the fade-in can complete before s5 ends.
+//
+// The fade timer fires at (s5 - LOOP_FADE_LEAD_MS) ms into the scene, so the
+// fade-in finishes at (s5 - LOOP_FADE_LEAD_MS + LOOP_FADE_IN_MS).  For the
+// screen to be fully black before the scene cuts:
+//   LOOP_FADE_IN_MS <= LOOP_FADE_LEAD_MS
+// Additionally the lead must be positive and must not exceed s5 (otherwise the
+// Math.max(0, ...) clamp silently discards the lead, breaking the timing).
+if (LOOP_FADE_LEAD_MS <= 0) {
+  throw new Error(
+    `[VideoTemplate] LOOP_FADE_LEAD_MS must be positive (got ${LOOP_FADE_LEAD_MS} ms).`
+  );
+}
+if (LOOP_FADE_LEAD_MS > SCENE_DURATIONS.s5) {
+  throw new Error(
+    `[VideoTemplate] LOOP_FADE_LEAD_MS (${LOOP_FADE_LEAD_MS} ms) exceeds ` +
+    `SCENE_DURATIONS.s5 (${SCENE_DURATIONS.s5} ms) — the lead would be clamped to 0 ` +
+    `and the intended fade window lost.`
+  );
+}
+if (LOOP_FADE_IN_MS > LOOP_FADE_LEAD_MS) {
+  throw new Error(
+    `[VideoTemplate] Invalid loop-fade timing: LOOP_FADE_IN_MS (${LOOP_FADE_IN_MS} ms) ` +
+    `exceeds LOOP_FADE_LEAD_MS (${LOOP_FADE_LEAD_MS} ms). ` +
+    `The fade-in starts ${LOOP_FADE_LEAD_MS} ms before the scene ends but takes ` +
+    `${LOOP_FADE_IN_MS} ms to complete — it will not finish before the scene cuts. ` +
+    `Either increase LOOP_FADE_LEAD_MS or reduce LOOP_FADE_IN_MS.`
+  );
+}
+
 const SCENE_COMPONENTS: Record<string, React.ComponentType> = {
   s0: Scene0,
   s1: Scene1,
