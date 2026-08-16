@@ -152,6 +152,23 @@ describe("lessonLocations only references valid mapPlace/mapFlow ids", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Every Journey id must be unique
+// ---------------------------------------------------------------------------
+
+describe("journey ids are unique", () => {
+  it("no two journeys share the same id", () => {
+    const ids = mapJourneys.map((j) => j.id);
+    const uniqueIds = new Set(ids);
+    const duplicates = ids.filter((id, index) => ids.indexOf(id) !== index);
+    expect(
+      uniqueIds.size,
+      `Found duplicate journey id(s): ${[...new Set(duplicates)].join(", ")}. ` +
+        `Each journey must have a unique id in src/content/map/index.ts.`,
+    ).toBe(ids.length);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Every Journey step must reference a valid flowId
 // ---------------------------------------------------------------------------
 
