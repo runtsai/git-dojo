@@ -58,6 +58,16 @@ export function Home() {
   const completedCliLessons = progress?.entries.filter(e => e.track === "cli").map(e => e.moduleId) || [];
   const goLiveBadgeEarned = progress?.entries.some(e => e.track === "live") ?? false;
 
+  // Badge shelf: completed tiers, earned CLI lesson badges, earned crisis badges, and Go Live
+  const completedTiers = tiers.filter(tier => {
+    if (tier.status !== "active") return false;
+    const tierModules = tier.modules || [];
+    return tierModules.length > 0 && tierModules.every(m => completedVisualModules.includes(m.id));
+  });
+  const earnedCliBadges = (lessons || []).filter(lesson => completedCliLessons.includes(lesson.id));
+  const earnedCrisisBadges = crises.filter(crisis => completedCliLessons.includes(crisis.id));
+  const hasAnyBadge = completedTiers.length > 0 || earnedCliBadges.length > 0 || earnedCrisisBadges.length > 0 || goLiveBadgeEarned;
+
   return (
     <div className="enter-slide-up max-w-7xl mx-auto space-y-12">
       
@@ -153,6 +163,53 @@ export function Home() {
           >
             <Play className="w-4 h-4 fill-current" /> Begin Module 1.1
           </button>
+        </div>
+      )}
+
+      {hasAnyBadge && (
+        <div className="surface-card p-4 sm:p-5">
+          <div className="flex items-center gap-2 mb-3">
+            <Award className="w-4 h-4 text-primary" />
+            <span className="text-xs font-bold tracking-widest uppercase text-muted-foreground">Your Achievements</span>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {completedTiers.map(tier => (
+              <div
+                key={tier.id}
+                className="flex items-center gap-1.5 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 rounded-full px-3 py-1.5 text-xs font-bold"
+                title={tier.title}
+              >
+                <Trophy className="w-3.5 h-3.5 flex-shrink-0" />
+                <span>{tier.title}</span>
+              </div>
+            ))}
+            {earnedCliBadges.map(lesson => (
+              <div
+                key={lesson.id}
+                className="flex items-center gap-1.5 bg-primary/10 border border-primary/30 text-primary rounded-full px-3 py-1.5 text-xs font-bold"
+                title={lesson.title}
+              >
+                <Award className="w-3.5 h-3.5 flex-shrink-0" />
+                <span>{lesson.title}</span>
+              </div>
+            ))}
+            {earnedCrisisBadges.map(crisis => (
+              <div
+                key={crisis.id}
+                className="flex items-center gap-1.5 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 rounded-full px-3 py-1.5 text-xs font-bold"
+                title={crisis.title}
+              >
+                <Award className="w-3.5 h-3.5 flex-shrink-0" />
+                <span>{crisis.title}</span>
+              </div>
+            ))}
+            {goLiveBadgeEarned && (
+              <div className="flex items-center gap-1.5 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 rounded-full px-3 py-1.5 text-xs font-bold">
+                <Trophy className="w-3.5 h-3.5 flex-shrink-0" />
+                <span>Live Badge</span>
+              </div>
+            )}
+          </div>
         </div>
       )}
 
