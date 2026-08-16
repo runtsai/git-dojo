@@ -40,6 +40,15 @@ GITHUB_REPO="https://github.com/runtsai/git-dojo.git"
 GITHUB_HOST="github.com"
 GITHUB_PATH="runtsai/git-dojo.git"
 
+# ── Test-mode seam ─────────────────────────────────────────────────────────
+# When _SYNC_TEST_REMOTE is set, bypass the remote-URL sanity check and the
+# auth section, and wire GIT_FETCH/GIT_PUSH to that local path instead.
+# This is used exclusively by git-dojo/test-sync-recovery.sh; it has NO
+# effect in normal runs where _SYNC_TEST_REMOTE is unset.
+if [ -n "${_SYNC_TEST_REMOTE:-}" ]; then
+  GITHUB_REPO="$_SYNC_TEST_REMOTE"
+fi
+
 # ── 1. Sanity checks ─────────────────────────────────────────────────────────
 
 # Must be inside a git repo
@@ -75,7 +84,11 @@ if [ -n "${REPLIT_CONNECTORS_HOSTNAME:-}" ] && [ -n "${REPL_IDENTITY:-}" ] && co
   fi
 fi
 
-if [ -n "$CONNECTOR_TOKEN" ]; then
+if [ -n "${_SYNC_TEST_REMOTE:-}" ]; then
+  echo "Auth: test mode — routing fetch/push to ${_SYNC_TEST_REMOTE}"
+  GIT_FETCH() { git fetch -q "${_SYNC_TEST_REMOTE}" "${BRANCH}:refs/remotes/${REMOTE}/${BRANCH}" 2>/dev/null || true; }
+  GIT_PUSH()  { git push -q "${_SYNC_TEST_REMOTE}" "${BRANCH}:${BRANCH}"; }
+elif [ -n "$CONNECTOR_TOKEN" ]; then
   echo "Auth: using Replit GitHub connector token."
   # Build an authenticated remote URL — token never appears in git config or logs
   AUTH_REMOTE="https://x-access-token:${CONNECTOR_TOKEN}@${GITHUB_HOST}/${GITHUB_PATH}"
@@ -158,6 +171,11 @@ echo "  Pushed: ${LOCAL_SHA}"
 
 # Clear the token from memory (belt-and-suspenders)
 CONNECTOR_TOKEN=""
+
+# In test mode the course sync is out of scope — exit cleanly here.
+if [ -n "${_SYNC_TEST_REMOTE:-}" ]; then
+  exit 0
+fi
 
 # ── 5. Sync the course mirror (independent — failure is loud but non-blocking) ──
 

@@ -39,6 +39,10 @@ cat > "$GIT_CONFIG_GLOBAL" <<'GITCFG'
 	email = syncrecovery@example.invalid
 GITCFG
 
+# Resolve the workspace root NOW, before any cd changes the working directory.
+_TEST_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+_WORKSPACE_ROOT="$(cd "$_TEST_DIR/.." && pwd)"
+
 TMP="$(mktemp -d)"
 cleanup() {
   rm -rf "$TMP"
@@ -585,6 +589,87 @@ if ! grep -q '\$85' "$VERIFY7/pricing.txt" 2>/dev/null; then
 else
   fail "course sync: remote-only edit (\$85) survived — workspace did not take precedence"
 fi
+
+# ═════════════════════════════════════════════════════════════════════════════
+# Test 8: Completely fresh remote — no tracking ref (UNKNOWN / fall-through path)
+#
+#   Exercises the production script (scripts/sync-to-github.sh) directly via
+#   its _SYNC_TEST_REMOTE seam, which wires GIT_FETCH/GIT_PUSH to a local bare
+#   repo and overrides GITHUB_REPO so the sanity check passes.
+#
+#   When the bare remote is completely empty:
+#     • git fetch returns nothing → origin/main tracking ref is absent
+#     • The script falls through the UNKNOWN/divergence guards to the push step
+#     • All local commits must arrive on the bare remote (exit 0, full history)
+# ═════════════════════════════════════════════════════════════════════════════
+printf "\n» Test 8: fresh remote (UNKNOWN tracking ref) — production script proceeds to push\n"
+
+# Locate the production script using the workspace root resolved at script start.
+SYNC_SCRIPT="$_WORKSPACE_ROOT/scripts/sync-to-github.sh"
+if [ ! -f "$SYNC_SCRIPT" ]; then
+  fail "fresh remote: cannot locate scripts/sync-to-github.sh at $SYNC_SCRIPT"
+  printf "\n════════════════════════════════\n"
+  printf "Sync recovery test: %d PASS / %d FAIL\n" "$PASS" "$FAIL"
+  printf "════════════════════════════════\n\n"
+  exit 1
+fi
+
+REMOTE8="$TMP/remote8.git"
+LOCAL8="$TMP/local8"
+git init --bare -q "$REMOTE8"
+git init -q "$LOCAL8"
+cd "$LOCAL8"
+
+# Point origin at the bare remote; the _SYNC_TEST_REMOTE seam overrides
+# GITHUB_REPO to this same path so the remote-URL sanity check passes.
+git remote add origin "$REMOTE8"
+
+# Local has 3 commits; the bare remote has NO commits — main does not exist.
+echo "alpha" > alpha.txt; git add alpha.txt; git commit -qm "Commit alpha"
+echo "beta"  > beta.txt;  git add beta.txt;  git commit -qm "Commit beta"
+echo "gamma" > gamma.txt; git add gamma.txt; git commit -qm "Commit gamma"
+
+LOCAL8_SHA=$(git rev-parse main)
+
+# 8a — Run the production script.  _SYNC_TEST_REMOTE injects the local bare
+#      remote for both fetch and push and skips the course-sync step.
+SCRIPT8_EXIT=0
+_SYNC_TEST_REMOTE="$REMOTE8" bash "$SYNC_SCRIPT" 2>&1 || SCRIPT8_EXIT=$?
+
+if [ "$SCRIPT8_EXIT" = "0" ]; then
+  pass "fresh remote: production script exited 0 — did not abort on missing tracking ref"
+else
+  fail "fresh remote: production script exited $SCRIPT8_EXIT — aborted instead of pushing"
+fi
+
+# 8b — Verify the correct HEAD SHA was pushed.
+PUSHED8=$(git ls-remote "$REMOTE8" refs/heads/main | awk '{print $1}')
+if [ "$PUSHED8" = "$LOCAL8_SHA" ]; then
+  pass "fresh remote: pushed SHA matches local HEAD"
+else
+  fail "fresh remote: pushed SHA mismatch: got '${PUSHED8:-<nothing>}', expected $LOCAL8_SHA"
+fi
+
+# 8c — Clone the bare remote and verify all commits arrived — none skipped.
+VERIFY8="$TMP/verify8"
+git clone -q "$REMOTE8" "$VERIFY8"
+LOG8=$(git -C "$VERIFY8" log --oneline main)
+COUNT8=$(echo "$LOG8" | wc -l | tr -d ' ')
+
+if [ "$COUNT8" = "3" ]; then
+  pass "fresh remote: all 3 local commits delivered — none skipped when BASE_SHA absent"
+else
+  fail "fresh remote: expected 3 commits on bare remote, got $COUNT8"
+fi
+
+# 8d — Confirm each individual commit is present in the pushed history.
+for MSG in "Commit alpha" "Commit beta" "Commit gamma"; do
+  if echo "$LOG8" | grep -q "$MSG"; then
+    pass "fresh remote: '$MSG' present in pushed history"
+  else
+    fail "fresh remote: '$MSG' missing from pushed history"
+  fi
+done
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Summary
