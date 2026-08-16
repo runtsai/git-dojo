@@ -1,5 +1,11 @@
 #!/usr/bin/env bash
-# sync-to-github.sh — push the local main branch to the public GitHub mirror
+# sync-to-github.sh — push the local main branch to the public GitHub mirror,
+# then automatically sync the learner-facing course repo as well.
+#
+# This is the single entry point for all post-merge syncs.  Running it once
+# keeps BOTH mirrors up-to-date:
+#   1. runtsai/git-dojo        — full codebase mirror
+#   2. runtsai/git-dojo-course — course content only (git-dojo/ subfolder)
 #
 # Auth strategy (tried in order):
 #   1. Replit GitHub connector token — works from agent shell and automated
@@ -8,9 +14,12 @@
 #      where the ASKPASS session is live (human-in-the-loop sessions only).
 #
 # Safety guarantees:
-#   - Never force-pushes; aborts loudly on divergence
+#   - Never force-pushes the main mirror; aborts loudly on divergence
 #   - Token is used ephemerally in-memory — never written to git config,
 #     environment files, or log output
+#   - The two syncs are INDEPENDENT: a course-sync failure is reported loudly
+#     but does not roll back the already-completed main-mirror push; the script
+#     exits non-zero so CI / the caller knows something went wrong.
 #
 # When to run:
 #   After significant work lands on main (e.g. after a task merge) run:
@@ -130,3 +139,30 @@ echo "  Pushed: ${LOCAL_SHA}"
 
 # Clear the token from memory (belt-and-suspenders)
 CONNECTOR_TOKEN=""
+
+# ── 5. Sync the course mirror (independent — failure is loud but non-blocking) ──
+
+COURSE_SCRIPT="$(cd "$(dirname "$0")" && pwd)/sync-course-to-github.sh"
+
+if [ ! -f "$COURSE_SCRIPT" ]; then
+  echo ""
+  echo "WARNING: sync-course-to-github.sh not found at ${COURSE_SCRIPT}"
+  echo "         Course mirror was NOT synced."
+  exit 1
+fi
+
+echo ""
+echo "── Syncing course mirror ────────────────────────────────────────────────────"
+# Run the course sync; capture its exit code without letting set -e abort us here.
+set +e
+bash "$COURSE_SCRIPT"
+COURSE_EXIT=$?
+set -e
+
+if [ "$COURSE_EXIT" -ne 0 ]; then
+  echo ""
+  echo "ERROR: Course mirror sync FAILED (exit ${COURSE_EXIT})."
+  echo "       The main mirror push above succeeded and is permanent."
+  echo "       Re-run  bash scripts/sync-course-to-github.sh  to retry the course sync."
+  exit "$COURSE_EXIT"
+fi
