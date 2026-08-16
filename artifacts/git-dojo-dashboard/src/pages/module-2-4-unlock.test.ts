@@ -21,6 +21,7 @@ import { tiers } from "@/content/tiers";
 import { getGetProgressQueryKey } from "@workspace/api-client-react";
 import { isPrereqLocked } from "@/lib/prereq";
 import { handleModule23Success } from "@/content/tier2/module-2-3";
+import { LEARN_ROUTE_KEYS } from "@/pages/learn-route-keys";
 
 // ---------------------------------------------------------------------------
 // Locate 2.3 and 2.4 in the tiers config
@@ -128,7 +129,30 @@ describe("isPrereqLocked — Ledger and route gate (home.tsx + learn.tsx)", () =
 });
 
 // ---------------------------------------------------------------------------
-// 4. Query key stability — invalidation and subscription must match
+// 4. Route-map integrity — the hard-coded CTA href "/learn/2-4" must resolve
+//    LEARN_ROUTE_KEYS (learn-route-keys.ts) is the side-effect-free source of
+//    truth; learn.tsx is typed against it so both stay in sync.
+//    If 2.4's slug ever changes or the module is removed, this test catches it.
+// ---------------------------------------------------------------------------
+
+describe("LEARN_ROUTE_KEYS — 2-4 CTA target is registered", () => {
+  it('route key "2-4" is present in LEARN_ROUTE_KEYS', () => {
+    expect(
+      (LEARN_ROUTE_KEYS as readonly string[]).includes("2-4"),
+      '"2-4" is missing from LEARN_ROUTE_KEYS in learn-route-keys.ts. ' +
+        'The CTA link nextModuleHref="/learn/2-4" in module-2-3.tsx would silently ' +
+        "point nowhere. Either restore the key or update the CTA href to match the new slug.",
+    ).toBe(true);
+  });
+
+  it("LEARN_ROUTE_KEYS is a non-empty array", () => {
+    expect(Array.isArray(LEARN_ROUTE_KEYS)).toBe(true);
+    expect(LEARN_ROUTE_KEYS.length).toBeGreaterThan(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// 5. Query key stability — invalidation and subscription must match
 //    Both module-2-3.tsx (writer) and useGetProgress (reader) derive their
 //    key from getGetProgressQueryKey().  If the shape changes, refetch breaks.
 // ---------------------------------------------------------------------------

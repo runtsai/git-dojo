@@ -19,6 +19,31 @@ import { tiers } from "@/content/tiers";
 
 export type { VisualModuleProps };
 
+import { LEARN_ROUTE_KEYS } from "@/pages/learn-route-keys";
+
+/**
+ * The canonical route-key → component map for every learn page.
+ *
+ * LEARN_ROUTE_KEYS (imported from learn-route-keys.ts) is the side-effect-free
+ * source of truth for which keys must exist here.  Tests assert against that
+ * list without importing React components.  If a key is present in
+ * LEARN_ROUTE_KEYS but missing from this map TypeScript will flag it.
+ */
+export const learnModules: Record<
+  (typeof LEARN_ROUTE_KEYS)[number],
+  React.ComponentType<VisualModuleProps>
+> = {
+  "1-1": Module1_1,
+  "1-2": Module1_2,
+  "1-3": Module1_3,
+  "1-4": Module1_4,
+  "1-5": Module1_5,
+  "2-1": Module2_1,
+  "2-2": Module2_2,
+  "2-3": Module2_3,
+  "2-4": Module2_4,
+};
+
 export function LearnModuleView() {
   const { moduleId: rawModuleId } = useParams<{ moduleId: string }>();
   // Tolerate legacy/alternate forms like "module-1-1" or "1.1"
@@ -39,17 +64,7 @@ export function LearnModuleView() {
     }
   }, [moduleId]);
 
-  const modules: Record<string, React.ComponentType<VisualModuleProps>> = {
-    "1-1": Module1_1,
-    "1-2": Module1_2,
-    "1-3": Module1_3,
-    "1-4": Module1_4,
-    "1-5": Module1_5,
-    "2-1": Module2_1,
-    "2-2": Module2_2,
-    "2-3": Module2_3,
-    "2-4": Module2_4,
-  };
+  const modules = learnModules;
   const ModuleComponent = moduleId ? modules[moduleId] : undefined;
   if (ModuleComponent && moduleId) {
     // Check whether this module has an unmet prerequisite.
