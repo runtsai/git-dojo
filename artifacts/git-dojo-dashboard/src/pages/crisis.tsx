@@ -74,10 +74,13 @@ export function CrisisView() {
     },
   });
 
-  // Show a reconnecting banner after 2+ consecutive failures (~8 s of silence).
-  // failureCount increments on every failed attempt (including retries), so this
-  // fires well before isError — which only becomes true after retries are exhausted.
-  const lostContact = failureCount >= 2;
+  // Show a reconnecting banner as soon as the second poll cycle begins after a
+  // failure: isFetching fires when the retry starts, failureCount >= 1 means at
+  // least one attempt already failed.  Together they surface the banner within
+  // ~4–8 s of the first missed poll — well before isError, which only becomes
+  // true after all retries are exhausted (~30–60 s).
+  // React Query resets failureCount to 0 on the next successful fetch, clearing it.
+  const lostContact = isFetching && failureCount >= 1;
 
   if (!crisis) return <NotFound />;
 
