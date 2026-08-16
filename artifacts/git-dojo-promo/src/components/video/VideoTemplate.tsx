@@ -9,14 +9,8 @@ import { Scene3 } from './video_scenes/Scene3';
 import { Scene4 } from './video_scenes/Scene4';
 import { Scene5 } from './video_scenes/Scene5';
 
-export const SCENE_DURATIONS: Record<string, number> = {
-  s0: 4000,
-  s1: 4500,
-  s2: 4500,
-  s3: 4000,
-  s4: 4000,
-  s5: 1500,
-};
+import { SCENE_DURATIONS, TOTAL_RUNTIME_MS as PROMO_TOTAL_RUNTIME_MS } from '@workspace/promo-config';
+export { SCENE_DURATIONS } from '@workspace/promo-config';
 
 /** How many ms before s5 ends the fade-to-black starts. */
 const LOOP_FADE_LEAD_MS = 600;
@@ -46,7 +40,7 @@ const SCENE_START_SEC: Record<string, number> = (() => {
 
 const AUDIO_SEEK_EPSILON_SEC = 0.18;
 
-const TOTAL_RUNTIME_MS = Object.values(SCENE_DURATIONS).reduce((a, b) => a + b, 0);
+const TOTAL_RUNTIME_MS = PROMO_TOTAL_RUNTIME_MS;
 
 // A repo being built start-to-finish, scrolling up behind the scenes
 // over the full runtime of the video in a Star Wars perspective crawl.

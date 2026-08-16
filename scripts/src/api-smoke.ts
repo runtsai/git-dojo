@@ -34,7 +34,19 @@ import {
   GetWorkingFileDiffResponse,
   RecordDrillAttemptResponse,
 } from "@workspace/api-zod";
+import { z } from "zod";
 import type { ZodTypeAny, ZodIssue } from "zod";
+
+// ---------------------------------------------------------------------------
+// Inline schemas for endpoints not in @workspace/api-zod
+// ---------------------------------------------------------------------------
+
+/** Response schema for GET /api/export/promo-meta */
+const PromoMetaResponse = z.object({
+  sceneDurations: z.record(z.string(), z.number()),
+  totalDurationMs: z.number().positive(),
+  totalDurationSec: z.number().positive(),
+});
 
 // ---------------------------------------------------------------------------
 // Config
@@ -153,11 +165,6 @@ async function smoke(path: string, schema: ZodTypeAny): Promise<unknown> {
 // Promo-video export smoke check
 // ---------------------------------------------------------------------------
 
-/**
- * Expected total video duration from VideoTemplate.tsx SCENE_DURATIONS.
- * s0:4000 + s1:4500 + s2:4500 + s3:4000 + s4:4000 + s5:1500 = 22500 ms
- */
-const EXPECTED_DURATION_SEC = 22.5;
 const DURATION_TOLERANCE_SEC = 3.0;
 
 /** Minimum plausible MP4 size for a ~22 s H.264+AAC video at any sane bitrate. */
@@ -176,8 +183,27 @@ async function smokePromoExport(): Promise<void> {
     return;
   }
 
+  // ── 0. Fetch expected duration from the meta endpoint ─────────────────────
+  let expectedDurationSec: number;
+  try {
+    const metaRes = await fetch(`${BASE}/api/export/promo-meta`);
+    if (!metaRes.ok) {
+      fail(label, `Could not fetch /api/export/promo-meta — HTTP ${metaRes.status}`);
+      return;
+    }
+    const meta = await metaRes.json() as { totalDurationSec?: number };
+    if (typeof meta.totalDurationSec !== "number" || meta.totalDurationSec <= 0) {
+      fail(label, `promo-meta returned invalid totalDurationSec: ${JSON.stringify(meta.totalDurationSec)}`);
+      return;
+    }
+    expectedDurationSec = meta.totalDurationSec;
+  } catch (err) {
+    fail(label, `Failed to fetch /api/export/promo-meta: ${String(err)}`);
+    return;
+  }
+
   const url = `${BASE}/api/export/promo-video`;
-  console.log(`  …  ${label}  (this takes ~30 s — rendering full video)`);
+  console.log(`  …  ${label}  (this takes ~30 s — rendering full video, expected ${expectedDurationSec} s)`);
 
   // ── 1. Fetch with a generous timeout ──────────────────────────────────────
   let res: Response;
@@ -284,12 +310,12 @@ async function smokePromoExport(): Promise<void> {
       fail(label, `Could not parse duration from ffprobe output`);
       return;
     }
-    const diff = Math.abs(duration - EXPECTED_DURATION_SEC);
+    const diff = Math.abs(duration - expectedDurationSec);
     if (diff > DURATION_TOLERANCE_SEC) {
       fail(
         label,
         `Duration ${duration.toFixed(2)} s is outside expected ` +
-          `${EXPECTED_DURATION_SEC} ± ${DURATION_TOLERANCE_SEC} s`,
+          `${expectedDurationSec} ± ${DURATION_TOLERANCE_SEC} s`,
       );
       return;
     }
@@ -409,8 +435,12 @@ async function main(): Promise<void> {
     RecordDrillAttemptResponse,
   );
 
-  // 10. Promo-video export — renders the full video and verifies the resulting
-  //     MP4 has h264 video + aac audio at the expected ~22.5 s duration.
+  // 10. Promo metadata — fast, no rendering, verifies the shared scene-duration
+  //     constant reaches the API.  totalDurationSec must be a positive number.
+  await smoke("/api/export/promo-meta", PromoMetaResponse);
+
+  // 11. Promo-video export — renders the full video and verifies the resulting
+  //     MP4 has h264 video + aac audio at the expected duration from promo-meta.
   //     Skipped when SKIP_EXPORT_SMOKE=1 (e.g. CI without a display server).
   await smokePromoExport();
 

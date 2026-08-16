@@ -35,6 +35,18 @@ const PROMO_SRC_DIR = path.resolve(
   "src",
 );
 
+// Shared promo config package — scene durations live here and are the
+// authoritative input for the expected video length reported by promo-meta.
+// Changes to this directory must also bust the render cache.
+const PROMO_CONFIG_SRC_DIR = path.resolve(
+  process.cwd(),
+  "..",
+  "..",
+  "lib",
+  "promo-config",
+  "src",
+);
+
 // Directory where the rendered MP4 is persisted across server restarts.
 // Filename encodes the source hash so stale files are ignored automatically.
 const CACHE_DIR =
@@ -67,34 +79,44 @@ function sleep(ms: number): Promise<void> {
 // ---------------------------------------------------------------------------
 
 /**
- * Walk the promo source directory and hash the content of every .ts/.tsx/.css/.json file.
- * The resulting hex digest changes whenever the promo video code changes, which
- * is the signal to bust the render cache.
+ * Walk a directory and feed the content of every .ts/.tsx/.css/.json file
+ * into the running hash.  Called for both the promo source tree and the
+ * shared promo-config package so that a scene-duration change in either
+ * location busts the render cache.
+ */
+async function hashDir(
+  hash: ReturnType<typeof createHash>,
+  dir: string,
+): Promise<void> {
+  let entries;
+  try {
+    entries = await readdir(dir, { withFileTypes: true });
+  } catch {
+    return; // directory may not exist in all environments
+  }
+  entries.sort((a, b) => a.name.localeCompare(b.name));
+
+  for (const entry of entries) {
+    const full = path.join(dir, entry.name);
+    if (entry.isDirectory()) {
+      await hashDir(hash, full);
+    } else if (/\.(ts|tsx|css|json)$/i.test(entry.name)) {
+      hash.update(entry.name);
+      hash.update(await readFile(full));
+    }
+  }
+}
+
+/**
+ * Hash the promo source tree plus the shared promo-config package.
+ * The resulting hex digest changes whenever either the promo video code
+ * or the scene-duration config changes, which is the signal to bust the
+ * render cache.
  */
 async function computePromoSourceHash(): Promise<string> {
   const hash = createHash("sha256");
-
-  async function hashDir(dir: string): Promise<void> {
-    let entries;
-    try {
-      entries = await readdir(dir, { withFileTypes: true });
-    } catch {
-      return; // directory may not exist in all environments
-    }
-    entries.sort((a, b) => a.name.localeCompare(b.name));
-
-    for (const entry of entries) {
-      const full = path.join(dir, entry.name);
-      if (entry.isDirectory()) {
-        await hashDir(full);
-      } else if (/\.(ts|tsx|css|json)$/i.test(entry.name)) {
-        hash.update(entry.name);
-        hash.update(await readFile(full));
-      }
-    }
-  }
-
-  await hashDir(PROMO_SRC_DIR);
+  await hashDir(hash, PROMO_SRC_DIR);
+  await hashDir(hash, PROMO_CONFIG_SRC_DIR);
   return hash.digest("hex");
 }
 

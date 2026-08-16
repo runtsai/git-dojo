@@ -6,6 +6,7 @@ import capstoneRouter from "./capstone";
 import crisisRouter from "./crisis";
 import drillsRouter from "./drills";
 import exportRouter from "./export";
+import promoMetaRouter from "./promo-meta";
 
 const router: IRouter = Router();
 
@@ -16,5 +17,6 @@ router.use(progressRouter);
 router.use(drillsRouter);
 router.use(capstoneRouter);
 router.use(exportRouter);
+router.use(promoMetaRouter);
 
 export default router;
