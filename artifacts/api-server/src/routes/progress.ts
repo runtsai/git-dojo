@@ -23,6 +23,15 @@ const VISUAL_MODULE_IDS = new Set([
   "6.1", "6.2", "6.3",
 ]);
 
+/**
+ * Server-side prerequisite gate — mirrors the `prerequisite` field in
+ * artifacts/git-dojo-dashboard/src/content/tiers.ts.
+ * Maps moduleId → the moduleId that must already be complete (visual track).
+ */
+const MODULE_PREREQUISITES: Record<string, string> = {
+  "2.4": "2.3",
+};
+
 router.get("/progress", (_req, res) => {
   res.json(GetProgressResponse.parse({ entries: loadEntries() }));
 });
@@ -43,6 +52,19 @@ router.post("/progress/complete", (req, res) => {
   if (!VISUAL_MODULE_IDS.has(moduleId)) {
     res.status(400).json({ error: `Unknown module: ${moduleId}` });
     return;
+  }
+  const prereq = MODULE_PREREQUISITES[moduleId];
+  if (prereq) {
+    const entries = loadEntries();
+    const prereqDone = entries.some(
+      (e) => e.moduleId === prereq && e.track === "visual",
+    );
+    if (!prereqDone) {
+      res.status(400).json({
+        error: `Module ${moduleId} requires ${prereq} to be completed first.`,
+      });
+      return;
+    }
   }
   res.json(CompleteModuleResponse.parse({ entries: recordCompletion(moduleId, "visual") }));
 });
