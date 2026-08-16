@@ -63,6 +63,11 @@ export default defineConfig({
       plugins: [],
     },
   },
+  optimizeDeps: {
+    // @ffmpeg/ffmpeg loads its WASM core via dynamic CDN URLs at runtime;
+    // pre-bundling it breaks the async load path.
+    exclude: ['@ffmpeg/ffmpeg', '@ffmpeg/util'],
+  },
   root: path.resolve(import.meta.dirname),
   build: {
     outDir: path.resolve(import.meta.dirname, 'dist/public'),

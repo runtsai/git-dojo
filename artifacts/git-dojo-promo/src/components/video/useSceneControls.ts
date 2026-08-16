@@ -62,6 +62,17 @@ export function useSceneControls(baseDurations: Record<string, number>) {
     setTick((t) => t + 1);
   }, []);
 
+  /**
+   * Reset to scene 0 with the lock cleared — used by the export flow so that
+   * a locked scene doesn't cause the recorder to capture only one looping scene.
+   */
+  const resetForExport = useCallback(() => {
+    setLocked(false);
+    setActiveIndex(0);
+    setMountKey((k) => k + 1);
+    setTick((t) => t + 1);
+  }, []);
+
   return {
     sceneKeys,
     activeIndex,
@@ -73,5 +84,6 @@ export function useSceneControls(baseDurations: Record<string, number>) {
     onSceneChange,
     jumpTo,
     toggleLock,
+    resetForExport,
   };
 }
