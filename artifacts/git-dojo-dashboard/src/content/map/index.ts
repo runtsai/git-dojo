@@ -512,31 +512,79 @@ export const lessonLocations: Record<string, MapLocation> = {
     placeIds: ["workbench", "sealed"],
     flowIds: ["inspect", "branch"],
     caption: "Your Sealed Record — stranded on a snapshot, a branch name tag makes it safe.",
+    steps: [
+      // nudge: hint that no branch label exists
+      { placeIds: ["sealed"],            flowIds: ["branch"],           caption: "Your Sealed Record — you're standing at a commit with no branch label pointing at it." },
+      // concept: branch is just a name tag
+      { placeIds: ["sealed"],            flowIds: ["branch"],           caption: "Your Sealed Record — a branch is a name tag; create one where you stand and the commit is safe." },
+      // command: git switch -c rescue then merge back
+      { placeIds: ["workbench", "sealed"], flowIds: ["branch", "inspect"], caption: "Your Computer — create a branch where you stand, then switch back to bring the rescue commit along." },
+    ],
   },
   "crisis-02": {
     placeIds: ["workbench", "dock", "sealed"],
     flowIds: ["add", "commit"],
     caption: "Your Computer — untangling a pileup between the Workbench and the Loading Dock.",
+    steps: [
+      // nudge: open the conflicted files on the Workbench
+      { placeIds: ["workbench"],         flowIds: [],                   caption: "Your Workbench — open each conflicted file and find the marker lines Git wrote in." },
+      // concept: a conflict is a question per region per file
+      { placeIds: ["workbench", "dock"], flowIds: ["add"],              caption: "Workbench → Loading Dock — answer every question, delete every marker, then stage each file." },
+      // command: add both files, commit to close
+      { placeIds: ["dock", "sealed"],    flowIds: ["add", "commit"],    caption: "Loading Dock → Sealed Record — stage the resolved files and commit to close the merge." },
+    ],
   },
   "crisis-03": {
     placeIds: ["sealed", "shared"],
     flowIds: ["push"],
     caption: "Between your Sealed Record and the Shared Record — a mistake already went public.",
+    steps: [
+      // nudge: need a new commit expressing the opposite
+      { placeIds: ["sealed"],            flowIds: ["commit"],           caption: "Your Sealed Record — you need a NEW commit that expresses the opposite of the bad one." },
+      // concept: revert vs reset on shared history
+      { placeIds: ["sealed", "shared"],  flowIds: ["commit", "push"],   caption: "Sealed Record ↔ Shared Record — revert writes a correction on top; reset rewrites history others already have." },
+      // command: git revert HEAD
+      { placeIds: ["sealed"],            flowIds: ["commit"],           caption: "Your Sealed Record — git revert HEAD seals the exact opposite of the last commit." },
+    ],
   },
   "crisis-04": {
     placeIds: ["dock", "sealed"],
     flowIds: ["add", "commit"],
     caption: "Your Sealed Record — a jumbled seal needs to be redone properly.",
+    steps: [
+      // nudge: reset --soft un-commits but keeps staging
+      { placeIds: ["sealed"],            flowIds: ["commit"],           caption: "Your Sealed Record — move the branch label back one commit without touching your files." },
+      // concept: reset --soft, then restage each change separately
+      { placeIds: ["workbench", "dock"], flowIds: ["add"],              caption: "Workbench → Loading Dock — unstage everything, then box up each change on its own." },
+      // command: add rates, commit; add drivers, commit
+      { placeIds: ["dock", "sealed"],    flowIds: ["add", "commit"],    caption: "Loading Dock → Sealed Record — seal each change separately for a clean, auditable record." },
+    ],
   },
   "crisis-05": {
     placeIds: ["workbench", "sealed"],
     flowIds: ["inspect"],
     caption: "Your Computer — recovering the Workbench from the Sealed Record.",
+    steps: [
+      // nudge: everything valuable is already sealed
+      { placeIds: ["workbench", "sealed"], flowIds: [],                 caption: "Your Computer — the Workbench is trashed but the Sealed Record is intact; that's your anchor." },
+      // concept: reset --hard overwrites the Workbench with the last seal
+      { placeIds: ["workbench", "sealed"], flowIds: ["inspect"],        caption: "Sealed Record → Workbench — reset --hard makes your folder exactly match the last sealed snapshot." },
+      // command: git reset --hard
+      { placeIds: ["workbench", "sealed"], flowIds: ["inspect"],        caption: "Your Computer — git reset --hard discards all unsealed changes and restores the last sealed state." },
+    ],
   },
   "crisis-06": {
     placeIds: ["sealed"],
     flowIds: ["commit"],
     caption: "Your Sealed Record — a vanished week is still in there; nothing is lost.",
+    steps: [
+      // nudge: git kept a diary of every HEAD position
+      { placeIds: ["sealed"],            flowIds: [],                   caption: "Your Sealed Record — the commits still exist; only the branch label moved. Git kept a diary." },
+      // concept: git reflog lists every HEAD position
+      { placeIds: ["sealed"],            flowIds: ["branch"],           caption: "Your Sealed Record — git reflog lists every position HEAD has been; find the one before the disaster." },
+      // command: git reflog then git reset --hard <hash>
+      { placeIds: ["sealed"],            flowIds: ["commit", "branch"], caption: "Your Sealed Record — hard-reset the branch forward to the reflog hash to restore both commits." },
+    ],
   },
 
   // --- Breakthroughs ---

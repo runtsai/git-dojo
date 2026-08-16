@@ -110,7 +110,7 @@ export function CrisisView() {
         </div>
 
         <div className="flex items-center gap-3 flex-wrap">
-        <MapPeek locationId={crisis.id} />
+        <MapPeek locationId={crisis.id} stepIndex={hintsOpen} />
         <button
           onClick={handleSetup}
           disabled={setup.isPending}
