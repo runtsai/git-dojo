@@ -510,6 +510,113 @@ describe("long-running branch merged twice into main", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Long-running branch merged three times into main
+// ---------------------------------------------------------------------------
+
+describe("long-running branch merged three times into main", () => {
+  // Topology (newest → oldest, left = branch, right = main):
+  //
+  //   b5              ← branch continues after third merge  (tip)
+  //   |
+  //   b4       merge3 ← third merge:  parents [main3, b4]
+  //   |        |
+  //   b3      main3   ← main advances between second and third merge
+  //   |        |
+  //   b2      merge2  ← second merge: parents [main2, b2]
+  //   |        |
+  //   b1      main2   ← main advances between first and second merge
+  //   |        |
+  //   |       merge1  ← first merge:  parents [main1, b1]
+  //   |        |
+  //   |       main1   ← main advances before first merge
+  //   |        |
+  //   root
+  //
+  // The branch (b1→b2→b3→b4→b5) is merged into main at three separate points.
+  // Between merges the branch keeps accumulating commits, and continues forward
+  // after the last merge. This topology applies additional pressure to lane
+  // re-assignment and can expose column-overlap bugs the double-merge case misses.
+
+  let root: ReturnType<typeof makeCommit>;
+  let main1: ReturnType<typeof makeCommit>;
+  let main2: ReturnType<typeof makeCommit>;
+  let main3: ReturnType<typeof makeCommit>;
+  let b1: ReturnType<typeof makeCommit>;
+  let b2: ReturnType<typeof makeCommit>;
+  let b3: ReturnType<typeof makeCommit>;
+  let b4: ReturnType<typeof makeCommit>;
+  let b5: ReturnType<typeof makeCommit>;
+  let merge1: ReturnType<typeof makeCommit>;
+  let merge2: ReturnType<typeof makeCommit>;
+  let merge3: ReturnType<typeof makeCommit>;
+
+  beforeEach(() => {
+    root   = makeCommit("Root");
+    main1  = makeCommit("Main-1",  [root.hash]);
+    b1     = makeCommit("Branch-1", [root.hash]);
+    merge1 = makeCommit("Merge-1-into-main", [main1.hash, b1.hash]);
+    b2     = makeCommit("Branch-2", [b1.hash]);
+    main2  = makeCommit("Main-2",  [merge1.hash]);
+    merge2 = makeCommit("Merge-2-into-main", [main2.hash, b2.hash]);
+    b3     = makeCommit("Branch-3", [b2.hash]);
+    main3  = makeCommit("Main-3",  [merge2.hash]);
+    b4     = makeCommit("Branch-4", [b3.hash]);
+    merge3 = makeCommit("Merge-3-into-main", [main3.hash, b4.hash]);
+    b5     = makeCommit("Branch-5", [b4.hash]);
+  });
+
+  // Newest-first ordering for all tests in this suite.
+  // Tips: b5 (branch continues) and merge3 (latest main tip).
+  function commits() {
+    return [b5, merge3, main3, b4, merge2, b3, main2, b2, merge1, b1, main1, root];
+  }
+
+  it("every edge endpoint lands on its parent's actual column", () => {
+    const { rows, edges } = layoutGraph(commits());
+    const colByHash = new Map(rows.map((r) => [r.commit.hash, r.col]));
+    for (const e of edges) {
+      const parentCommit = rows[e.toRow]!.commit;
+      expect(e.toCol).toBe(
+        colByHash.get(parentCommit.hash),
+        `edge to "${parentCommit.subject}" should land on col ${colByHash.get(parentCommit.hash)}, got ${e.toCol}`,
+      );
+    }
+  });
+
+  it("no -1 sentinel survives when a branch is merged three times", () => {
+    const { edges } = layoutGraph(commits());
+    for (const e of edges) {
+      expect(e.toCol).not.toBe(-1);
+      expect(e.fromCol).not.toBe(-1);
+    }
+  });
+
+  it("all branch commits sit on the same column (lane preserved across all three merges)", () => {
+    const { rows } = layoutGraph(commits());
+    const colByHash = new Map(rows.map((r) => [r.commit.hash, r.col]));
+    const branchCol = colByHash.get(b1.hash)!;
+    expect(colByHash.get(b2.hash)).toBe(branchCol);
+    expect(colByHash.get(b3.hash)).toBe(branchCol);
+    expect(colByHash.get(b4.hash)).toBe(branchCol);
+    expect(colByHash.get(b5.hash)).toBe(branchCol);
+  });
+
+  it("all three merge commits sit on a different column than the branch (lanes never overlap)", () => {
+    const { rows } = layoutGraph(commits());
+    const colByHash = new Map(rows.map((r) => [r.commit.hash, r.col]));
+    const branchCol = colByHash.get(b1.hash)!;
+    expect(colByHash.get(merge1.hash)).not.toBe(branchCol);
+    expect(colByHash.get(merge2.hash)).not.toBe(branchCol);
+    expect(colByHash.get(merge3.hash)).not.toBe(branchCol);
+  });
+
+  it("maxCol is at least 1 (two lanes open while branch and main coexist across three merges)", () => {
+    const { maxCol } = layoutGraph(commits());
+    expect(maxCol).toBeGreaterThanOrEqual(1);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Color stability: same commit always gets the same color
 // ---------------------------------------------------------------------------
 
