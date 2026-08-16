@@ -29,7 +29,7 @@ type LayoutRow = {
 
 type Edge = { fromRow: number; fromCol: number; toRow: number; toCol: number; color: string };
 
-function layoutGraph(commits: RepoCommit[]): { rows: LayoutRow[]; edges: Edge[]; maxCol: number } {
+export function layoutGraph(commits: RepoCommit[]): { rows: LayoutRow[]; edges: Edge[]; maxCol: number } {
   // lanes[i] = hash the lane is waiting for (the next expected commit), or null.
   const lanes: (string | null)[] = [];
   const laneColor: string[] = [];

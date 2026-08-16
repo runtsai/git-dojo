@@ -24,6 +24,10 @@ args = "artifacts/git-dojo-dashboard: web"
 task = "workflow.run"
 args = "artifacts/api-server: API Server"
 
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "dashboard-unit-tests"
+
 [[workflows.workflow]]
 name = "api-smoke"
 author = "agent"
@@ -31,6 +35,17 @@ author = "agent"
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "API_URL=http://localhost:8080 pnpm --filter @workspace/scripts run api-smoke"
+
+[workflows.workflow.metadata]
+isValidation = true
+
+[[workflows.workflow]]
+name = "dashboard-unit-tests"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "pnpm --filter @workspace/git-dojo-dashboard run test"
 
 [workflows.workflow.metadata]
 isValidation = true
