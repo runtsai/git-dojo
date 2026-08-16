@@ -5,6 +5,7 @@ import progressRouter from "./progress";
 import capstoneRouter from "./capstone";
 import crisisRouter from "./crisis";
 import drillsRouter from "./drills";
+import exportRouter from "./export";
 
 const router: IRouter = Router();
 
@@ -14,5 +15,6 @@ router.use(crisisRouter);
 router.use(progressRouter);
 router.use(drillsRouter);
 router.use(capstoneRouter);
+router.use(exportRouter);
 
 export default router;

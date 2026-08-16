@@ -75,3 +75,4 @@ timeoutMs = 120000
 
 [nix]
 packages = ["exploitdb"]
+channel = "stable-25_05"

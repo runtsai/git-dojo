@@ -159,38 +159,65 @@ function ControlBar({
   );
 }
 
+// ── Export mode (headless render target) ────────────────────────────────────
+//
+// The API server's export endpoint opens this page (?export=1) in a headless
+// browser. It renders ONLY the video — no controls, no modal — and waits for
+// the server to trigger playback so the recording starts exactly at frame 0.
+
+declare global {
+  interface Window {
+    __exportReady?: boolean;
+    __exportTotalMs?: number;
+    __startExportPlayback?: () => void;
+  }
+}
+
+function ExportPlayback() {
+  const [started, setStarted] = useState(false);
+
+  useEffect(() => {
+    window.__exportTotalMs = TOTAL_DURATION_MS;
+    window.__startExportPlayback = () => setStarted(true);
+    window.__exportReady = true;
+    return () => {
+      window.__exportReady = false;
+      delete window.__startExportPlayback;
+    };
+  }, []);
+
+  return (
+    <div className="relative w-full h-screen bg-black">
+      {started && (
+        <VideoTemplate
+          durations={SCENE_DURATIONS}
+          loop={false}
+          muted
+          onSceneChange={() => {}}
+        />
+      )}
+    </div>
+  );
+}
+
 // ── Export modal ──────────────────────────────────────────────────────────────
 
-type ExportModalState =
-  | 'idle'
-  | 'requesting'
-  | 'countdown'
-  | 'recording'   // modal absent — parent hides all UI
-  | 'transcoding'
-  | 'done'
-  | 'error';
+type ExportModalState = 'idle' | 'rendering' | 'done' | 'error';
 
 function ExportModal({
   state,
-  countdown,
   errorMessage,
   onStart,
   onCancel,
   onClose,
 }: {
   state: ExportModalState;
-  countdown: number;
   errorMessage: string;
   onStart: () => void;
   onCancel: () => void;
   onClose: () => void;
 }) {
   const totalSec = Math.round(TOTAL_DURATION_MS / 1000);
-
-  // During active recording the parent hides every DOM node (including this
-  // modal) by making them invisible.  Returning null here is a belt-and-braces
-  // guard so the backdrop can never bleed through if the CSS is delayed.
-  if (state === 'recording') return null;
 
   return (
     <div
@@ -229,33 +256,11 @@ function ExportModal({
               <h2 className="text-lg font-semibold text-white">Export video</h2>
             </div>
 
-            <p className="text-sm text-white/60 leading-relaxed mb-4">
-              Your browser records this tab as the video plays through once (~{totalSec}s),
-              then converts it to an MP4 file that downloads automatically.
+            <p className="text-sm text-white/60 leading-relaxed mb-6">
+              The video (~{totalSec}s) is rendered on the server in the background —
+              no screen sharing, no permission dialogs. Background music is included.
+              The MP4 downloads automatically when it's ready (usually under a minute).
             </p>
-
-            <ol className="text-sm text-white/50 space-y-2 mb-6 list-none">
-              <li className="flex gap-2.5">
-                <span className="w-5 h-5 rounded-full bg-white/10 text-white/60 text-xs flex items-center justify-center shrink-0 mt-0.5">
-                  1
-                </span>
-                Click <strong className="text-white/80">Start export</strong> — your browser will
-                ask what to share
-              </li>
-              <li className="flex gap-2.5">
-                <span className="w-5 h-5 rounded-full bg-white/10 text-white/60 text-xs flex items-center justify-center shrink-0 mt-0.5">
-                  2
-                </span>
-                Pick <strong className="text-white/80">this browser tab</strong> (enable
-                "Share tab audio" to include music)
-              </li>
-              <li className="flex gap-2.5">
-                <span className="w-5 h-5 rounded-full bg-white/10 text-white/60 text-xs flex items-center justify-center shrink-0 mt-0.5">
-                  3
-                </span>
-                The video resets and plays once — the file downloads when it finishes
-              </li>
-            </ol>
 
             <button
               onClick={onStart}
@@ -266,41 +271,21 @@ function ExportModal({
           </>
         )}
 
-        {/* ── requesting permission ── */}
-        {state === 'requesting' && (
+        {/* ── rendering on the server ── */}
+        {state === 'rendering' && (
           <div className="text-center py-4">
             <div className="w-12 h-12 border-2 border-primary/40 border-t-primary rounded-full animate-spin mx-auto mb-4" />
-            <p className="text-white font-medium">Waiting for screen share…</p>
-            <p className="text-sm text-white/50 mt-2">Select this browser tab in the dialog</p>
-          </div>
-        )}
-
-        {/* ── countdown (recording has NOT started yet) ── */}
-        {state === 'countdown' && (
-          <div className="text-center py-4">
-            <div
-              className="text-7xl font-black text-primary tabular-nums mb-3"
-              aria-live="polite"
-            >
-              {countdown}
-            </div>
-            <p className="text-white font-medium">Recording starts in…</p>
-            <p className="text-sm text-white/50 mt-1">Keep this tab visible</p>
+            <p className="text-white font-medium">Rendering your video…</p>
+            <p className="text-sm text-white/50 mt-2">
+              The server is recording and converting the video. This usually takes
+              under a minute — you can keep using this tab.
+            </p>
             <button
               onClick={onCancel}
               className="mt-5 px-6 py-2 rounded-lg border border-white/10 text-white/50 text-sm hover:bg-white/5 transition-all"
             >
               Cancel
             </button>
-          </div>
-        )}
-
-        {/* ── transcoding ── */}
-        {state === 'transcoding' && (
-          <div className="text-center py-4">
-            <div className="w-12 h-12 border-2 border-primary/40 border-t-primary rounded-full animate-spin mx-auto mb-4" />
-            <p className="text-white font-medium">Converting to MP4…</p>
-            <p className="text-sm text-white/50 mt-2">This may take a few seconds</p>
           </div>
         )}
 
@@ -360,8 +345,17 @@ function ExportModal({
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function VideoWithControls() {
-  const isIframed = typeof window !== 'undefined' && window.self !== window.top;
+  // Headless-render target used by the server-side export endpoint.
+  const isExportMode =
+    typeof window !== 'undefined' &&
+    new URLSearchParams(window.location.search).has('export');
 
+  if (isExportMode) return <ExportPlayback />;
+
+  return <InteractiveVideo />;
+}
+
+function InteractiveVideo() {
   const {
     sceneKeys,
     activeIndex,
@@ -373,7 +367,6 @@ export default function VideoWithControls() {
     onSceneChange,
     jumpTo,
     toggleLock,
-    resetForExport,
   } = useSceneControls(SCENE_DURATIONS);
 
   const [muted, setMuted] = useState(true);
@@ -383,32 +376,13 @@ export default function VideoWithControls() {
   const [tapPinned, setTapPinned] = useState(false);
   const [exportModalOpen, setExportModalOpen] = useState(false);
 
-  /**
-   * Called by the recorder just before recording starts.
-   * Clears any scene lock, resets to scene 0, and waits until React has
-   * committed the new frame so the recorder captures the clean first scene.
-   */
-  const handleResetForExport = useCallback((): Promise<void> => {
-    return new Promise((resolve) => {
-      resetForExport(); // clears lock + sets activeIndex=0 + remounts player
-      // Wait two animation frames so React has painted scene 0.
-      requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
-    });
-  }, [resetForExport]);
-
   const {
     state: exportState,
-    countdown,
     errorMessage,
     startExport,
     cancelExport,
     reset: resetExport,
-  } = useExportRecorder({
-    totalDurationMs: TOTAL_DURATION_MS,
-    onResetVideo: handleResetForExport,
-  });
-
-  const isRecording = exportState === 'recording';
+  } = useExportRecorder();
 
   const handleOpenExport = useCallback(() => {
     resetExport();
@@ -466,11 +440,10 @@ export default function VideoWithControls() {
   return (
     <div className="relative w-full h-screen">
       {/*
-        Always render VideoTemplate via useSceneControls — both the standalone
-        and iframed paths get the export button.  On initial load activeIndex=0
-        so rotateFromIndex returns the same order as SCENE_DURATIONS, keeping
-        the Replit recording pipeline (window.startRecording / stopRecording)
-        intact regardless of framing.
+        Always render VideoTemplate via useSceneControls.  On initial load
+        activeIndex=0 so rotateFromIndex returns the same order as
+        SCENE_DURATIONS, keeping the Replit recording pipeline
+        (window.startRecording / stopRecording) intact regardless of framing.
       */}
       <VideoTemplate
         key={mountKey}
@@ -480,20 +453,10 @@ export default function VideoWithControls() {
         onSceneChange={onSceneChange}
       />
 
-      {/*
-        The control bar and export modal are hidden entirely during active
-        recording so that getDisplayMedia tab capture sees only the clean video.
-        CSS visibility:hidden + pointer-events:none keeps layout stable while
-        making the elements invisible to the screen recorder.
-      */}
       <div
         ref={sensorRef}
         className="absolute bottom-0 left-0 right-0 z-50 flex flex-col justify-end"
-        style={{
-          height: '25%',
-          visibility: isRecording ? 'hidden' : undefined,
-          pointerEvents: isRecording ? 'none' : undefined,
-        }}
+        style={{ height: '25%' }}
         onPointerEnter={handlePointerEnter}
         onPointerLeave={handlePointerLeave}
         onPointerDown={handlePointerDown}
@@ -516,11 +479,9 @@ export default function VideoWithControls() {
         />
       </div>
 
-      {/* Export modal — hidden (returns null) when state === 'recording' */}
       {exportModalOpen && (
         <ExportModal
           state={exportState}
-          countdown={countdown}
           errorMessage={errorMessage}
           onStart={startExport}
           onCancel={cancelExport}

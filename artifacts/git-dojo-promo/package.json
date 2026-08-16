@@ -32,10 +32,5 @@
     "tailwindcss": "catalog:",
     "three": "^0.182.0",
     "vite": "catalog:"
-  },
-  "dependencies": {
-    "@ffmpeg/core": "0.12.6",
-    "@ffmpeg/ffmpeg": "^0.12.15",
-    "@ffmpeg/util": "^0.12.2"
   }
 }
