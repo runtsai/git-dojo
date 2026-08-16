@@ -29,13 +29,15 @@ import NotFound from "@/pages/not-found";
 import { MapPeek } from "@/components/map-peek";
 import { HINT_STEPS } from "@/content/hint-steps";
 
+import { safeStorage } from "@/lib/safe-storage";
+
 export function CrisisView() {
   const { crisisId } = useParams<{ crisisId: string }>();
   const queryClient = useQueryClient();
   const crisis = crises.find((c) => c.id === crisisId);
   const [hintsOpen, setHintsOpen] = useState(() => {
     if (!crisisId) return 0;
-    const stored = localStorage.getItem(`crisis-hints-${crisisId}`);
+    const stored = safeStorage.getItem(`crisis-hints-${crisisId}`);
     return stored ? parseInt(stored, 10) : 0;
   });
   const [justPassed, setJustPassed] = useState(false);
@@ -46,14 +48,14 @@ export function CrisisView() {
   }, [crisis]);
 
   useEffect(() => {
-    const stored = localStorage.getItem(`crisis-hints-${crisisId}`);
+    const stored = safeStorage.getItem(`crisis-hints-${crisisId}`);
     setHintsOpen(stored ? parseInt(stored, 10) : 0);
   }, [crisisId]);
 
   const setHintsOpenPersisted = (value: number) => {
     setHintsOpen(value);
     if (crisisId) {
-      localStorage.setItem(`crisis-hints-${crisisId}`, String(value));
+      safeStorage.setItem(`crisis-hints-${crisisId}`, String(value));
     }
   };
 
@@ -82,7 +84,7 @@ export function CrisisView() {
     setJustPassed(false);
     setDiffSelection(null);
     setHintsOpen(0);
-    if (crisisId) localStorage.removeItem(`crisis-hints-${crisisId}`);
+    if (crisisId) safeStorage.removeItem(`crisis-hints-${crisisId}`);
     setup.mutate(
       { crisisId: crisis.id },
       {
@@ -299,3 +301,4 @@ export function CrisisView() {
     </div>
   );
 }
+
