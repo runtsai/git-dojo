@@ -158,6 +158,7 @@ import exportRouter, {
   loadDiskCache,
   computePromoSourceHash,
   getRenderCacheForTest,
+  isValidMp4Buffer,
 } from "./export.js";
 
 // ---------------------------------------------------------------------------
@@ -558,5 +559,174 @@ describe("loadDiskCache – cache sweep", () => {
 
     // Cache remains empty because the current-hash file was not present.
     expect(getRenderCacheForTest()).toBeNull();
+  });
+
+  it("does not populate renderCache when the disk-cache file is non-empty but contains garbage (truncated write)", async () => {
+    // This is the core scenario for task 182: a prior server run died mid-write
+    // leaving a file whose size > 0 but whose content is not a valid MP4.
+    // loadDiskCache must detect this via isValidMp4Buffer() and refuse to warm
+    // the cache, so the next request triggers a fresh render rather than
+    // serving a corrupt or partial file to the client.
+    const currentHash = await computePromoSourceHash();
+    const currentFile = `${currentHash}.mp4`;
+
+    readdirMock.mockImplementation(async (dir: unknown) => {
+      if (String(dir) === FAKE_CACHE_DIR) {
+        return [currentFile] as unknown as Awaited<ReturnType<typeof import("node:fs/promises").readdir>>;
+      }
+      return [] as unknown as Awaited<ReturnType<typeof import("node:fs/promises").readdir>>;
+    });
+
+    // The cache file exists and is non-empty, but its content is garbage — it
+    // was never a valid MP4 (simulates a partial/interrupted write).
+    const garbageBuffer = Buffer.from("THIS IS NOT AN MP4 FILE - PARTIAL WRITE GARBAGE DATA");
+    existsSyncMock.mockImplementation((p: unknown) => {
+      const s = String(p);
+      if (s.endsWith(".mp3")) return true;
+      if (s === path.join(FAKE_CACHE_DIR, currentFile)) return true;
+      return false;
+    });
+    readFileMock.mockImplementation(async (p: unknown) => {
+      if (String(p) === path.join(FAKE_CACHE_DIR, currentFile)) {
+        return garbageBuffer as unknown as Awaited<ReturnType<typeof import("node:fs/promises").readFile>>;
+      }
+      return Buffer.from("") as unknown as Awaited<ReturnType<typeof import("node:fs/promises").readFile>>;
+    });
+
+    await loadDiskCache();
+
+    // renderCache must remain null — a garbage file must never be treated as a
+    // valid cache hit, regardless of its size.
+    expect(getRenderCacheForTest()).toBeNull();
+  });
+
+  it("does not populate renderCache when the disk-cache file has a valid ftyp header but is truncated before moov", async () => {
+    // A more realistic truncation scenario: the server wrote the beginning of
+    // the MP4 (including the ftyp box) but crashed before the moov or mdat
+    // boxes were written.  The file is non-empty and even starts like a real
+    // MP4, but isValidMp4Buffer() must still reject it.
+    const currentHash = await computePromoSourceHash();
+    const currentFile = `${currentHash}.mp4`;
+
+    readdirMock.mockImplementation(async (dir: unknown) => {
+      if (String(dir) === FAKE_CACHE_DIR) {
+        return [currentFile] as unknown as Awaited<ReturnType<typeof import("node:fs/promises").readdir>>;
+      }
+      return [] as unknown as Awaited<ReturnType<typeof import("node:fs/promises").readdir>>;
+    });
+
+    // Build a buffer that looks like the start of a valid MP4 (ftyp box only)
+    // but has no moov or mdat — as if the process was killed after writing 16
+    // bytes of a much larger file.
+    const truncatedBuf = Buffer.alloc(16);
+    truncatedBuf.writeUInt32BE(16, 0); // ftyp box size = 16
+    truncatedBuf.write("ftyp", 4, "ascii");
+    truncatedBuf.write("isom", 8, "ascii");
+    // minor version stays 0; no moov, no mdat
+
+    existsSyncMock.mockImplementation((p: unknown) => {
+      const s = String(p);
+      if (s.endsWith(".mp3")) return true;
+      if (s === path.join(FAKE_CACHE_DIR, currentFile)) return true;
+      return false;
+    });
+    readFileMock.mockImplementation(async (p: unknown) => {
+      if (String(p) === path.join(FAKE_CACHE_DIR, currentFile)) {
+        return truncatedBuf as unknown as Awaited<ReturnType<typeof import("node:fs/promises").readFile>>;
+      }
+      return Buffer.from("") as unknown as Awaited<ReturnType<typeof import("node:fs/promises").readFile>>;
+    });
+
+    await loadDiskCache();
+
+    // A truncated file that only contains ftyp (no moov, no mdat) must be
+    // rejected so the client never receives a partial/unplayable video.
+    expect(getRenderCacheForTest()).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// isValidMp4Buffer — unit tests
+//
+// Tests every structural case the validator must handle:
+//   • buffers too short to contain even a minimal ftyp box
+//   • buffers that do not start with an ftyp box
+//   • ftyp size that exceeds the buffer length (truncated inside header)
+//   • ftyp present but no moov (most common crash scenario mid-write)
+//   • ftyp + moov but no mdat (media data never written)
+//   • moov box whose declared size extends past the buffer end (truncated body)
+//   • a well-formed minimal MP4 with ftyp + moov + mdat → must accept
+// ---------------------------------------------------------------------------
+
+describe("isValidMp4Buffer", () => {
+  it("rejects an empty buffer", () => {
+    expect(isValidMp4Buffer(Buffer.alloc(0))).toBe(false);
+  });
+
+  it("rejects a buffer shorter than the minimum ftyp box (< 16 bytes)", () => {
+    expect(isValidMp4Buffer(Buffer.alloc(8))).toBe(false);
+    expect(isValidMp4Buffer(Buffer.alloc(15))).toBe(false);
+  });
+
+  it("rejects a non-empty buffer filled with random garbage bytes", () => {
+    const garbage = Buffer.from("THIS IS NOT AN MP4 FILE - PARTIAL WRITE GARBAGE DATA");
+    expect(isValidMp4Buffer(garbage)).toBe(false);
+  });
+
+  it("rejects a buffer whose first box type is not 'ftyp'", () => {
+    const buf = Buffer.alloc(32);
+    buf.writeUInt32BE(16, 0);
+    buf.write("moov", 4, "ascii"); // wrong first box type
+    buf.write("isom", 8, "ascii");
+    expect(isValidMp4Buffer(buf)).toBe(false);
+  });
+
+  it("rejects a buffer where the ftyp box size exceeds the buffer length (header truncated)", () => {
+    // Declare ftyp size = 1000 but only allocate 16 bytes.
+    const buf = Buffer.alloc(16);
+    buf.writeUInt32BE(1000, 0); // size claims 1000 bytes but buffer is only 16
+    buf.write("ftyp", 4, "ascii");
+    buf.write("isom", 8, "ascii");
+    expect(isValidMp4Buffer(buf)).toBe(false);
+  });
+
+  it("rejects a buffer with only a valid ftyp box — no moov or mdat", () => {
+    const buf = Buffer.alloc(16);
+    buf.writeUInt32BE(16, 0);
+    buf.write("ftyp", 4, "ascii");
+    buf.write("isom", 8, "ascii");
+    expect(isValidMp4Buffer(buf)).toBe(false);
+  });
+
+  it("rejects a buffer with ftyp + moov but no mdat (media data never written)", () => {
+    const buf = Buffer.alloc(24);
+    buf.writeUInt32BE(16, 0);
+    buf.write("ftyp", 4, "ascii");
+    buf.write("isom", 8, "ascii");
+    buf.writeUInt32BE(8, 16);
+    buf.write("moov", 20, "ascii");
+    // No mdat box follows.
+    expect(isValidMp4Buffer(buf)).toBe(false);
+  });
+
+  it("rejects a buffer where moov's declared size extends past the buffer end (moov truncated)", () => {
+    const buf = Buffer.alloc(24);
+    buf.writeUInt32BE(16, 0);
+    buf.write("ftyp", 4, "ascii");
+    buf.write("isom", 8, "ascii");
+    buf.writeUInt32BE(9999, 16); // moov claims 9999 bytes but buffer is only 24
+    buf.write("moov", 20, "ascii");
+    expect(isValidMp4Buffer(buf)).toBe(false);
+  });
+
+  it("accepts a minimal valid MP4 buffer containing ftyp + moov + mdat", () => {
+    expect(isValidMp4Buffer(makeMinimalValidMp4())).toBe(true);
+  });
+
+  it("accepts the minimal valid MP4 regardless of the brand string in the ftyp box", () => {
+    // Vary the major-brand to confirm the validator does not gate on brand name.
+    const buf = makeMinimalValidMp4();
+    buf.write("mp42", 8, "ascii"); // overwrite "isom" major-brand with "mp42"
+    expect(isValidMp4Buffer(buf)).toBe(true);
   });
 });
