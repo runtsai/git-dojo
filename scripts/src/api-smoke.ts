@@ -477,30 +477,54 @@ async function main(): Promise<void> {
     : undefined;
 
   // 6. Crisis scenario state (parameterised) — skip if none exist yet
+  let crisisHasActiveSession = false;
   if (firstScenario) {
-    await smoke(`/api/crisis/scenarios/${firstScenario.id}/state`, GetCrisisRepoStateResponse);
+    const crisisState = await smoke(`/api/crisis/scenarios/${firstScenario.id}/state`, GetCrisisRepoStateResponse);
+    // Consider the playground "active" (in-progress learner session) when it
+    // already has commits.  We detect this from the state response rather than
+    // calling setup blindly, so we never wipe a learner's work.
+    if (crisisState && typeof crisisState === "object") {
+      const cs = crisisState as { commits?: unknown[] };
+      crisisHasActiveSession = Array.isArray(cs.commits) && cs.commits.length > 0;
+    }
   } else {
     console.log(`  -  GET /api/crisis/scenarios/:id/state  (skipped — no scenarios found)`);
   }
 
-  // 6a. Crisis setup — (re-)initialises the practice playground; idempotent
+  // 6a. Crisis setup — initialises the practice playground only when it does
+  //     not already have commits.  Skipped when the playground already has
+  //     commits to avoid wiping a learner's active in-progress session.
   if (firstScenario) {
-    await smokePost(
-      `/api/crisis/scenarios/${firstScenario.id}/setup`,
-      {},
-      SetupCrisisScenarioResponse,
-    );
+    if (crisisHasActiveSession) {
+      console.log(
+        `  -  POST /api/crisis/scenarios/:id/setup  (skipped — playground already has commits; won't overwrite active session)`,
+      );
+    } else {
+      await smokePost(
+        `/api/crisis/scenarios/${firstScenario.id}/setup`,
+        {},
+        SetupCrisisScenarioResponse,
+      );
+    }
   } else {
     console.log(`  -  POST /api/crisis/scenarios/:id/setup  (skipped — no scenarios found)`);
   }
 
-  // 6b. Crisis check — runs the grader against the just-set-up playground
+  // 6b. Crisis check — runs the grader against the just-set-up playground.
+  //     Skipped when setup was skipped to avoid recording false grader failures
+  //     against a learner's in-progress work.
   if (firstScenario) {
-    await smokePost(
-      `/api/crisis/scenarios/${firstScenario.id}/check`,
-      {},
-      RunCrisisCheckResponse,
-    );
+    if (crisisHasActiveSession) {
+      console.log(
+        `  -  POST /api/crisis/scenarios/:id/check  (skipped — deferring to active learner session)`,
+      );
+    } else {
+      await smokePost(
+        `/api/crisis/scenarios/${firstScenario.id}/check`,
+        {},
+        RunCrisisCheckResponse,
+      );
+    }
   } else {
     console.log(`  -  POST /api/crisis/scenarios/:id/check  (skipped — no scenarios found)`);
   }
