@@ -215,6 +215,55 @@ describe("VideoTemplate – loopFading guard against accidental overlay", () => 
     expect(overlayOpacity(container)).toBe(0);
   });
 
+  it("fade-in timer is cancelled when skipping away from s5 before the 900 ms delay fires", async () => {
+    // Phase 1 schedules: setTimeout(() => setLoopFading('in'), fadeInDelay)
+    // where fadeInDelay = max(0, durations.s5 - LOOP_FADE_LEAD_MS) = 1500 - 600 = 900 ms.
+    // The useEffect cleanup returns () => clearTimeout(t1).
+    // This test verifies that cleanup runs when the scene changes, so the
+    // timer never fires even after 900 ms have elapsed in wall-clock time.
+    vi.useFakeTimers();
+    try {
+      vi.mocked(useVideoPlayer).mockImplementation(() => ({
+        ...mockVideoPlayerState,
+        currentSceneKey: "s5",
+        currentScene: 5,
+        isNaturalLoopRef: mockIsNaturalLoopRef,
+      }));
+
+      const { container, rerender } = render(<VideoTemplate muted />);
+      // Overlay must start transparent on s5 entry (timer not yet fired)
+      expect(overlayOpacity(container)).toBe(0);
+
+      // Advance 400 ms — timer is still pending (fires at 900 ms)
+      await act(async () => {
+        vi.advanceTimersByTime(400);
+      });
+      expect(overlayOpacity(container)).toBe(0);
+
+      // Jump away from s5 to s3 — the useEffect cleanup cancels the timer
+      vi.mocked(useVideoPlayer).mockImplementation(() => ({
+        ...mockVideoPlayerState,
+        currentSceneKey: "s3",
+        currentScene: 3,
+        isNaturalLoopRef: mockIsNaturalLoopRef,
+      }));
+
+      await act(async () => {
+        rerender(<VideoTemplate muted />);
+      });
+
+      // Advance well past the original 900 ms mark — the cleared timer must NOT fire
+      await act(async () => {
+        vi.advanceTimersByTime(600);
+      });
+
+      // loopFading must still be 'idle': overlay stays at opacity 0
+      expect(overlayOpacity(container)).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("loopFading transitions to opacity 0 (out → idle) when isNaturalLoopRef.current is true — the natural loop path works", async () => {
     // Verify the opposite side of the guard: a genuine natural loop DOES
     // trigger the fade-out sequence (loopFading='out', opacity=0), confirming
