@@ -414,7 +414,7 @@ export function TerritoryStrip({
             <FolderOpen className="w-3.5 h-3.5" /> standing in: {repo.repoFolder}/
           </span>
         )}
-        <span className="ml-auto text-[11px] text-muted-foreground">same places as the Map</span>
+        <span className="hidden sm:block ml-auto text-[11px] text-muted-foreground">same places as the Map</span>
       </div>
 
       <div className="flex flex-col md:flex-row gap-2 md:items-stretch">

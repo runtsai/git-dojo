@@ -97,9 +97,9 @@ export function CrisisView() {
   const live = !!repo?.initialized;
 
   return (
-    <div className="space-y-8 pb-12 enter-slide-up max-w-7xl mx-auto">
+    <div className="space-y-8 pb-12 enter-slide-up max-w-7xl mx-auto w-full min-w-0">
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6 border-b border-white/10 pb-6">
-        <div>
+        <div className="min-w-0">
           <Link
             href="/crisis"
             className="inline-flex items-center gap-2 text-xs font-bold text-muted-foreground hover:text-foreground mb-4 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary active:scale-95 uppercase tracking-wider bg-black/40 border border-white/5 shadow-inner px-3 py-1.5 rounded"
@@ -107,11 +107,11 @@ export function CrisisView() {
             <ArrowLeft className="w-3.5 h-3.5" /> Back to Crisis Room
           </Link>
           <div className="flex items-center gap-4 flex-wrap">
-            <h1 className="text-3xl font-extrabold text-foreground tracking-tight flex items-center gap-3">
-              <div className="p-2 bg-destructive/10 rounded-md text-destructive shadow-sm border border-destructive/20">
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-foreground tracking-tight flex items-center gap-3 min-w-0">
+              <div className="p-2 bg-destructive/10 rounded-md text-destructive shadow-sm border border-destructive/20 shrink-0">
                 <Siren className="w-6 h-6" />
               </div>
-              {crisis.title}
+              <span className="min-w-0 break-words">{crisis.title}</span>
             </h1>
             {solved && (
               <span className="flex items-center gap-1.5 text-xs font-bold text-emerald-400 uppercase tracking-wider bg-emerald-500/10 px-2 py-1 rounded border border-emerald-500/20">

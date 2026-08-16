@@ -137,12 +137,12 @@ export function LessonView() {
           <Link href="/test-center" className="inline-flex items-center gap-2 text-xs font-bold text-muted-foreground hover:text-foreground mb-4 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary active:scale-95 uppercase tracking-wider bg-black/40 border border-white/5 shadow-inner px-3 py-1.5 rounded">
             <ArrowLeft className="w-3.5 h-3.5" /> Back to Test Center
           </Link>
-          <div className="flex items-center gap-4">
-            <h1 className="text-3xl font-extrabold text-foreground tracking-tight flex items-center gap-3">
-              <div className="p-2 bg-primary/10 rounded-md text-primary shadow-sm border border-primary/20">
+          <div className="flex items-center gap-4 min-w-0">
+            <h1 className="text-2xl sm:text-3xl font-extrabold text-foreground tracking-tight flex items-center gap-3 min-w-0">
+              <div className="p-2 bg-primary/10 rounded-md text-primary shadow-sm border border-primary/20 shrink-0">
                 <Terminal className="w-6 h-6" />
               </div>
-              {lessonTitle ? lessonTitle : lessonId}
+              <span className="min-w-0 break-words">{lessonTitle ? lessonTitle : lessonId}</span>
             </h1>
             {isFetching && <RefreshCw className="w-4 h-4 text-primary animate-spin opacity-50" />}
           </div>

@@ -8,7 +8,7 @@ interface Props {
 
 export function SummaryPanel({ summary, isDetached, currentBranch }: Props) {
   return (
-    <div className={`relative overflow-hidden border rounded-xl p-8 sm:p-10 shadow-lg ${
+    <div className={`relative overflow-hidden border rounded-xl p-5 sm:p-8 md:p-10 shadow-lg ${
       isDetached 
         ? 'bg-amber-500/10 border-amber-500/30' 
         : 'bg-primary/5 border-primary/20 shadow-[0_0_30px_rgba(255,107,0,0.05)]'

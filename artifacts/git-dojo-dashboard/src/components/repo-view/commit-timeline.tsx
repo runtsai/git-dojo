@@ -179,8 +179,8 @@ export function CommitTimeline({ commits, branches = [], remoteBranches = [], cu
       </div>
 
       <div className="flex overflow-x-auto">
-        {/* Graph gutter */}
-        <svg width={gutterW} height={height} className="shrink-0" aria-hidden="true">
+        {/* Graph gutter: hidden on small screens to give rows full width */}
+        <svg width={gutterW} height={height} className="hidden sm:block shrink-0" aria-hidden="true">
           {edges.map((e, i) => (
             <path key={i} d={edgePath(e)} fill="none" stroke={e.color} strokeWidth="2" opacity="0.65" />
           ))}
@@ -209,8 +209,7 @@ export function CommitTimeline({ commits, branches = [], remoteBranches = [], cu
             return (
               <RowTag
                 key={c.hash}
-                style={{ height: ROW_H }}
-                className={`flex items-center min-w-0 pl-3 group border-b border-white/[0.03] last:border-0 w-full text-left ${
+                className={`flex items-center min-w-0 pl-3 group border-b border-white/[0.03] last:border-0 w-full text-left min-h-[84px] sm:h-[84px] ${
                   onCommitClick
                     ? "cursor-pointer rounded-md transition-colors hover:bg-white/[0.04] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                     : ""
