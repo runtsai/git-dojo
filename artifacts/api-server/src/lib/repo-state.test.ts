@@ -318,6 +318,50 @@ describe("parseUnifiedDiff", () => {
     const diff = ["diff --git a/mystery b/mystery"].join("\n");
     expect(parseUnifiedDiff(diff)).toHaveLength(0);
   });
+
+  it("preserves renamedFrom when a renamed text file also has merge conflict markers", () => {
+    // Real git output when `git diff` is run on a renamed file that also has
+    // unresolved merge conflicts. The conflict markers appear as added lines
+    // (+<<<<<<<, +=======, +>>>>>>>) because they are new content introduced
+    // by the merge. The parser must not lose renamedFrom in this case.
+    const diff = [
+      "diff --git a/old.txt b/new.txt",
+      "similarity index 50%",
+      "rename from old.txt",
+      "rename to new.txt",
+      "index abc1234..def5678 100644",
+      "--- a/old.txt",
+      "+++ b/new.txt",
+      "@@ -1,3 +1,8 @@",
+      " common preamble",
+      "+<<<<<<< HEAD",
+      "+our version of the line",
+      "+=======",
+      "+their version of the line",
+      "+>>>>>>> feature-branch",
+      " another common line",
+      "-removed line",
+    ].join("\n");
+
+    const [file] = parseUnifiedDiff(diff);
+    expect(file).toBeDefined();
+    expect(file!.changeKind).toBe("renamed");
+    expect(file!.renamedFrom).toBe("old.txt");
+    expect(file!.path).toBe("new.txt");
+
+    // Conflict marker lines must be captured as added entries
+    const texts = file!.lines.map((l) => l.text);
+    expect(texts).toContain("<<<<<<< HEAD");
+    expect(texts).toContain("=======");
+    expect(texts).toContain(">>>>>>> feature-branch");
+
+    // Counters reflect the actual added/removed lines including conflict markers
+    expect(file!.added).toBe(5); // <<<, our, ===, their, >>>
+    expect(file!.removed).toBe(1); // "removed line"
+
+    // No truncation for this small diff
+    expect(file!.truncated).toBe(false);
+  });
 });
 
 // ---------------------------------------------------------------------------
