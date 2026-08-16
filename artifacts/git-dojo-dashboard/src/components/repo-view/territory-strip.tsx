@@ -188,13 +188,20 @@ export function detectMovements(prev: RepoState, next: RepoState, counter: () =>
 
   // Branch switch / detached HEAD
   if (prev.currentBranch !== next.currentBranch || prev.detachedHead !== next.detachedHead) {
+    // Files that appeared on the workbench as a result of the switch — i.e.
+    // workbench files in the new snapshot that were not on the workbench before.
+    const prevWbPaths = new Set(workbenchFiles(prev).map((f) => f.path));
+    const switchedFiles = workbenchFiles(next)
+      .map((f) => f.path)
+      .filter((p) => !prevWbPaths.has(p));
+
     if (next.detachedHead && !prev.detachedHead) {
       events.push({
         id: counter(),
         from: "sealed",
         to: "workbench",
         text: "You stepped off the timeline to inspect an old snapshot (detached HEAD) — the Workbench now shows that moment.",
-        freshKeys: [],
+        freshKeys: switchedFiles,
       });
     } else if (next.currentBranch && next.currentBranch !== prev.currentBranch) {
       const isNew = !prev.branches.some((b) => b.name === next.currentBranch);
@@ -205,7 +212,7 @@ export function detectMovements(prev: RepoState, next: RepoState, counter: () =>
         text: isNew
           ? `New timeline: branch ${next.currentBranch} was created and your Workbench now follows it.`
           : `Switched to branch ${next.currentBranch} — the Workbench files jumped to that timeline.`,
-        freshKeys: [],
+        freshKeys: switchedFiles,
       });
     }
   }

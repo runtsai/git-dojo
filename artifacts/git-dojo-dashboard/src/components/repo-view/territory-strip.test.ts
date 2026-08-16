@@ -208,6 +208,8 @@ describe("branch", () => {
     expect(ev).toBeDefined();
     expect(ev!.text).toMatch(/feature/);
     expect(ev!.text).toMatch(/created|new timeline/i);
+    // No workbench files differ between snapshots → freshKeys is empty
+    expect(ev!.freshKeys).toEqual([]);
   });
 
   it("narrates switching to an existing branch", () => {
@@ -230,6 +232,67 @@ describe("branch", () => {
     expect(ev).toBeDefined();
     expect(ev!.text).toMatch(/develop/);
     expect(ev!.text).toMatch(/Switched/i);
+    // No workbench files differ between snapshots → freshKeys is empty
+    expect(ev!.freshKeys).toEqual([]);
+  });
+
+  it("populates freshKeys with files that appear on the workbench after a branch switch", () => {
+    const prev = state({
+      currentBranch: "main",
+      branches: [
+        { name: "main", isCurrent: true, headHash: "abc" },
+        { name: "feature", isCurrent: false, headHash: "def" },
+      ],
+      files: [],
+    });
+    const next = state({
+      currentBranch: "feature",
+      branches: [
+        { name: "main", isCurrent: false, headHash: "abc" },
+        { name: "feature", isCurrent: true, headHash: "def" },
+      ],
+      // These files are specific to the feature branch and weren't on the
+      // workbench before the switch.
+      files: [
+        { path: "feature.ts", status: "untracked" },
+        { path: "notes.md", status: "modified" },
+      ],
+    });
+    const events = detectMovements(prev, next, counter);
+    const ev = events.find((e) => e.from === "sealed" && e.to === "workbench");
+    expect(ev).toBeDefined();
+    expect(ev!.freshKeys).toContain("feature.ts");
+    expect(ev!.freshKeys).toContain("notes.md");
+  });
+
+  it("does not include files that were already on the workbench before the switch", () => {
+    const prev = state({
+      currentBranch: "main",
+      branches: [
+        { name: "main", isCurrent: true, headHash: "abc" },
+        { name: "hotfix", isCurrent: false, headHash: "def" },
+      ],
+      // This file was already on the workbench on main
+      files: [{ path: "existing.ts", status: "modified" }],
+    });
+    const next = state({
+      currentBranch: "hotfix",
+      branches: [
+        { name: "main", isCurrent: false, headHash: "abc" },
+        { name: "hotfix", isCurrent: true, headHash: "def" },
+      ],
+      // existing.ts was already present; newfile.ts appeared from the branch
+      files: [
+        { path: "existing.ts", status: "modified" },
+        { path: "newfile.ts", status: "untracked" },
+      ],
+    });
+    const events = detectMovements(prev, next, counter);
+    const ev = events.find((e) => e.from === "sealed" && e.to === "workbench");
+    expect(ev).toBeDefined();
+    // Only the newly-appeared file should be highlighted
+    expect(ev!.freshKeys).toContain("newfile.ts");
+    expect(ev!.freshKeys).not.toContain("existing.ts");
   });
 });
 
