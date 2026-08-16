@@ -13,6 +13,7 @@ import { tiers } from "./tiers";
 import { breakthroughs } from "./breakthroughs/index";
 import { crises } from "./crises";
 import { lessonLocations } from "./map/index";
+import { CLI_LESSON_IDS } from "./lessons";
 import { drillBank } from "./drills";
 
 // ── Derived content sets ─────────────────────────────────────────────────────
@@ -119,5 +120,42 @@ describe("drills integrity — unique IDs", () => {
       `Duplicate drill id(s) found: ${duplicates.map((id) => `"${id}"`).join(", ")}. ` +
         `Each drill must have a unique id so learner progress is never confused.`,
     ).toEqual([]);
+  });
+});
+
+describe("drills integrity — sourceId validity", () => {
+  /**
+   * Every drill sourceId must resolve to a real active module, CLI lesson,
+   * or crisis.  A typo or a deleted lesson leaves the priority-boost logic
+   * pointing at a ghost ID and silently doing nothing.
+   *
+   * CLI lessons are sourced from CLI_LESSON_IDS (the canonical lesson
+   * manifest) rather than from lessonLocations, so this test fails when a
+   * lesson is removed from the manifest even if its Map entry is left behind.
+   */
+  const validSourceIds = new Set<string>([
+    ...activeModuleIds,
+    ...CLI_LESSON_IDS,
+    ...crisisIds,
+  ]);
+
+  it("all drill sourceIds point to a real lesson, module, or crisis", () => {
+    const broken: { drillId: string; sourceId: string }[] = [];
+    for (const drill of drillBank) {
+      if (drill.sourceId !== undefined && !validSourceIds.has(drill.sourceId)) {
+        broken.push({ drillId: drill.id, sourceId: drill.sourceId });
+      }
+    }
+    const message =
+      broken.length > 0
+        ? `Drill(s) with unknown sourceId:\n${broken
+            .map(
+              ({ drillId, sourceId }) =>
+                `  "${drillId}" → sourceId "${sourceId}" does not match any active module id, lesson id, or crisis id`,
+            )
+            .join("\n")}\n` +
+          `Valid ids are: ${[...validSourceIds].sort().map((id) => `"${id}"`).join(", ")}`
+        : "";
+    expect(broken, message).toEqual([]);
   });
 });
