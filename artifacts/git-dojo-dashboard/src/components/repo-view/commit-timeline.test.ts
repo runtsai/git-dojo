@@ -163,3 +163,182 @@ describe("edge resolution", () => {
     }
   });
 });
+
+// ---------------------------------------------------------------------------
+// 3+ simultaneous branches
+// ---------------------------------------------------------------------------
+
+describe("three simultaneous branches", () => {
+  // History shape (newest first in array):
+  //   B  C  D   ← three tips, all children of A
+  //    \ | /
+  //      A       ← shared root
+  let a: ReturnType<typeof makeCommit>;
+  let b: ReturnType<typeof makeCommit>;
+  let c: ReturnType<typeof makeCommit>;
+  let d: ReturnType<typeof makeCommit>;
+  beforeEach(() => {
+    a = makeCommit("Root");
+    b = makeCommit("Branch-B", [a.hash]);
+    c = makeCommit("Branch-C", [a.hash]);
+    d = makeCommit("Branch-D", [a.hash]);
+  });
+
+  it("each tip gets a unique column", () => {
+    const { rows } = layoutGraph([b, c, d, a]);
+    const colB = rows.find((r) => r.commit.hash === b.hash)!.col;
+    const colC = rows.find((r) => r.commit.hash === c.hash)!.col;
+    const colD = rows.find((r) => r.commit.hash === d.hash)!.col;
+    expect(colB).not.toBe(colC);
+    expect(colB).not.toBe(colD);
+    expect(colC).not.toBe(colD);
+  });
+
+  it("every edge endpoint lands on its parent's actual column", () => {
+    const { rows, edges } = layoutGraph([b, c, d, a]);
+    const colByHash = new Map(rows.map((r) => [r.commit.hash, r.col]));
+    for (const e of edges) {
+      const parentCommit = rows[e.toRow]!.commit;
+      expect(e.toCol).toBe(colByHash.get(parentCommit.hash));
+    }
+  });
+
+  it("maxCol is at least 2 when three branches exist simultaneously", () => {
+    const { maxCol } = layoutGraph([b, c, d, a]);
+    expect(maxCol).toBeGreaterThanOrEqual(2);
+  });
+
+  it("no -1 sentinel survives resolution with three branches", () => {
+    const { edges } = layoutGraph([b, c, d, a]);
+    for (const e of edges) {
+      expect(e.toCol).not.toBe(-1);
+      expect(e.fromCol).not.toBe(-1);
+    }
+  });
+});
+
+describe("four simultaneous branches", () => {
+  // History shape (newest first in array):
+  //   B  C  D  E  ← four tips, all children of A
+  //    \ | / | /
+  //        A      ← shared root
+  it("each tip gets a unique column", () => {
+    const a = makeCommit("Root");
+    const b = makeCommit("Branch-B", [a.hash]);
+    const c = makeCommit("Branch-C", [a.hash]);
+    const d = makeCommit("Branch-D", [a.hash]);
+    const e = makeCommit("Branch-E", [a.hash]);
+    const { rows } = layoutGraph([b, c, d, e, a]);
+    const cols = [b, c, d, e].map((x) => rows.find((r) => r.commit.hash === x.hash)!.col);
+    // All four columns must be distinct
+    const unique = new Set(cols);
+    expect(unique.size).toBe(4);
+  });
+
+  it("every edge endpoint lands on its parent's actual column", () => {
+    const a = makeCommit("Root");
+    const b = makeCommit("Branch-B", [a.hash]);
+    const c = makeCommit("Branch-C", [a.hash]);
+    const d = makeCommit("Branch-D", [a.hash]);
+    const e = makeCommit("Branch-E", [a.hash]);
+    const { rows, edges } = layoutGraph([b, c, d, e, a]);
+    const colByHash = new Map(rows.map((r) => [r.commit.hash, r.col]));
+    for (const edge of edges) {
+      const parentCommit = rows[edge.toRow]!.commit;
+      expect(edge.toCol).toBe(colByHash.get(parentCommit.hash));
+    }
+  });
+
+  it("maxCol is at least 3 when four branches exist simultaneously", () => {
+    const a = makeCommit("Root");
+    const b = makeCommit("Branch-B", [a.hash]);
+    const c = makeCommit("Branch-C", [a.hash]);
+    const d = makeCommit("Branch-D", [a.hash]);
+    const e = makeCommit("Branch-E", [a.hash]);
+    const { maxCol } = layoutGraph([b, c, d, e, a]);
+    expect(maxCol).toBeGreaterThanOrEqual(3);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Back-to-back merges (fan-in): freed lanes are reused in order
+// ---------------------------------------------------------------------------
+
+describe("back-to-back merges (fan-in)", () => {
+  // History shape (newest first in array):
+  //
+  //   M2          ← merge of M1 and D  (row 0)
+  //   |  \
+  //   M1   D      ← merge of B and C   (rows 1, 2)
+  //   | \  |
+  //   B  C  |     ← two side branches  (rows 3, 4)
+  //   |  |  |
+  //   A  A  A     ← shared root        (row 5)
+  //
+  // When M1 is laid out, C's lane is freed.
+  // When M2 is laid out, D's lane is freed.
+  // A subsequent tip should reuse the lowest-index freed lane.
+
+  it("all edge endpoints land on the parent's actual column", () => {
+    const a = makeCommit("Root");
+    const b = makeCommit("Feature-B", [a.hash]);
+    const c = makeCommit("Feature-C", [a.hash]);
+    const d = makeCommit("Feature-D", [a.hash]);
+    const m1 = makeCommit("Merge B+C", [b.hash, c.hash]);
+    const m2 = makeCommit("Merge M1+D", [m1.hash, d.hash]);
+    // newest first
+    const { rows, edges } = layoutGraph([m2, m1, b, c, d, a]);
+    const colByHash = new Map(rows.map((r) => [r.commit.hash, r.col]));
+    for (const e of edges) {
+      const parentCommit = rows[e.toRow]!.commit;
+      expect(e.toCol).toBe(colByHash.get(parentCommit.hash));
+    }
+  });
+
+  it("no -1 sentinel survives resolution in a fan-in graph", () => {
+    const a = makeCommit("Root");
+    const b = makeCommit("Feature-B", [a.hash]);
+    const c = makeCommit("Feature-C", [a.hash]);
+    const d = makeCommit("Feature-D", [a.hash]);
+    const m1 = makeCommit("Merge B+C", [b.hash, c.hash]);
+    const m2 = makeCommit("Merge M1+D", [m1.hash, d.hash]);
+    const { edges } = layoutGraph([m2, m1, b, c, d, a]);
+    for (const e of edges) {
+      expect(e.toCol).not.toBe(-1);
+      expect(e.fromCol).not.toBe(-1);
+    }
+  });
+
+  it("maxCol stays bounded after lanes are freed by a merge (no unnecessary lane expansion)", () => {
+    // B (col 0) and C (col 1) are simultaneous branches; M1 merges them.
+    // After A (the shared root) is processed both lanes collapse into one and become free.
+    // maxCol must remain 1 — no commit should force a third column to open.
+    const a = makeCommit("Root");
+    const b = makeCommit("Feature-B", [a.hash]);
+    const c = makeCommit("Feature-C", [a.hash]);
+    const m1 = makeCommit("Merge B+C", [b.hash, c.hash]);
+    const { maxCol } = layoutGraph([m1, b, c, a]);
+    // Two simultaneous branches need exactly 2 columns (0 and 1); maxCol must be 1.
+    expect(maxCol).toBe(1);
+  });
+
+  it("back-to-back merges produce correct unique columns for all simultaneous branches", () => {
+    // Three branches B, C, D exist simultaneously before any merge.
+    // Verify they each sit on distinct columns.
+    const a = makeCommit("Root");
+    const b = makeCommit("Feature-B", [a.hash]);
+    const c = makeCommit("Feature-C", [a.hash]);
+    const d = makeCommit("Feature-D", [a.hash]);
+    const m1 = makeCommit("Merge B+C", [b.hash, c.hash]);
+    const m2 = makeCommit("Merge M1+D", [m1.hash, d.hash]);
+    const { rows } = layoutGraph([m2, m1, b, c, d, a]);
+    const colByHash = new Map(rows.map((r) => [r.commit.hash, r.col]));
+    // At the point B, C, D are all live simultaneously they must occupy distinct columns.
+    const colB = colByHash.get(b.hash)!;
+    const colC = colByHash.get(c.hash)!;
+    const colD = colByHash.get(d.hash)!;
+    expect(colB).not.toBe(colC);
+    expect(colB).not.toBe(colD);
+    expect(colC).not.toBe(colD);
+  });
+});
