@@ -155,7 +155,35 @@ function diskCachePath(sourceHash: string): string {
 }
 
 /**
+ * Remove any `.mp4` files in CACHE_DIR whose name does not match `keepHash`.
+ * Used both at startup (inside `loadDiskCache`) and after a successful render
+ * (inside `writeDiskCache`) so that orphaned files don't accumulate on
+ * long-lived servers.  Deletion failures are logged but never fatal.
+ */
+async function sweepStaleCacheFiles(keepHash: string): Promise<void> {
+  try {
+    const entries = await readdir(getCacheDir());
+    for (const entry of entries) {
+      if (!entry.endsWith(".mp4")) continue;
+      if (entry === `${keepHash}.mp4`) continue; // keep the current one
+      const stalePath = path.join(getCacheDir(), entry);
+      try {
+        await rm(stalePath);
+        logger.info({ path: stalePath }, "export: removed stale disk-cache file");
+      } catch (rmErr) {
+        logger.warn({ err: rmErr, path: stalePath }, "export: failed to remove stale cache file (non-fatal)");
+      }
+    }
+  } catch (sweepErr) {
+    // Cache dir may not exist yet on a fresh instance — that's fine.
+    logger.debug({ err: sweepErr }, "export: cache sweep skipped (directory may not exist yet)");
+  }
+}
+
+/**
  * Persist the rendered MP4 to disk so it survives server restarts.
+ * After a successful write, sweeps any stale `.mp4` files left over from
+ * previous renders so they don't accumulate on long-lived servers.
  * Failures are logged but never propagated — a write error must not break
  * an already-successful render.
  */
@@ -164,6 +192,7 @@ async function writeDiskCache(sourceHash: string, buffer: Buffer): Promise<void>
     await mkdir(getCacheDir(), { recursive: true });
     await writeFile(diskCachePath(sourceHash), buffer);
     logger.info({ path: diskCachePath(sourceHash) }, "export: disk cache written");
+    await sweepStaleCacheFiles(sourceHash);
   } catch (err) {
     logger.warn({ err }, "export: failed to write disk cache (non-fatal)");
   }
@@ -285,23 +314,7 @@ export async function loadDiskCache(): Promise<void> {
     // ------------------------------------------------------------------
     // Sweep stale MP4 files from previous renders.
     // ------------------------------------------------------------------
-    try {
-      const entries = await readdir(getCacheDir());
-      for (const entry of entries) {
-        if (!entry.endsWith(".mp4")) continue;
-        if (entry === `${sourceHash}.mp4`) continue; // keep the current one
-        const stalePath = path.join(getCacheDir(), entry);
-        try {
-          await rm(stalePath);
-          logger.info({ path: stalePath }, "export: removed stale disk-cache file");
-        } catch (rmErr) {
-          logger.warn({ err: rmErr, path: stalePath }, "export: failed to remove stale cache file (non-fatal)");
-        }
-      }
-    } catch (sweepErr) {
-      // Cache dir may not exist yet on a fresh instance — that's fine.
-      logger.debug({ err: sweepErr }, "export: cache sweep skipped (directory may not exist yet)");
-    }
+    await sweepStaleCacheFiles(sourceHash);
 
     // ------------------------------------------------------------------
     // Load the matching cache file if present.
