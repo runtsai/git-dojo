@@ -26,15 +26,34 @@ interface DrillItemRecord {
   dueAt: string | null;
 }
 
+interface FrictionEntry {
+  at: string; // ISO 8601
+  passed: boolean;
+}
+
 interface FrictionRecord {
   failures: number;
   passes: number;
+  /** Rolling window of the last FRICTION_WINDOW runs (newest last). */
+  runs: FrictionEntry[];
 }
 
 interface DrillData {
   items: Record<string, DrillItemRecord>;
   friction: Record<string, FrictionRecord>;
 }
+
+/** Rolling window size for grader-run history per source. */
+const FRICTION_WINDOW = 30;
+
+/**
+ * Exponential decay half-life for friction failures.
+ * Failures 14 days old count half as much as fresh ones; at 28 days they
+ * count one quarter, etc.  This keeps priority honest for learners who have
+ * since mastered the material.
+ */
+const FRICTION_HALF_LIFE_MS = 14 * 24 * 60 * 60 * 1000;
+const FRICTION_DECAY_K = Math.LN2 / FRICTION_HALF_LIFE_MS;
 
 /** Correct answers walk up this ladder: 1d, 3d, 7d, 14d, 30d. */
 const INTERVALS_MS = [
@@ -48,13 +67,33 @@ const INTERVALS_MS = [
 /** A wrong answer brings the item back after ten minutes. */
 const WRONG_RETRY_MS = 10 * 60 * 1000;
 
+function normaliseFriction(raw: Record<string, unknown>): Record<string, FrictionRecord> {
+  const out: Record<string, FrictionRecord> = {};
+  for (const [k, v] of Object.entries(raw)) {
+    if (v && typeof v === "object") {
+      const r = v as Record<string, unknown>;
+      out[k] = {
+        failures: typeof r.failures === "number" ? r.failures : 0,
+        passes: typeof r.passes === "number" ? r.passes : 0,
+        // Legacy records have no runs array; start fresh so decay applies
+        // going forward while raw totals are preserved for display.
+        runs: Array.isArray(r.runs) ? (r.runs as FrictionEntry[]) : [],
+      };
+    }
+  }
+  return out;
+}
+
 function load(): DrillData {
   try {
     if (!existsSync(DRILLS_FILE)) return { items: {}, friction: {} };
     const raw = JSON.parse(readFileSync(DRILLS_FILE, "utf-8"));
     return {
       items: raw.items && typeof raw.items === "object" ? raw.items : {},
-      friction: raw.friction && typeof raw.friction === "object" ? raw.friction : {},
+      friction:
+        raw.friction && typeof raw.friction === "object"
+          ? normaliseFriction(raw.friction as Record<string, unknown>)
+          : {},
     };
   } catch {
     return { items: {}, friction: {} };
@@ -77,6 +116,30 @@ export interface DrillItemStats {
   priority: number;
 }
 
+/**
+ * Compute a recency-weighted failure score for a friction record.
+ *
+ * Each failure in the rolling window contributes exp(-k * age), so failures
+ * decay exponentially with a 14-day half-life.  The result is in the range
+ * [0, FRICTION_WINDOW] (all-recent-failures → FRICTION_WINDOW, all-passes →
+ * 0) and is capped at 10 for priority arithmetic.
+ *
+ * For legacy records that have no `runs` array yet, the score is 0 (decay
+ * takes effect as new runs arrive); the raw `failures` total is preserved for
+ * display purposes but is intentionally not used for priority.
+ */
+function decayedFailureScore(friction: FrictionRecord, now: number): number {
+  if (friction.runs.length === 0) return 0;
+  let score = 0;
+  for (const run of friction.runs) {
+    if (!run.passed) {
+      const age = now - Date.parse(run.at);
+      score += Math.exp(-FRICTION_DECAY_K * age);
+    }
+  }
+  return score;
+}
+
 function statsFor(
   id: string,
   record: DrillItemRecord | undefined,
@@ -89,12 +152,15 @@ function statsFor(
   const dueNow = dueAt === null || Date.parse(dueAt) <= now;
 
   // Priority (only meaningful among due items):
-  // - grader friction on the source is the strongest signal
+  // - grader friction on the source is the strongest signal (recency-weighted)
   // - items answered wrong last time come before comfortable ones
   // - never-seen items rank above long-settled ones
   // - overdue time breaks ties
   let priority = 0;
-  if (friction && friction.failures > 0) priority += Math.min(friction.failures, 10) * 10;
+  if (friction) {
+    const score = decayedFailureScore(friction, now);
+    priority += Math.min(score, 10) * 10;
+  }
   if (last && !last.correct) priority += 25;
   if (attempts.length === 0) priority += 5;
   if (dueAt !== null && dueNow) {
@@ -121,8 +187,14 @@ export interface DueQueryCandidate {
 
 export interface DrillFrictionEntry {
   sourceId: string;
+  /** Raw cumulative failure count (preserved for display). */
   failures: number;
   passes: number;
+  /**
+   * Recency-weighted failure score (0–10 range).  Use this for ranking
+   * weak-spot lists instead of the raw count so old failures don't dominate.
+   */
+  effectiveFailures: number;
 }
 
 /** Stats for every candidate, due items first (highest priority first). */
@@ -152,10 +224,12 @@ export function queryDue(candidates: DueQueryCandidate[]): {
   for (const sourceId of seenSourceIds) {
     const rec = data.friction[sourceId];
     if (rec && rec.failures > 0) {
-      friction.push({ sourceId, failures: rec.failures, passes: rec.passes });
+      const effectiveFailures = Math.round(decayedFailureScore(rec, now) * 10) / 10;
+      friction.push({ sourceId, failures: rec.failures, passes: rec.passes, effectiveFailures });
     }
   }
-  friction.sort((a, b) => b.failures - a.failures);
+  // Sort by effective (decayed) failures so the list reflects current weak spots.
+  friction.sort((a, b) => b.effectiveFailures - a.effectiveFailures);
 
   return { items, dueCount: items.filter((i) => i.dueNow).length, friction };
 }
@@ -197,9 +271,14 @@ export function recordAttempt(
  */
 export function recordGraderResult(sourceId: string, passed: boolean): void {
   const data = load();
-  const rec = data.friction[sourceId] ?? { failures: 0, passes: 0 };
+  const rec: FrictionRecord = data.friction[sourceId] ?? { failures: 0, passes: 0, runs: [] };
   if (passed) rec.passes += 1;
   else rec.failures += 1;
+  // Append to rolling window; trim to the most recent FRICTION_WINDOW entries.
+  rec.runs.push({ at: new Date().toISOString(), passed });
+  if (rec.runs.length > FRICTION_WINDOW) {
+    rec.runs = rec.runs.slice(-FRICTION_WINDOW);
+  }
   data.friction[sourceId] = rec;
   save(data);
 }

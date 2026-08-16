@@ -427,7 +427,8 @@ export const GetDueDrillsResponse = zod.object({
   "friction": zod.array(zod.object({
   "sourceId": zod.string().describe('Lesson or crisis id (e.g. \"lesson-01\", \"crisis-03\")'),
   "failures": zod.number().describe('Number of failed grader runs on this source'),
-  "passes": zod.number().describe('Number of passed grader runs on this source')
+  "passes": zod.number().describe('Number of passed grader runs on this source'),
+  "effectiveFailures": zod.number().describe('Recency-weighted failure score (0–10 range). Failures decay exponentially with a 14-day half-life so old misses stop dominating the ranking once the learner has improved.\n')
 }).describe('Grader friction for one lesson or crisis source')).describe('Per-source grader friction for sources referenced by the candidates, sorted by failures descending. Only sources with at least one failure are included.')
 })
 

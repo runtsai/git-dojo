@@ -16,4 +16,6 @@ export interface DrillFrictionEntry {
   failures: number;
   /** Number of passed grader runs on this source */
   passes: number;
+  /** Recency-weighted failure score (0–10 range). Failures decay exponentially with a 14-day half-life so old misses stop dominating the ranking once the learner has improved. */
+  effectiveFailures: number;
 }
