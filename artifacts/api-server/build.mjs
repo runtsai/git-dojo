@@ -22,6 +22,11 @@ async function buildAll() {
     outdir: distDir,
     outExtension: { ".js": ".mjs" },
     logLevel: "info",
+    alias: {
+      // Workspace packages are not installed into node_modules; resolve them
+      // to their TypeScript source so esbuild can bundle them directly.
+      "@workspace/course-content": path.resolve(artifactDir, "../../lib/course-content/src/index.ts"),
+    },
     // Some packages may not be bundleable, so we externalize them, we can add more here as needed.
     // Some of the packages below may not be imported or installed, but we're adding them in case they are in the future.
     // Examples of unbundleable packages:
