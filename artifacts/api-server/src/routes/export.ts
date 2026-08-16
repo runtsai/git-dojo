@@ -2,8 +2,9 @@ import { Router, type IRouter } from "express";
 import { execFile } from "node:child_process";
 import { execSync } from "node:child_process";
 import { promisify } from "node:util";
-import { mkdtemp, rm, stat } from "node:fs/promises";
-import { createReadStream, existsSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { mkdtemp, rm, stat, readdir, readFile } from "node:fs/promises";
+import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { logger } from "../lib/logger";
@@ -24,6 +25,14 @@ const BG_MUSIC_PATH = path.resolve(
   "public",
   "audio",
   "bg_music.mp3",
+);
+
+// Promo source directory — any change here busts the cache.
+const PROMO_SRC_DIR = path.resolve(
+  process.cwd(),
+  "..",
+  "git-dojo-promo",
+  "src",
 );
 
 // Extra wall-clock padding after the declared video duration so the last
@@ -48,40 +57,70 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-// Only one export may run at a time — a headless Chrome + ffmpeg render is
-// heavy, and concurrent runs would fight for CPU and produce janky output.
-let exportInFlight = false;
+// ---------------------------------------------------------------------------
+// Source-hash helper
+// ---------------------------------------------------------------------------
 
-router.get("/export/promo-video", async (req, res) => {
-  if (exportInFlight) {
-    res.status(409).json({
-      error: "An export is already in progress. Try again in a minute.",
-    });
-    return;
+/**
+ * Walk the promo source directory and hash the content of every .ts/.tsx/.css/.json file.
+ * The resulting hex digest changes whenever the promo video code changes, which
+ * is the signal to bust the render cache.
+ */
+async function computePromoSourceHash(): Promise<string> {
+  const hash = createHash("sha256");
+
+  async function hashDir(dir: string): Promise<void> {
+    let entries;
+    try {
+      entries = await readdir(dir, { withFileTypes: true });
+    } catch {
+      return; // directory may not exist in all environments
+    }
+    entries.sort((a, b) => a.name.localeCompare(b.name));
+
+    for (const entry of entries) {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        await hashDir(full);
+      } else if (/\.(ts|tsx|css|json)$/i.test(entry.name)) {
+        hash.update(entry.name);
+        hash.update(await readFile(full));
+      }
+    }
   }
 
-  if (!existsSync(BG_MUSIC_PATH)) {
-    res.status(500).json({
-      error: `Background music not found at ${BG_MUSIC_PATH}`,
-    });
-    return;
-  }
+  await hashDir(PROMO_SRC_DIR);
+  return hash.digest("hex");
+}
 
-  exportInFlight = true;
+// ---------------------------------------------------------------------------
+// Cache + in-flight queue
+// ---------------------------------------------------------------------------
+
+interface RenderCache {
+  /** SHA-256 of the promo source tree when this render was produced. */
+  sourceHash: string;
+  /** The finished MP4 file contents held in memory. */
+  buffer: Buffer;
+}
+
+/** Last successfully rendered MP4, or null if not yet produced / invalidated. */
+let renderCache: RenderCache | null = null;
+
+/**
+ * Promise representing an in-flight render.  Any concurrent request that
+ * arrives while a render is running awaits this promise instead of starting a
+ * new one, so they all share the same result without fighting for CPU.
+ */
+let renderPromise: Promise<Buffer> | null = null;
+
+// ---------------------------------------------------------------------------
+// Core render logic (runs at most once at a time)
+// ---------------------------------------------------------------------------
+
+async function renderMp4(): Promise<Buffer> {
   let workDir: string | null = null;
   let browser: import("puppeteer-core").Browser | null = null;
-
-  const cleanup = async () => {
-    try {
-      await browser?.close();
-    } catch {
-      /* already closed */
-    }
-    if (workDir) {
-      await rm(workDir, { recursive: true, force: true }).catch(() => {});
-    }
-    exportInFlight = false;
-  };
 
   try {
     const puppeteer = (await import("puppeteer-core")).default;
@@ -117,16 +156,16 @@ router.get("/export/promo-video", async (req, res) => {
       timeout: 30_000,
     });
 
-    const totalDurationMs = await page.evaluate(
-      "window.__exportTotalMs",
-    );
+    const totalDurationMs = await page.evaluate("window.__exportTotalMs");
     if (typeof totalDurationMs !== "number" || totalDurationMs <= 0) {
       throw new Error(
         `Export page did not declare a valid total duration (got ${String(totalDurationMs)})`,
       );
     }
 
-    const recorder = await page.screencast({ path: webmPath as `${string}.webm` });
+    const recorder = await page.screencast({
+      path: webmPath as `${string}.webm`,
+    });
 
     await page.evaluate("window.__startExportPlayback()");
     logger.info({ totalDurationMs }, "export: recording started");
@@ -170,23 +209,95 @@ router.get("/export/promo-video", async (req, res) => {
       throw new Error("Transcoding produced an empty MP4.");
     }
 
-    res.setHeader("Content-Type", "video/mp4");
-    res.setHeader("Content-Length", String(mp4Stat.size));
-    res.setHeader(
-      "Content-Disposition",
-      'attachment; filename="git-dojo-promo.mp4"',
-    );
+    const buffer = await readFile(mp4Path);
+    logger.info({ bytes: buffer.length }, "export: mp4 ready");
+    return buffer;
+  } finally {
+    try {
+      await browser?.close();
+    } catch {
+      /* already closed */
+    }
+    if (workDir) {
+      await rm(workDir, { recursive: true, force: true }).catch(() => {});
+    }
+  }
+}
 
-    const stream = createReadStream(mp4Path);
-    stream.pipe(res);
-    await new Promise<void>((resolve, reject) => {
-      stream.on("end", resolve);
-      stream.on("error", reject);
-      res.on("close", resolve);
+// ---------------------------------------------------------------------------
+// Route
+// ---------------------------------------------------------------------------
+
+function sendMp4(res: import("express").Response, buffer: Buffer): void {
+  res.setHeader("Content-Type", "video/mp4");
+  res.setHeader("Content-Length", String(buffer.length));
+  res.setHeader(
+    "Content-Disposition",
+    'attachment; filename="git-dojo-promo.mp4"',
+  );
+  res.end(buffer);
+}
+
+router.get("/export/promo-video", async (req, res) => {
+  if (!existsSync(BG_MUSIC_PATH)) {
+    res.status(500).json({
+      error: `Background music not found at ${BG_MUSIC_PATH}`,
     });
-    logger.info({ bytes: mp4Stat.size }, "export: mp4 delivered");
+    return;
+  }
+
+  // ------------------------------------------------------------------
+  // 1. Check whether the cached render is still valid.
+  // ------------------------------------------------------------------
+  let currentHash: string;
+  try {
+    currentHash = await computePromoSourceHash();
+  } catch (err) {
+    req.log.warn({ err }, "export: could not compute source hash; skipping cache");
+    currentHash = "";
+  }
+
+  if (renderCache && currentHash && renderCache.sourceHash === currentHash) {
+    logger.info(
+      { bytes: renderCache.buffer.length },
+      "export: serving cached mp4",
+    );
+    sendMp4(res, renderCache.buffer);
+    return;
+  }
+
+  // ------------------------------------------------------------------
+  // 2. If a render is already in flight, queue onto it.
+  // ------------------------------------------------------------------
+  if (renderPromise !== null) {
+    logger.info("export: render in flight — queuing request");
+    try {
+      const buffer = await renderPromise;
+      sendMp4(res, buffer);
+    } catch (err) {
+      req.log.error({ err }, "export: queued render failed");
+      if (!res.headersSent) {
+        res.status(500).json({
+          error:
+            err instanceof Error ? err.message : "Promo video export failed.",
+        });
+      }
+    }
+    return;
+  }
+
+  // ------------------------------------------------------------------
+  // 3. Start a fresh render.  Store the promise so concurrent arrivals
+  //    join the queue (step 2) rather than launching another render.
+  // ------------------------------------------------------------------
+  renderPromise = renderMp4();
+
+  let buffer: Buffer;
+  try {
+    buffer = await renderPromise;
   } catch (err) {
     req.log.error({ err }, "promo video export failed");
+    renderPromise = null; // allow future requests to retry
     if (!res.headersSent) {
       res.status(500).json({
         error:
@@ -195,9 +306,14 @@ router.get("/export/promo-video", async (req, res) => {
     } else {
       res.destroy();
     }
-  } finally {
-    await cleanup();
+    return;
   }
+
+  // Render succeeded — update cache and clear the in-flight promise.
+  renderCache = { sourceHash: currentHash, buffer };
+  renderPromise = null;
+
+  sendMp4(res, buffer);
 });
 
 export default router;
