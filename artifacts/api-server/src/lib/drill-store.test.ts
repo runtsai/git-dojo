@@ -30,7 +30,10 @@ vi.mock("node:fs", async (importOriginal) => {
 });
 
 // Import AFTER mocks are registered.
-const { queryDue } = await import("./drill-store.js");
+const { queryDue, recordGraderResult } = await import("./drill-store.js");
+
+// Grab the mocked writeFileSync so stateful tests can make it persist.
+const { writeFileSync } = await import("node:fs");
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -269,5 +272,107 @@ describe("queryDue friction sort stability", () => {
     // source-recovered should not appear (fully recovered)
     expect(friction.length).toBe(1);
     expect(friction[0].sourceId).toBe("source-weak");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// End-to-end recovery tests via recordGraderResult
+// RECENT_WINDOW = 10, half = floor(10/2) = 5
+// Recovery fires when recentFailures === 0 && recentPasses > 0
+// (i.e. the newer half of the last 10 runs contains only passes)
+// ---------------------------------------------------------------------------
+
+describe("queryDue recovery filter — end-to-end via recordGraderResult", () => {
+  beforeEach(() => {
+    vi.restoreAllMocks();
+    mockFileContents.value = null;
+    // Wire writeFileSync to persist into mockFileContents so that
+    // recordGraderResult → save() → load() → queryDue() all share state.
+    vi.mocked(writeFileSync).mockImplementation((_path, content) => {
+      mockFileContents.value = content as string;
+    });
+  });
+
+  it("hides a source from friction after enough passes fill the recent half-window", () => {
+    const candidates = [{ id: "d1", sourceId: "source-a" }];
+
+    // Record 3 failures — source should appear as a weak spot.
+    recordGraderResult("source-a", false);
+    recordGraderResult("source-a", false);
+    recordGraderResult("source-a", false);
+
+    const { friction: before } = queryDue(candidates);
+    expect(before.some((f) => f.sourceId === "source-a")).toBe(true);
+
+    // Record 5 consecutive passes so the newer half of the recent window
+    // (last 5 of the last 10 runs) contains only passes.
+    // Total runs: [F, F, F, P, P, P, P, P] → newerHalf = [P, P, P, P, P]
+    // → recentFailures === 0, recentPasses === 5 → entry is excluded.
+    for (let i = 0; i < 5; i++) {
+      recordGraderResult("source-a", true);
+    }
+
+    const { friction: after } = queryDue(candidates);
+    expect(after.some((f) => f.sourceId === "source-a")).toBe(false);
+  });
+
+  it("keeps a source in friction when only some passes arrived and a failure remains in the recent half", () => {
+    // Build: [F, F, F, P, P, P, F] — total 7 runs.
+    // newerHalf = last 5 = [F, P, P, P, F] → recentFailures = 2 → NOT excluded.
+    const candidates = [{ id: "d1", sourceId: "source-partial" }];
+
+    recordGraderResult("source-partial", false);
+    recordGraderResult("source-partial", false);
+    recordGraderResult("source-partial", false);
+    recordGraderResult("source-partial", true);
+    recordGraderResult("source-partial", true);
+    recordGraderResult("source-partial", true);
+    recordGraderResult("source-partial", false); // failure in recent window
+
+    const { friction } = queryDue(candidates);
+    expect(friction.some((f) => f.sourceId === "source-partial")).toBe(true);
+    const entry = friction.find((f) => f.sourceId === "source-partial")!;
+    expect(entry.recentFailures).toBeGreaterThan(0);
+  });
+
+  it("still shows a source that has only old failures and no recent runs (empty newer half)", () => {
+    // The newer half uses the last RECENT_WINDOW (10) runs, split at half (5).
+    // When fewer than 5 total runs exist, newerHalf = all runs.
+    // A single failure: newerHalf = [F] → recentFailures = 1 → NOT excluded.
+    const now = Date.now();
+    setDrillData({
+      "source-old-only": {
+        failures: 3,
+        passes: 0,
+        // All runs are older than the recent window split (aged 20+ days),
+        // but the filter is position-based not time-based, so position matters.
+        runs: [
+          failureAt(20 * 24 * 60 * 60 * 1000, now),
+          failureAt(21 * 24 * 60 * 60 * 1000, now),
+          failureAt(22 * 24 * 60 * 60 * 1000, now),
+        ],
+      },
+    });
+
+    const candidates = [{ id: "d1", sourceId: "source-old-only" }];
+    const { friction } = queryDue(candidates);
+    // 3 runs → newerHalf = last 3 (all failures) → recentFailures = 3 → shown
+    expect(friction.some((f) => f.sourceId === "source-old-only")).toBe(true);
+  });
+
+  it("excludes a source that recovers after 10+ runs fill the window with passes at the end", () => {
+    // 10 failures then 5 passes gives runs = [F×5, P×5] (window = last 10).
+    // newerHalf (last 5) = [P, P, P, P, P] → fully recovered → excluded.
+    const candidates = [{ id: "d1", sourceId: "source-long" }];
+
+    for (let i = 0; i < 10; i++) recordGraderResult("source-long", false);
+    // Verify it's present before recovery.
+    const { friction: mid } = queryDue(candidates);
+    expect(mid.some((f) => f.sourceId === "source-long")).toBe(true);
+
+    for (let i = 0; i < 5; i++) recordGraderResult("source-long", true);
+
+    const { friction: final } = queryDue(candidates);
+    expect(final.some((f) => f.sourceId === "source-long")).toBe(false);
   });
 });
