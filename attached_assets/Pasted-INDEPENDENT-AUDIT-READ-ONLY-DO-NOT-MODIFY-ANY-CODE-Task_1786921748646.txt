@@ -1,0 +1,51 @@
+INDEPENDENT AUDIT — READ-ONLY. DO NOT MODIFY ANY CODE.
+
+Task: Perform your own first-principles audit of the Git Dojo learner
+experience. Report findings only. Do not fix anything. Do not apply any
+pending task updates. Do not commit.
+
+CONTEXT YOU NEED:
+- There is uncommitted work in the tree right now: VideoTemplate.tsx
+  (artifacts/git-dojo-promo/src/). Do not touch it. Flag it in your report.
+- I am deliberately withholding a second audit that already exists. You
+  will receive it AFTER you submit yours. Do not ask for it early.
+
+SCOPE:
+1. The public landing page (git-dojo.com root)
+2. Module 1.1 "What GitHub actually is" — all 5 parts, end to end
+
+METHOD — audit as a total beginner who has never used Git or GitHub and
+has visited no other part of the app:
+- Read every string a learner sees, in the order they see it.
+- For each screen ask: does this reference anything the learner has not
+  yet done or been taught?
+- Verify every claim on the landing page against what the app actually
+  does.
+- Check every component actually renders. Look specifically for unrendered
+  placeholders, template literals, or bracketed stub text reaching the DOM.
+- Check that each part's stated task matches the interaction actually
+  delivered.
+- Check terminology: list every term used without definition that a
+  beginner would not already know.
+- Assess whether the sample data and scenarios are appropriate for a
+  general public audience.
+
+OUTPUT FORMAT — for each finding:
+- Severity: Critical / High / Medium / Low
+- Exact location: file, component, and the literal string or element
+- What is wrong, stated as an observation not an inference
+- Evidence: how you verified it (grep result, rendered output, file path)
+- Proposed correction — do not implement it
+
+Also list, honestly:
+- Anything you checked and found correct
+- Anything you could not verify and why
+
+RULES:
+- Do not pad. Do not invent findings to look thorough.
+- Do not report a finding you have not verified in the actual code or
+  rendered output.
+- If you believe the app is clean in an area, say so plainly.
+- Do not generate new suggested tasks from this work.
+
+Stop when the report is complete. Await my next message.
