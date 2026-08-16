@@ -33,6 +33,19 @@ assert_fail() {
   fi
 }
 
+# assert_contains <label> <needle> <output>
+# Passes when <needle> appears anywhere in output.
+assert_contains() {
+  local label="$1" needle="$2" output="$3"
+  if echo "$output" | grep -qF "$needle"; then
+    ok "$label — fix command found: $needle"
+  else
+    fail "$label — expected fix command not found: $needle"
+    echo "    output was:"
+    echo "$output" | sed 's/^/    /'
+  fi
+}
+
 # assert_pass <label> <output>
 # Passes when no [FAIL] appears in output.
 assert_pass() {
@@ -90,7 +103,8 @@ T=$(mktemp -d); H=$(mktemp -d)
 make_base_dojo "$T" "$H"
 mkdir "$H/.git"                   # inject the failure
 OUT="$(run_doctor "$T" "$H")"
-assert_fail "home .git present" "$OUT"
+assert_fail     "home .git present" "$OUT"
+assert_contains "home .git fix command" "rm -rf ~/.git" "$OUT"
 rm -rf "$T" "$H"
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -101,7 +115,8 @@ T=$(mktemp -d); H=$(mktemp -d)
 make_base_dojo "$T" "$H"
 mkdir "$T/.git"                   # inject the failure
 OUT="$(run_doctor "$T" "$H")"
-assert_fail "dojo .git present" "$OUT"
+assert_fail     "dojo .git present" "$OUT"
+assert_contains "dojo .git fix command" "rm -rf ~/git-dojo/.git" "$OUT"
 rm -rf "$T" "$H"
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -114,7 +129,8 @@ make_base_dojo "$T" "$H"
 mkdir -p "$T/git-dojo"
 touch    "$T/git-dojo/setup.sh"   # inject the failure
 OUT="$(run_doctor "$T" "$H")"
-assert_fail "nested folder detected" "$OUT"
+assert_fail     "nested folder detected" "$OUT"
+assert_contains "nested folder fix command" "bash ~/git-dojo/git-dojo/setup.sh" "$OUT"
 rm -rf "$T" "$H"
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -125,7 +141,8 @@ T=$(mktemp -d); H=$(mktemp -d)
 make_base_dojo "$T" "$H"
 rm -rf "$T/lesson-01-first-snapshot"   # inject the failure
 OUT="$(run_doctor "$T" "$H")"
-assert_fail "lesson-01 missing" "$OUT"
+assert_fail     "lesson-01 missing" "$OUT"
+assert_contains "lesson-01 missing fix command" "bash ~/git-dojo/git-dojo/doctor.sh" "$OUT"
 rm -rf "$T" "$H"
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -136,7 +153,8 @@ T=$(mktemp -d); H=$(mktemp -d)
 make_base_dojo "$T" "$H"
 rm -rf "$T/playground"            # inject the failure
 OUT="$(run_doctor "$T" "$H")"
-assert_fail "playground missing" "$OUT"
+assert_fail     "playground missing" "$OUT"
+assert_contains "playground missing fix command" "mkdir ~/git-dojo/playground" "$OUT"
 rm -rf "$T" "$H"
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -147,7 +165,8 @@ T=$(mktemp -d); H=$(mktemp -d)
 make_base_dojo "$T" "$H"
 git config --global --unset user.name 2>/dev/null || true   # inject the failure
 OUT="$(run_doctor "$T" "$H")"
-assert_fail "user.name unset" "$OUT"
+assert_fail     "user.name unset" "$OUT"
+assert_contains "user.name unset fix command" 'git config --global user.name' "$OUT"
 rm -rf "$T" "$H"
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -158,7 +177,8 @@ T=$(mktemp -d); H=$(mktemp -d)
 make_base_dojo "$T" "$H"
 git config --global --unset user.email 2>/dev/null || true  # inject the failure
 OUT="$(run_doctor "$T" "$H")"
-assert_fail "user.email unset" "$OUT"
+assert_fail     "user.email unset" "$OUT"
+assert_contains "user.email unset fix command" 'git config --global user.email' "$OUT"
 rm -rf "$T" "$H"
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -169,7 +189,8 @@ T=$(mktemp -d); H=$(mktemp -d)
 make_base_dojo "$T" "$H"
 git config --global --unset init.defaultBranch 2>/dev/null || true  # inject the failure
 OUT="$(run_doctor "$T" "$H")"
-assert_fail "defaultBranch unset" "$OUT"
+assert_fail     "defaultBranch unset" "$OUT"
+assert_contains "defaultBranch unset fix command" "git config --global init.defaultBranch main" "$OUT"
 rm -rf "$T" "$H"
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -180,7 +201,8 @@ T=$(mktemp -d); H=$(mktemp -d)
 make_base_dojo "$T" "$H"
 git config --global init.defaultBranch master   # inject the failure
 OUT="$(run_doctor "$T" "$H")"
-assert_fail "defaultBranch=master" "$OUT"
+assert_fail     "defaultBranch=master" "$OUT"
+assert_contains "defaultBranch=master fix command" "git config --global init.defaultBranch main" "$OUT"
 rm -rf "$T" "$H"
 
 # ═════════════════════════════════════════════════════════════════════════════
