@@ -96,9 +96,9 @@ export function VisualModuleShell({
         <ArrowLeft className="w-3.5 h-3.5" /> Back to Ledger
       </Link>
 
-      <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-extrabold text-foreground tracking-tight">{title}</h1>
-        <div className="flex gap-2">
+      <div className="flex items-start justify-between gap-4">
+        <h1 className="text-2xl sm:text-3xl font-extrabold text-foreground tracking-tight leading-tight">{title}</h1>
+        <div className="flex gap-2 shrink-0 pt-1">
           {Array.from({ length: totalDots }, (_, i) => i + 1).map((i) => (
             <div
               key={i}
@@ -128,18 +128,18 @@ export function VisualModuleShell({
                   {completionText}
                 </p>
               )}
-              <div className="pt-8 flex gap-4 justify-center">
+              <div className="pt-8 flex flex-wrap gap-4 justify-center">
                 {nextModuleHref ? (
                   <>
                     <Link
                       href={nextModuleHref}
-                      className="inline-flex items-center justify-center bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-8 py-4 rounded-lg transition-all active:scale-95 shadow-[0_0_15px_rgba(255,107,0,0.2)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                      className="inline-flex items-center justify-center bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-6 py-3 min-h-[44px] rounded-lg transition-all active:scale-95 shadow-[0_0_15px_rgba(255,107,0,0.2)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                     >
                       {nextModuleLabel ?? "Next Module"}
                     </Link>
                     <Link
                       href="/"
-                      className="inline-flex items-center justify-center bg-secondary hover:bg-secondary/80 text-foreground font-bold px-8 py-4 rounded-lg transition-colors border border-white/5"
+                      className="inline-flex items-center justify-center bg-secondary hover:bg-secondary/80 text-foreground font-bold px-6 py-3 min-h-[44px] rounded-lg transition-colors border border-white/5"
                     >
                       Return to Ledger
                     </Link>
@@ -147,7 +147,7 @@ export function VisualModuleShell({
                 ) : (
                   <Link
                     href="/"
-                    className="inline-flex items-center justify-center bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-8 py-4 rounded-lg transition-all active:scale-95 shadow-[0_0_15px_rgba(255,107,0,0.2)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+                    className="inline-flex items-center justify-center bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-8 py-4 min-h-[44px] rounded-lg transition-all active:scale-95 shadow-[0_0_15px_rgba(255,107,0,0.2)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                   >
                     Return to Ledger
                   </Link>
@@ -157,7 +157,7 @@ export function VisualModuleShell({
           )
         ) : (
           /* ── Step content + error banner + nav ───────────────────────────── */
-          <div key={step} className="p-8 md:p-12 space-y-6 enter-fade relative">
+          <div key={step} className="p-5 sm:p-8 md:p-12 space-y-6 enter-fade relative">
             {children}
 
             {error && (
@@ -172,7 +172,7 @@ export function VisualModuleShell({
                 {onPrev && (
                   <button
                     onClick={onPrev}
-                    className="text-muted-foreground hover:text-foreground font-bold px-4 py-2 transition-all active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded"
+                    className="text-muted-foreground hover:text-foreground font-bold px-4 py-2 min-h-[44px] transition-all active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded"
                   >
                     Back
                   </button>

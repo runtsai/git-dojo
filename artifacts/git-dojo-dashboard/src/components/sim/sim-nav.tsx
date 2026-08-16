@@ -50,11 +50,11 @@ export function SimGlobalNav({
             {calloutSearch}
             <button 
               onClick={onSearchClick} 
-              className="flex items-center gap-2 bg-[#0d1117] border border-white/10 hover:border-white/30 text-muted-foreground px-3 py-1.5 rounded-md text-sm transition-colors w-[200px]"
+              className="flex items-center gap-2 bg-[#0d1117] border border-white/10 hover:border-white/30 text-muted-foreground px-3 py-1.5 rounded-md text-sm transition-colors w-[120px] sm:w-[200px]"
             >
-              <Search className="w-4 h-4" />
-              <span>Search or jump to...</span>
-              <span className="ml-auto text-xs border border-white/20 px-1.5 rounded bg-white/5">/</span>
+              <Search className="w-4 h-4 shrink-0" />
+              <span className="hidden sm:inline truncate">Search or jump to...</span>
+              <span className="ml-auto text-xs border border-white/20 px-1.5 rounded bg-white/5 hidden sm:inline">/</span>
             </button>
           </div>
           

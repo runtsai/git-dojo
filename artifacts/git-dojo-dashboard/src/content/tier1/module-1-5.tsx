@@ -101,7 +101,7 @@ export function Module1_5({ onStepChange }: VisualModuleProps = {}) {
             </div>
           </div>
           
-          <div className="grid grid-cols-2 gap-4 mt-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6">
             <div className="bg-black/30 p-4 rounded border border-white/5 text-sm">
               <span className="text-primary font-bold mr-2">1. Main Menu:</span> The hamburger icon opens your quick links to other repositories.
             </div>

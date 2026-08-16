@@ -13,6 +13,10 @@ export default defineConfig({
         __dirname,
         "../../lib/api-client-react/src/index.ts",
       ),
+      "@workspace/course-content": path.resolve(
+        __dirname,
+        "../../lib/course-content/src/index.ts",
+      ),
       "@": path.resolve(__dirname, "src"),
     },
   },

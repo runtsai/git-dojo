@@ -166,7 +166,7 @@ export function Module2_4() {
         actionable feedback, verified the fix, and approved clean work. That's
         the full loop real teams live in.
       </p>
-      <div className="pt-8 flex gap-4 justify-center">
+      <div className="pt-8 flex flex-wrap gap-4 justify-center">
         <Link
           href="/"
           className="inline-flex items-center justify-center bg-primary hover:bg-primary/90 text-primary-foreground font-bold px-8 py-4 rounded-lg transition-all active:scale-95 shadow-[0_0_15px_rgba(255,107,0,0.2)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"

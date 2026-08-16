@@ -144,7 +144,7 @@ export function Module1_4({ onStepChange }: VisualModuleProps = {}) {
             </SimSettingsContainer>
           </div>
           
-          <div className="grid grid-cols-2 gap-4 mt-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6">
             <div className="bg-black/30 p-4 rounded border border-white/5 text-sm">
               <span className="text-primary font-bold mr-2">1. General:</span> The name and description that appear on the repo home screen.
             </div>
