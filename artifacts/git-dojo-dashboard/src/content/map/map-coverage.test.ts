@@ -2,6 +2,8 @@ import { describe, it, expect } from "vitest";
 import { lessonLocations, mapPlaces, mapFlows } from "./index";
 import { breakthroughs } from "../breakthroughs/index";
 import { tiers } from "../tiers";
+import { CLI_LESSON_IDS } from "../lessons";
+import { crises } from "../crises";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -43,6 +45,38 @@ describe("active visual-track modules are covered by lessonLocations", () => {
         ).toHaveProperty(mod.id);
       });
     }
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Every CLI lesson must have a lessonLocations entry
+// ---------------------------------------------------------------------------
+
+describe("CLI lessons are covered by lessonLocations", () => {
+  for (const id of CLI_LESSON_IDS) {
+    it(`CLI lesson "${id}" has a lessonLocations entry`, () => {
+      expect(
+        lessonLocations,
+        `lessonLocations is missing an entry for CLI lesson id "${id}". ` +
+          `Add one to src/content/map/index.ts so MapPeek works for this lesson.`,
+      ).toHaveProperty(id);
+    });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Every crisis scenario must have a lessonLocations entry
+// ---------------------------------------------------------------------------
+
+describe("crisis scenarios are covered by lessonLocations", () => {
+  for (const crisis of crises) {
+    it(`crisis "${crisis.id}" has a lessonLocations entry`, () => {
+      expect(
+        lessonLocations,
+        `lessonLocations is missing an entry for crisis id "${crisis.id}". ` +
+          `Add one to src/content/map/index.ts so MapPeek works for this scenario.`,
+      ).toHaveProperty(crisis.id);
+    });
   }
 });
 
