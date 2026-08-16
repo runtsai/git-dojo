@@ -12,6 +12,8 @@ if ! git config user.name >/dev/null 2>&1 || ! git config user.email >/dev/null 
   echo "HEADS UP: Git does not know who you are yet. Before committing, run:"
   echo '  git config --global user.name  "Your Name"'
   echo '  git config --global user.email "you@example.com"'
+  echo "If you run into trouble, this will diagnose your setup:"
+  echo "  bash ~/git-dojo/doctor.sh"
 fi
 echo "Sandbox ready at: playground/lesson-01"
 echo "Now:  cd ../playground/lesson-01   and follow the README."
