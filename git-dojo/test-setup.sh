@@ -293,6 +293,47 @@ assert_contains "$LAPTOP/rates.txt" "180 per pallet" \
   "09: initial standard-crate rate is 180"
 rm -rf "$ROOT"
 
+# ═════════════════════════════════════════════════════════════════════════════
+# ERR trap — doctor.sh hint appears when a setup script fails midway
+# ─────────────────────────────────────────────────────────────────────────────
+# Strategy: shadow git with a fake binary that exits 1 immediately. Lesson-02
+# calls `git init` unconditionally early in setup.sh, so this reliably
+# triggers the ERR trap after the playground directory is created but before
+# setup completes (i.e. "midway").
+# ═════════════════════════════════════════════════════════════════════════════
+printf "\n\033[1;34m» ERR trap — doctor.sh hint on setup failure\033[0m\n"
+
+TRAP_ROOT="$(mktemp -d)"
+cp -r "$LESSONS_DIR/lesson-02-the-ledger" "$TRAP_ROOT/"
+
+# Fake git: always fails.
+FAKE_BIN="$TRAP_ROOT/bin"
+mkdir -p "$FAKE_BIN"
+printf '#!/usr/bin/env bash\nexit 1\n' > "$FAKE_BIN/git"
+chmod +x "$FAKE_BIN/git"
+
+# Capture combined stdout+stderr; allow non-zero exit so the test script
+# itself does not abort (set -e is active).
+TRAP_OUT="$(PATH="$FAKE_BIN:$PATH" bash "$TRAP_ROOT/lesson-02-the-ledger/setup.sh" 2>&1 || true)"
+
+if echo "$TRAP_OUT" | grep -q "doctor.sh"; then
+  ok "ERR trap: doctor.sh hint printed when setup fails midway"
+else
+  fail "ERR trap: doctor.sh hint NOT found — output was: $TRAP_OUT"
+fi
+
+# Confirm the exit code is non-zero so callers know setup did not succeed.
+TRAP_STATUS=0
+PATH="$FAKE_BIN:$PATH" bash "$TRAP_ROOT/lesson-02-the-ledger/setup.sh" >/dev/null 2>&1 \
+  || TRAP_STATUS=$?
+if [ "$TRAP_STATUS" -ne 0 ]; then
+  ok "ERR trap: setup.sh exits non-zero when a command fails mid-run"
+else
+  fail "ERR trap: setup.sh exited 0 despite git failing — trap may be suppressing the exit"
+fi
+
+rm -rf "$TRAP_ROOT"
+
 # ── Cleanup ───────────────────────────────────────────────────────────────────
 rm -rf "$SELFTEST_HOME"
 
