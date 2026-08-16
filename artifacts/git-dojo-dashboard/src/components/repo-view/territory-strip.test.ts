@@ -1202,4 +1202,34 @@ describe("branch switch: staged files and freshKeys", () => {
     // The file that only appeared because of the switch must be highlighted
     expect(switchEv!.freshKeys).toContain("branch-specific.ts");
   });
+
+  it("does not include a purely staged file that carries over from the old branch", () => {
+    // staged.ts has status "staged" on both branches — it was already on the
+    // Loading Dock before the switch and remains there afterwards.
+    // workbenchFiles() never includes purely staged files, so this file must
+    // never appear in freshKeys regardless of what future refactors do inside
+    // the branch-switch block.
+    const prev = state({
+      currentBranch: "main",
+      branches: [
+        { name: "main", isCurrent: true, headHash: "abc" },
+        { name: "feature", isCurrent: false, headHash: "def" },
+      ],
+      files: [{ path: "staged.ts", status: "staged" }],
+    });
+    const next = state({
+      currentBranch: "feature",
+      branches: [
+        { name: "main", isCurrent: false, headHash: "abc" },
+        { name: "feature", isCurrent: true, headHash: "def" },
+      ],
+      // staged.ts is still purely staged after the switch — it carried over.
+      files: [{ path: "staged.ts", status: "staged" }],
+    });
+    const events = detectMovements(prev, next, counter);
+    const switchEv = events.find((e) => e.from === "sealed" && e.to === "workbench");
+    expect(switchEv).toBeDefined();
+    // A purely staged file must NOT receive the orange highlight ring
+    expect(switchEv!.freshKeys).not.toContain("staged.ts");
+  });
 });
