@@ -44,13 +44,34 @@ type Edge = { fromRow: number; fromCol: number; toRow: number; toCol: number; co
 
 export function layoutGraph(commits: RepoCommit[]): { rows: LayoutRow[]; edges: Edge[]; maxCol: number } {
   // lanes[i] = hash the lane is waiting for (the next expected commit), or null.
-  // Note: laneColor is no longer tracked here — every row's color comes directly
-  // from colorForHash(commit.hash) so it is stable regardless of list order or filtering.
   const lanes: (string | null)[] = [];
+  // laneColors[i] = the color currently assigned to lane i (null when lane is free).
+  // Tracked so adjacent-lane conflict-avoidance can read neighbors' colors.
+  const laneColors: (string | null)[] = [];
+  // preAssigned: lane indices whose color was set ahead-of-time by a merge (so the
+  // commit that eventually lands there uses the same color the edge was drawn with).
+  const preAssigned = new Set<number>();
   const rowIndexByHash = new Map(commits.map((c, i) => [c.hash, i]));
   const rows: LayoutRow[] = [];
   const edges: Edge[] = [];
   let maxCol = 0;
+
+  /**
+   * Pick a color for `col` that does not match either immediate neighbor lane.
+   * `preferred` is the hash-derived color; it is used when it doesn't conflict.
+   * Falls back to the first non-conflicting color in LANE_COLORS.
+   */
+  function pickColor(col: number, preferred: string): string {
+    const neighborColors = new Set<string>();
+    if (col > 0 && laneColors[col - 1] != null) neighborColors.add(laneColors[col - 1]!);
+    if (laneColors[col + 1] != null) neighborColors.add(laneColors[col + 1]!);
+    if (!neighborColors.has(preferred)) return preferred;
+    for (const c of LANE_COLORS) {
+      if (!neighborColors.has(c)) return c;
+    }
+    // More neighbors than colors — extremely unlikely; best-effort fallback.
+    return preferred;
+  }
 
   commits.forEach((c, i) => {
     // Find every lane waiting for this commit; the leftmost becomes its column.
@@ -62,16 +83,27 @@ export function layoutGraph(commits: RepoCommit[]): { rows: LayoutRow[]; edges: 
     if (waiting.length > 0) {
       col = waiting[0]!;
       // Other lanes waiting for the same hash collapse into this one (branch point).
-      for (let w = 1; w < waiting.length; w++) lanes[waiting[w]!] = null;
+      for (let w = 1; w < waiting.length; w++) {
+        lanes[waiting[w]!] = null;
+        laneColors[waiting[w]!] = null;
+        preAssigned.delete(waiting[w]!);
+      }
     } else {
       // New tip: take the first free lane or open a new one.
       const free = lanes.indexOf(null);
       col = free >= 0 ? free : lanes.length;
-      if (col === lanes.length) lanes.push(null);
+      if (col === lanes.length) {
+        lanes.push(null);
+        laneColors.push(null);
+      }
     }
-    // Color is unconditionally derived from this commit's own hash — never from
-    // whichever descendant happened to open the lane first.
-    const color = colorForHash(c.hash);
+    // If a merge pre-assigned this lane's color (so edge and node agree), use it.
+    // Otherwise compute fresh with adjacency avoidance.
+    const color = preAssigned.has(col)
+      ? laneColors[col]!
+      : pickColor(col, colorForHash(c.hash));
+    preAssigned.delete(col);
+    laneColors[col] = color;
     rows.push({ commit: c, col, color });
     maxCol = Math.max(maxCol, col);
 
@@ -84,17 +116,29 @@ export function layoutGraph(commits: RepoCommit[]): { rows: LayoutRow[]; edges: 
       let pcol: number;
       if (existing >= 0) {
         pcol = existing;
+        // The lane already has a color. Lock it in via preAssigned so the parent
+        // commit uses the same color as every edge drawn to it (including this one).
+        preAssigned.add(pcol);
       } else {
         const free = lanes.indexOf(null);
         pcol = free >= 0 ? free : lanes.length;
-        if (pcol === lanes.length) lanes.push(ph);
-        else lanes[pcol] = ph;
+        if (pcol === lanes.length) {
+          lanes.push(ph);
+          laneColors.push(null);
+        } else {
+          lanes[pcol] = ph;
+        }
+        // Pre-assign the lane color so:
+        // (a) future pickColor calls see this lane as active, and
+        // (b) the inbound merge edge and the eventual node color are identical.
+        laneColors[pcol] = pickColor(pcol, colorForHash(ph));
+        preAssigned.add(pcol);
       }
       maxCol = Math.max(maxCol, pcol);
       const pRow = rowIndexByHash.get(ph);
       if (pRow !== undefined) {
-        // Merge-parent edge: colored by the parent's hash (the incoming branch line).
-        edges.push({ fromRow: i, fromCol: col, toRow: pRow, toCol: -1, color: colorForHash(ph) });
+        // Use the lane-assigned (adjacency-adjusted) color, not the raw hash color.
+        edges.push({ fromRow: i, fromCol: col, toRow: pRow, toCol: -1, color: laneColors[pcol] ?? colorForHash(ph) });
       }
     }
     // Edge to first parent: colored by this commit's hash (the main line continues).
