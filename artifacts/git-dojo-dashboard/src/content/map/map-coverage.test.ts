@@ -152,6 +152,40 @@ describe("lessonLocations only references valid mapPlace/mapFlow ids", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Visual module step arrays must not be shorter than the module step count
+// ---------------------------------------------------------------------------
+
+describe("visual module step arrays are not shorter than the module's step count", () => {
+  // All current visual modules clamp onStepChange() at step 5 (completion fires 6,
+  // which isValidStepChip() already rejects as an overshoot).
+  // If a steps array is accidentally trimmed below 5 the chip displays a WRONG
+  // TOTAL even on valid steps — e.g. "Step 4 of 4" on a 5-step module — because
+  // the chip renders `Step {stepIndex} of {location.steps.length}`.
+  const VISUAL_MODULE_MAX_STEP = 5;
+
+  // Visual module ids follow the pattern "N.M" (e.g. "1.1", "2.3").
+  const visualModuleEntries = Object.entries(lessonLocations).filter(([id]) =>
+    /^\d+\.\d+$/.test(id),
+  );
+
+  for (const [id, location] of visualModuleEntries) {
+    if (!location.steps) continue; // no per-step overrides → chip stays hidden; fine.
+
+    it(`lessonLocations["${id}"].steps covers all ${VISUAL_MODULE_MAX_STEP} reachable steps`, () => {
+      expect(
+        location.steps!.length,
+        `lessonLocations["${id}"].steps has only ${location.steps!.length} ` +
+          `entr${location.steps!.length === 1 ? "y" : "ies"}, but visual modules ` +
+          `fire onStepChange() up to step ${VISUAL_MODULE_MAX_STEP}. ` +
+          `The chip would show "Step ${location.steps!.length} of ${location.steps!.length}" on a ` +
+          `${VISUAL_MODULE_MAX_STEP}-step module — a wrong total. ` +
+          `Add back the missing step entries in src/content/map/index.ts.`,
+      ).toBeGreaterThanOrEqual(VISUAL_MODULE_MAX_STEP);
+    });
+  }
+});
+
+// ---------------------------------------------------------------------------
 // Every Journey id must be unique
 // ---------------------------------------------------------------------------
 
