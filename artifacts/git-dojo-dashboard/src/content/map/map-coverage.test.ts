@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { lessonLocations, mapPlaces, mapFlows } from "./index";
+import { lessonLocations, mapPlaces, mapFlows, mapJourneys } from "./index";
 import { breakthroughs } from "../breakthroughs/index";
 import { tiers } from "../tiers";
 import { CLI_LESSON_IDS } from "../lessons";
@@ -147,6 +147,24 @@ describe("lessonLocations only references valid mapPlace/mapFlow ids", () => {
           ).toBe(true);
         });
       }
+    }
+  }
+});
+
+// ---------------------------------------------------------------------------
+// Every Journey step must reference a valid flowId
+// ---------------------------------------------------------------------------
+
+describe("journey steps only reference valid mapFlow ids", () => {
+  for (const journey of mapJourneys) {
+    for (const [stepIndex, step] of journey.steps.entries()) {
+      it(`journey "${journey.id}" step ${stepIndex} flowId "${step.flowId}" exists in mapFlows`, () => {
+        expect(
+          flowIds.has(step.flowId),
+          `journey "${journey.id}" step ${stepIndex} references flowId "${step.flowId}" which does not exist in mapFlows. ` +
+            `Either add the flow to mapFlows or fix the typo in src/content/map/index.ts.`,
+        ).toBe(true);
+      });
     }
   }
 });
