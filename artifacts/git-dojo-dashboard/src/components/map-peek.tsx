@@ -1,6 +1,7 @@
 import { Link } from "wouter";
 import { Map as MapIcon, MapPin, ArrowRight } from "lucide-react";
 import { lessonLocations, mapPlaces } from "@/content/map";
+import { isValidStepChip } from "@/lib/step-chip";
 import { MapDiagram, PLACE_ICONS } from "@/components/map-diagram";
 import {
   Sheet,
@@ -60,11 +61,16 @@ export function MapPeek({ locationId, variant = "inline", stepIndex }: MapPeekPr
         className="bg-[#0d1117] border-white/10 rounded-t-2xl max-h-[85vh] overflow-y-auto p-4 sm:p-6"
       >
         <SheetHeader className="text-left mb-4 pr-8">
-          <SheetTitle className="flex items-center gap-2 text-foreground">
+          <SheetTitle className="flex items-center gap-2 text-foreground flex-wrap">
             <span className="p-1.5 bg-primary/10 rounded-lg text-primary border border-primary/20">
               <MapPin className="w-4 h-4" />
             </span>
             You are here
+            {isValidStepChip(stepIndex, location.steps?.length ?? 0) && (
+              <span className="ml-1 inline-flex items-center px-2 py-0.5 rounded-full bg-primary/15 border border-primary/30 text-primary text-xs font-semibold tabular-nums">
+                Step {stepIndex} of {location.steps!.length}
+              </span>
+            )}
           </SheetTitle>
           <SheetDescription className="text-sm text-muted-foreground leading-relaxed">
             {activeCaption}
