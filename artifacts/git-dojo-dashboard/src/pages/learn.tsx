@@ -8,22 +8,30 @@ import { Module2_1 } from "@/content/tier2/module-2-1";
 import { Module2_2 } from "@/content/tier2/module-2-2";
 import { Module2_3 } from "@/content/tier2/module-2-3";
 import { ArrowLeft, Construction } from "lucide-react";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { WarmUpInterstitial } from "@/components/warm-up-interstitial";
 import { MapPeek } from "@/components/map-peek";
+import type { VisualModuleProps } from "@/types/visual-module";
+
+export type { VisualModuleProps };
 
 export function LearnModuleView() {
   const { moduleId: rawModuleId } = useParams<{ moduleId: string }>();
   // Tolerate legacy/alternate forms like "module-1-1" or "1.1"
   const moduleId = rawModuleId?.replace(/^module-/, "").replace(".", "-");
 
+  // Track the learner's current step so MapPeek can narrow its highlight.
+  const [currentStep, setCurrentStep] = useState(1);
+
   useEffect(() => {
     if (moduleId) {
       document.title = `Module ${moduleId} | Git Dojo`;
+      // Reset step counter whenever the module changes.
+      setCurrentStep(1);
     }
   }, [moduleId]);
 
-  const modules: Record<string, React.ComponentType> = {
+  const modules: Record<string, React.ComponentType<VisualModuleProps>> = {
     "1-1": Module1_1,
     "1-2": Module1_2,
     "1-3": Module1_3,
@@ -39,8 +47,12 @@ export function LearnModuleView() {
       <>
         {/* Optional warm-up offer — never gates the module below it */}
         <WarmUpInterstitial />
-        <ModuleComponent />
-        <MapPeek locationId={moduleId.replace("-", ".")} variant="floating" />
+        <ModuleComponent onStepChange={setCurrentStep} />
+        <MapPeek
+          locationId={moduleId.replace("-", ".")}
+          variant="floating"
+          stepIndex={currentStep}
+        />
       </>
     );
   }

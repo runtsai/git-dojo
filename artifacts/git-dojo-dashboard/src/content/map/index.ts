@@ -40,6 +40,17 @@ export type Journey = {
 };
 
 /**
+ * Per-step override inside a MapLocation.
+ * Any field omitted falls back to the parent MapLocation value.
+ */
+export type MapLocationStep = {
+  placeIds?: string[];
+  flowIds?: string[];
+  /** One-line caption shown while the learner is on this step. */
+  caption?: string;
+};
+
+/**
  * Where a lesson, module, or breakthrough "lives" on the Map.
  * Used by the MapPeek widget to light up the territory during a lesson.
  */
@@ -48,6 +59,11 @@ export type MapLocation = {
   flowIds: string[];
   /** One-line "You are here: ..." caption. */
   caption: string;
+  /**
+   * Optional per-step overrides (0-indexed: steps[0] = step 1).
+   * When provided, MapPeek narrows the highlight to the current step's flow.
+   */
+  steps?: MapLocationStep[];
 };
 
 export const mapPlaces: MapPlace[] = [
@@ -393,41 +409,97 @@ export const lessonLocations: Record<string, MapLocation> = {
     placeIds: ["shared", "front-office"],
     flowIds: [],
     caption: "The Website (GitHub) — the company's Shared Record and Front Office.",
+    steps: [
+      { placeIds: ["sealed", "shared"], flowIds: [],          caption: "Git vs GitHub — two separate machines: local Sealed Record and GitHub's Shared Record." },
+      { placeIds: ["shared"],           flowIds: ["commit"],  caption: "The Visual Record — sealed commits become a readable timeline on GitHub." },
+      { placeIds: ["shared"],           flowIds: [],          caption: "Why use it — the Shared Record is the company's permanent custody trail." },
+      { placeIds: ["sealed", "shared"], flowIds: ["push"],    caption: "The Trigger — pushing sends your sealed commits from your machine to GitHub." },
+      { placeIds: ["shared", "front-office"], flowIds: [],    caption: "Prove It — trace the record: find the right commit in the Shared Record." },
+    ],
   },
   "1.2": {
     placeIds: ["shared"],
     flowIds: [],
     caption: "The Shared Record — a repository's home screen.",
+    steps: [
+      { placeIds: ["shared"],           flowIds: [],          caption: "The Front Door — the repository's home screen on the Shared Record." },
+      { placeIds: ["shared"],           flowIds: [],          caption: "Reading the Room — the file tree, README, and stats of the Shared Record." },
+      { placeIds: ["shared"],           flowIds: [],          caption: "Why it's laid out this way — the Shared Record is designed to answer questions at a glance." },
+      { placeIds: ["sealed", "shared"], flowIds: ["push"],    caption: "The Trigger — after you push, your work appears on the Shared Record's home screen." },
+      { placeIds: ["shared"],           flowIds: [],          caption: "Prove It — scavenger hunt: navigate the Shared Record's home screen." },
+    ],
   },
   "1.3": {
     placeIds: ["shared"],
     flowIds: ["commit"],
     caption: "The Shared Record — reading sealed history visually.",
+    steps: [
+      { placeIds: ["shared"],           flowIds: ["commit"],  caption: "The Custody Trail — every commit is a dated, signed entry in the Shared Record." },
+      { placeIds: ["shared"],           flowIds: ["commit"],  caption: "Spot the Difference — the diff view shows exactly what changed between two seals." },
+      { placeIds: ["shared"],           flowIds: ["commit"],  caption: "Accountability is built in — the Shared Record always shows who changed what and when." },
+      { placeIds: ["sealed", "shared"], flowIds: ["push", "commit"], caption: "The Trigger — push your sealed commits so the team can audit them on GitHub." },
+      { placeIds: ["shared"],           flowIds: ["commit"],  caption: "Prove It — audit the invoice: find the change that introduced a problem." },
+    ],
   },
   "1.4": {
     placeIds: ["shared"],
     flowIds: [],
     caption: "The Shared Record — the settings behind the repository.",
+    steps: [
+      { placeIds: ["shared"], flowIds: [], caption: "Configuring the Vault — repository settings control who can push to the Shared Record." },
+      { placeIds: ["shared"], flowIds: [], caption: "The Controls — branch protection, access rules, and visibility of the Shared Record." },
+      { placeIds: ["shared"], flowIds: [], caption: "Why protect it so heavily — the Shared Record is the company's single source of truth." },
+      { placeIds: ["shared"], flowIds: [], caption: "The Trigger — visit settings when the Shared Record's rules need adjusting." },
+      { placeIds: ["shared"], flowIds: [], caption: "Prove It — configure the vault: set branch protection on the Shared Record." },
+    ],
   },
   "1.5": {
     placeIds: ["shared", "front-office"],
     flowIds: [],
     caption: "The Website (GitHub) — finding your way around the whole site.",
+    steps: [
+      { placeIds: ["shared", "front-office"], flowIds: [],   caption: "Always Above You — the top bar reaches every corner of GitHub's website." },
+      { placeIds: ["shared", "front-office"], flowIds: [],   caption: "The Top Bar — search, notifications, and your profile sit above the Shared Record." },
+      { placeIds: ["shared", "front-office"], flowIds: [],   caption: "Why it matters — the navigation layer connects the Shared Record to the Front Office." },
+      { placeIds: ["shared", "front-office"], flowIds: [],   caption: "The Trigger — reach for the top bar whenever you need to cross from one area to another." },
+      { placeIds: ["shared", "front-office"], flowIds: [],   caption: "Prove It — navigate the hub: jump between the Shared Record and the Front Office." },
+    ],
   },
   "2.1": {
     placeIds: ["pr-desk"],
     flowIds: ["open_pr"],
     caption: "The Proposal Desk — where a pull request formally proposes changes.",
+    steps: [
+      { placeIds: ["shared", "pr-desk"],             flowIds: ["open_pr"],         caption: "Nothing merges itself — a push to the Shared Record is just a branch until a PR opens it." },
+      { placeIds: ["pr-desk"],                        flowIds: ["open_pr"],         caption: "Anatomy of the request — title, description, branch, and base are the four pillars of a PR." },
+      { placeIds: ["sealed", "shared", "pr-desk"],   flowIds: ["push", "open_pr"], caption: "Why it matters — the Proposal Desk is where a sealed branch becomes a formal proposal." },
+      { placeIds: ["pr-desk"],                        flowIds: ["open_pr"],         caption: "The Trigger — open a PR when your branch on the Shared Record is ready for discussion." },
+      { placeIds: ["pr-desk"],                        flowIds: ["open_pr"],         caption: "Prove It — read the request: identify the key parts of a real pull request." },
+    ],
   },
   "2.2": {
     placeIds: ["pr-desk", "review"],
     flowIds: ["do_review"],
     caption: "The Review — reading every changed line of the proposal.",
+    steps: [
+      { placeIds: ["pr-desk"],           flowIds: [],           caption: "The Tab That Tells the Truth — Files Changed shows every line the proposal touches." },
+      { placeIds: ["pr-desk", "review"], flowIds: ["do_review"], caption: "Inline Comments — pin your feedback directly to the line of code that raised the question." },
+      { placeIds: ["pr-desk", "review"], flowIds: ["do_review"], caption: "Why it matters — inline comments make the Review a conversation anchored to the actual code." },
+      { placeIds: ["pr-desk", "review"], flowIds: ["do_review"], caption: "The Trigger — open Files Changed whenever a PR is ready for your eyes." },
+      { placeIds: ["pr-desk", "review"], flowIds: ["do_review"], caption: "Prove It — find what's wrong: spot the issue hiding in the diff." },
+    ],
   },
   "2.3": {
     placeIds: ["review", "robot"],
     flowIds: ["do_review", "merge"],
     caption: "The Review — the human verdict before work joins the Shared Record.",
+    steps: [
+      { placeIds: ["review"],           flowIds: ["do_review", "merge"], caption: "Reviews End in a Decision — approve, request changes, or comment; only approval clears the merge." },
+      { placeIds: ["review"],           flowIds: ["do_review"],          caption: "Your House Rules — branch protection rules decide whose approval actually counts." },
+      { placeIds: ["review", "shared"], flowIds: ["merge"],              caption: "Why it matters — the Review is the last gate before work enters the Shared Record forever." },
+      { placeIds: ["review", "shared"], flowIds: ["do_review", "merge"], caption: "The Trigger — finish the review when checks pass and you've read every changed line." },
+      { placeIds: ["review", "shared"], flowIds: ["do_review", "merge"], caption: "Prove It — finish the review: deliver the right verdict with your reasoning." },
+    ],
   },
 
   // --- Crisis Room scenarios ---

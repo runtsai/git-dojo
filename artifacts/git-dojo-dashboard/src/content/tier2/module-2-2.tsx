@@ -1,4 +1,5 @@
 import { useState } from "react";
+import type { VisualModuleProps } from "@/types/visual-module";
 import { useCompleteModule, getGetProgressQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Link } from "wouter";
@@ -12,7 +13,7 @@ import {
 } from "@/components/sim/sim-pr";
 import { contractorPr, prFiles, dangerLines } from "./pr-data";
 
-export function Module2_2() {
+export function Module2_2({ onStepChange }: VisualModuleProps = {}) {
   const [step, setStep] = useState(1);
   const queryClient = useQueryClient();
   const completeModule = useCompleteModule();
@@ -25,8 +26,8 @@ export function Module2_2() {
   const foundSecret = commentedOn(dangerLines.secret);
   const foundBehavior = commentedOn(dangerLines.behavior);
 
-  const handleNext = () => { setStep(s => Math.min(s + 1, 5)); window.scrollTo(0, 0); };
-  const handlePrev = () => { setStep(s => Math.max(s - 1, 1)); window.scrollTo(0, 0); };
+  const handleNext = () => { const next = Math.min(step + 1, 5); setStep(next); onStepChange?.(next); window.scrollTo(0, 0); };
+  const handlePrev = () => { const prev = Math.max(step - 1, 1); setStep(prev); onStepChange?.(prev); window.scrollTo(0, 0); };
 
   const handleAddComment = (file: string, lineIndex: number, body: string) => {
     setComments(prev => [...prev, { file, lineIndex, body, author: "Adam Cornelius", initials: "AC" }]);
@@ -52,7 +53,7 @@ export function Module2_2() {
       {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: getGetProgressQueryKey() });
-          setStep(6);
+          setStep(6); onStepChange?.(6);
         }
       }
     );

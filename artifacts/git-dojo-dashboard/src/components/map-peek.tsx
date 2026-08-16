@@ -16,17 +16,33 @@ type MapPeekProps = {
   locationId: string;
   /** "inline" renders a normal button; "floating" pins a compact button bottom-right. */
   variant?: "inline" | "floating";
+  /**
+   * 1-based step index inside a visual module.
+   * When provided and the location has per-step overrides, the drawer narrows
+   * its highlight to that step's territory.  Falls back to the whole-lesson
+   * highlight when no step data is available.
+   */
+  stepIndex?: number;
 };
 
 /**
  * "You are here" — a compact Map drawer that lights up the territory the
  * current lesson lives in, with everything else dimmed.
  */
-export function MapPeek({ locationId, variant = "inline" }: MapPeekProps) {
+export function MapPeek({ locationId, variant = "inline", stepIndex }: MapPeekProps) {
   const location = lessonLocations[locationId];
   if (!location) return null;
 
-  const litPlaces = mapPlaces.filter(p => location.placeIds.includes(p.id));
+  // Resolve per-step overrides (stepIndex is 1-based; steps array is 0-based)
+  const stepOverride = (stepIndex != null && location.steps)
+    ? location.steps[stepIndex - 1]
+    : undefined;
+
+  const activePlaceIds = stepOverride?.placeIds ?? location.placeIds;
+  const activeFlowIds  = stepOverride?.flowIds  ?? location.flowIds;
+  const activeCaption  = stepOverride?.caption  ?? location.caption;
+
+  const litPlaces = mapPlaces.filter(p => activePlaceIds.includes(p.id));
 
   const triggerClasses =
     variant === "floating"
@@ -51,7 +67,7 @@ export function MapPeek({ locationId, variant = "inline" }: MapPeekProps) {
             You are here
           </SheetTitle>
           <SheetDescription className="text-sm text-muted-foreground leading-relaxed">
-            {location.caption}
+            {activeCaption}
           </SheetDescription>
         </SheetHeader>
 
@@ -73,8 +89,8 @@ export function MapPeek({ locationId, variant = "inline" }: MapPeekProps) {
 
         <div className="bg-black/40 border border-white/10 rounded-xl p-2 sm:p-4 overflow-x-auto">
           <MapDiagram
-            litPlaceIds={location.placeIds}
-            litFlowIds={location.flowIds}
+            litPlaceIds={activePlaceIds}
+            litFlowIds={activeFlowIds}
             dim
             markerIdPrefix="peek"
             className="w-full min-w-[560px] sm:min-w-0 h-auto"

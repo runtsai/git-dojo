@@ -1,11 +1,12 @@
 import { useState } from "react";
+import type { VisualModuleProps } from "@/types/visual-module";
 import { useCompleteModule, getGetProgressQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Link, useLocation } from "wouter";
 import { ArrowLeft, CheckCircle2, ChevronRight, AlertCircle, Search, Bell, Map } from "lucide-react";
 import { SimGlobalNav, SimSearchOverlay, SimNotificationsOverlay } from "@/components/sim/sim-nav";
 
-export function Module1_5() {
+export function Module1_5({ onStepChange }: VisualModuleProps = {}) {
   const [step, setStep] = useState(1);
   const [, setLocation] = useLocation();
   const queryClient = useQueryClient();
@@ -20,8 +21,8 @@ export function Module1_5() {
   
   const [showError, setShowError] = useState<string | null>(null);
 
-  const handleNext = () => { setStep(s => Math.min(s + 1, 5)); window.scrollTo(0, 0); };
-  const handlePrev = () => { setStep(s => Math.max(s - 1, 1)); window.scrollTo(0, 0); };
+  const handleNext = () => { const next = Math.min(step + 1, 5); setStep(next); onStepChange?.(next); window.scrollTo(0, 0); };
+  const handlePrev = () => { const prev = Math.max(step - 1, 1); setStep(prev); onStepChange?.(prev); window.scrollTo(0, 0); };
 
   const handleQuizSubmit = () => {
     if (!foundFile && !checkedNotification) {
@@ -43,7 +44,7 @@ export function Module1_5() {
       {
         onSuccess: () => {
           queryClient.invalidateQueries({ queryKey: getGetProgressQueryKey() });
-          setStep(6);
+          setStep(6); onStepChange?.(6);
         }
       }
     );
