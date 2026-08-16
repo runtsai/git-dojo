@@ -501,6 +501,11 @@ export const lessonLocations: Record<string, MapLocation> = {
       { placeIds: ["review", "shared"], flowIds: ["do_review", "merge"], caption: "Prove It — finish the review: deliver the right verdict with your reasoning." },
     ],
   },
+  "2.4": {
+    placeIds: ["review", "shared"],
+    flowIds: ["do_review", "merge"],
+    caption: "The Review — approving the fix and closing the loop into the Shared Record.",
+  },
 
   // --- Crisis Room scenarios ---
   "crisis-01": {

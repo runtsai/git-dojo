@@ -7,6 +7,7 @@ import { Module1_5 } from "@/content/tier1/module-1-5";
 import { Module2_1 } from "@/content/tier2/module-2-1";
 import { Module2_2 } from "@/content/tier2/module-2-2";
 import { Module2_3 } from "@/content/tier2/module-2-3";
+import { Module2_4 } from "@/content/tier2/module-2-4";
 import { ArrowLeft, Construction } from "lucide-react";
 import { useEffect, useState } from "react";
 import { WarmUpInterstitial } from "@/components/warm-up-interstitial";
@@ -40,6 +41,7 @@ export function LearnModuleView() {
     "2-1": Module2_1,
     "2-2": Module2_2,
     "2-3": Module2_3,
+    "2-4": Module2_4,
   };
   const ModuleComponent = moduleId ? modules[moduleId] : undefined;
   if (ModuleComponent && moduleId) {
