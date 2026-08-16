@@ -264,3 +264,106 @@ describe("drills integrity — sourceId validity", () => {
     expect(broken, message).toEqual([]);
   });
 });
+
+describe("drills integrity — unlockedBy is never empty", () => {
+  /**
+   * Every drill must declare at least one unlockedBy entry.  An empty array
+   * means the drill can never surface (the unlock logic has nothing to match
+   * against) and the corresponding content loses coverage silently.
+   *
+   * This is especially important for drills that omit sourceId: their only
+   * link to content is unlockedBy, so an empty array severs that link
+   * completely.
+   */
+  it("all drills have at least one unlockedBy entry", () => {
+    const empty = drillBank.filter((d) => d.unlockedBy.length === 0);
+    const message =
+      empty.length > 0
+        ? `Drill(s) with an empty unlockedBy array:\n${empty
+            .map((d) => `  "${d.id}" (${d.sourceLabel})`)
+            .join("\n")}\n` +
+          `Add at least one module, lesson, or crisis id to each drill's unlockedBy array.`
+        : "";
+    expect(empty, message).toEqual([]);
+  });
+});
+
+describe("drills integrity — no-sourceId drills wired via unlockedBy", () => {
+  /**
+   * Drills that omit sourceId rely entirely on unlockedBy for content
+   * linkage.  This test confirms each such drill has at least one unlockedBy
+   * entry that resolves to a known active module, CLI lesson, or crisis — so
+   * a future refactor that accidentally strips unlockedBy entries is caught
+   * immediately rather than silently breaking coverage.
+   *
+   * Note: lessonIds here are keyed from lessonLocations (the Map), which
+   * matches the set the coverage tests above use for the lesson coverage
+   * check, keeping the two views consistent.
+   */
+  const validUnlockedByIds = new Set<string>([
+    ...activeModuleIds,
+    ...lessonIds,
+    ...crisisIds,
+  ]);
+
+  it("every no-sourceId drill has at least one unlockedBy entry matching a known content id", () => {
+    const broken: { drillId: string; unlockedBy: string[] }[] = [];
+    for (const drill of drillBank) {
+      if (drill.sourceId !== undefined) continue; // sourceId drills are checked elsewhere
+      const hasValidEntry = drill.unlockedBy.some((id) =>
+        validUnlockedByIds.has(id),
+      );
+      if (!hasValidEntry) {
+        broken.push({ drillId: drill.id, unlockedBy: drill.unlockedBy });
+      }
+    }
+    const message =
+      broken.length > 0
+        ? `Drill(s) without sourceId that have no valid unlockedBy entry:\n${broken
+            .map(
+              ({ drillId, unlockedBy }) =>
+                `  "${drillId}" → unlockedBy [${unlockedBy.map((id) => `"${id}"`).join(", ")}] does not contain any known module, lesson, or crisis id`,
+            )
+            .join("\n")}\n` +
+          `Valid ids are: ${[...validUnlockedByIds].sort().map((id) => `"${id}"`).join(", ")}\n` +
+          `Add the correct module/lesson/crisis id to unlockedBy, or add a sourceId if this drill belongs to a specific graded piece of content.`
+        : "";
+    expect(broken, message).toEqual([]);
+  });
+});
+
+describe("drills integrity — unlockedBy entries resolve to known content", () => {
+  /**
+   * Every individual id inside a drill's unlockedBy array must match a real
+   * active module, CLI lesson, or crisis.  A stale or mistyped entry means
+   * the drill never unlocks for a learner who completed that content — the
+   * coverage check passes but the drill is unreachable in practice.
+   */
+  const validUnlockedByIds = new Set<string>([
+    ...activeModuleIds,
+    ...lessonIds,
+    ...crisisIds,
+  ]);
+
+  it("all unlockedBy entries reference a known module, lesson, or crisis id", () => {
+    const broken: { drillId: string; badEntry: string }[] = [];
+    for (const drill of drillBank) {
+      for (const entry of drill.unlockedBy) {
+        if (!validUnlockedByIds.has(entry)) {
+          broken.push({ drillId: drill.id, badEntry: entry });
+        }
+      }
+    }
+    const message =
+      broken.length > 0
+        ? `Drill(s) with unknown unlockedBy entries:\n${broken
+            .map(
+              ({ drillId, badEntry }) =>
+                `  "${drillId}" → "${badEntry}" does not match any active module id, lesson id, or crisis id`,
+            )
+            .join("\n")}\n` +
+          `Valid ids are: ${[...validUnlockedByIds].sort().map((id) => `"${id}"`).join(", ")}`
+        : "";
+    expect(broken, message).toEqual([]);
+  });
+});
