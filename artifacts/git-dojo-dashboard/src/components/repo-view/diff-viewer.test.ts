@@ -206,6 +206,89 @@ describe("getFileDiffDisplay — renamed binary file", () => {
 });
 
 // ---------------------------------------------------------------------------
+// getFileDiffDisplay — renamed file WITH merge conflict markers
+// ---------------------------------------------------------------------------
+// This section guards the display layer against a future regression where
+// `renamedFrom` is dropped or ignored when the file also carries conflict
+// lines.  The parser (repo-state.ts) already unit-tests that renamedFrom is
+// preserved in this situation; here we confirm the display function correctly
+// surfaces both paths and treats conflict lines as renderable diff content.
+
+describe("getFileDiffDisplay — renamed file with conflict markers", () => {
+  // Simulate the output that repo-state.parseUnifiedDiff produces when a
+  // renamed text file also has unresolved merge conflicts.  Conflict marker
+  // lines (<<<<<<< / ======= / >>>>>>>) appear as "added" kind entries.
+  const conflictLines = [
+    { kind: "hunk" as const, text: "" },
+    { kind: "context" as const, text: "common preamble" },
+    { kind: "added" as const, text: "<<<<<<< HEAD" },
+    { kind: "added" as const, text: "our version of the line" },
+    { kind: "added" as const, text: "=======" },
+    { kind: "added" as const, text: "their version of the line" },
+    { kind: "added" as const, text: ">>>>>>> feature-branch" },
+    { kind: "context" as const, text: "another common line" },
+    { kind: "removed" as const, text: "removed line" },
+  ];
+
+  const renamedConflicted = makeFileDiff({
+    changeKind: "renamed",
+    path: "new.txt",
+    renamedFrom: "old.txt",
+    added: 5,
+    removed: 1,
+    lines: conflictLines,
+  });
+
+  it("retains the old path as oldPath so both filenames are shown", () => {
+    const display = getFileDiffDisplay(renamedConflicted);
+    expect(display.oldPath).toBe("old.txt");
+  });
+
+  it("retains the new path as newPath", () => {
+    const display = getFileDiffDisplay(renamedConflicted);
+    expect(display.newPath).toBe("new.txt");
+  });
+
+  it('retains "renamed" as the badge label text', () => {
+    const display = getFileDiffDisplay(renamedConflicted);
+    expect(display.labelText).toBe("renamed");
+  });
+
+  it("reports hasLines true so conflict-marker lines are rendered, not hidden", () => {
+    const display = getFileDiffDisplay(renamedConflicted);
+    expect(display.hasLines).toBe(true);
+  });
+
+  it("oldPath is non-null so the UI shows old→new instead of only the new name", () => {
+    // The UI branch in FileDiffCard renders "oldPath → newPath" only when
+    // oldPath is non-null.  This assertion pins that contract: a conflicted
+    // rename must never collapse to the newPath-only branch.
+    const display = getFileDiffDisplay(renamedConflicted);
+    expect(display.oldPath).not.toBeNull();
+  });
+
+  it("works when renamedFrom uses a subdirectory path", () => {
+    const diff = makeFileDiff({
+      changeKind: "renamed",
+      path: "src/utils/new-name.ts",
+      renamedFrom: "src/helpers/old-name.ts",
+      added: 3,
+      removed: 1,
+      lines: [
+        { kind: "added" as const, text: "<<<<<<< HEAD" },
+        { kind: "added" as const, text: "a" },
+        { kind: "added" as const, text: ">>>>>>> feature" },
+        { kind: "removed" as const, text: "b" },
+      ],
+    });
+    const display = getFileDiffDisplay(diff);
+    expect(display.oldPath).toBe("src/helpers/old-name.ts");
+    expect(display.newPath).toBe("src/utils/new-name.ts");
+    expect(display.hasLines).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // getFileDiffDisplay — non-renamed files have null oldPath
 // ---------------------------------------------------------------------------
 
