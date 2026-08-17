@@ -552,6 +552,42 @@ describe("queryDue recovery filter — end-to-end via recordGraderResult", () =>
     expect(friction.some((f) => f.sourceId === "source-old-only")).toBe(true);
   });
 
+  it("seeds trend data from legacy aggregate counts so trend fields are non-zero after the first new run", () => {
+    // A legacy record has failures + passes > 0 but runs: [].
+    // After exactly one new grader run, the trend fields (recentPasses +
+    // recentFailures) must be non-zero — i.e. the seeded window is visible to
+    // the trend detector without waiting for RECENT_WINDOW runs to accumulate.
+    setDrillData({
+      "source-legacy": {
+        failures: 3,
+        passes: 7,
+        runs: [], // legacy: no rolling window yet
+      },
+    });
+
+    // Wire writeFileSync to persist so the second load() inside queryDue sees
+    // the state written by recordGraderResult.
+    vi.mocked(writeFileSync).mockImplementation((_path, content) => {
+      mockFileContents.value = content as string;
+    });
+
+    const candidates = [{ id: "d1", sourceId: "source-legacy" }];
+
+    // Record exactly one new grader result on the legacy source.
+    recordGraderResult("source-legacy", false);
+
+    const { friction } = queryDue(candidates);
+    const entry = friction.find((f) => f.sourceId === "source-legacy");
+    expect(entry).toBeDefined();
+
+    // Trend fields must be non-zero: the seeded window must provide enough
+    // history for at least one half of the trend split to have data.
+    expect(entry!.recentPasses + entry!.recentFailures).toBeGreaterThan(0);
+
+    // The raw aggregate totals must be updated for the new run.
+    expect(entry!.failures).toBeGreaterThan(0);
+  });
+
   it("shows recovered badge once then hides a source that recovers after 10+ runs fill the window with passes at the end", () => {
     // 10 failures then 5 passes gives runs = [F×5, P×5] (window = last 10).
     // newerHalf (last 5) = [P, P, P, P, P] → fully recovered.

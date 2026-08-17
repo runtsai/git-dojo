@@ -366,6 +366,30 @@ export function recordGraderResult(sourceId: string, passed: boolean): void {
     runs: [],
     recoveredSince: null,
   };
+
+  // ── Legacy record seeding ─────────────────────────────────────────────────
+  // When a record has aggregate totals but no runs history (written before the
+  // rolling window was introduced), reconstruct a plausible runs window from
+  // the counts so trend detection is useful immediately — rather than waiting
+  // for RECENT_WINDOW new grader runs to accumulate.
+  if (rec.runs.length === 0 && rec.failures + rec.passes > 0) {
+    const total = rec.failures + rec.passes;
+    // Leave room for the new entry we are about to append.
+    const seedCount = Math.min(total, FRICTION_WINDOW - 1);
+    const seededFailures = Math.round((rec.failures / total) * seedCount);
+    const syntheticAt = new Date().toISOString();
+    const syntheticRuns: FrictionEntry[] = [];
+    let failuresEmitted = 0;
+    for (let i = 0; i < seedCount; i++) {
+      // Bresenham-style distribution: spread failures evenly across slots.
+      const target = Math.round(((i + 1) / seedCount) * seededFailures);
+      const entryPassed = target <= failuresEmitted;
+      if (!entryPassed) failuresEmitted++;
+      syntheticRuns.push({ at: syntheticAt, passed: entryPassed });
+    }
+    rec.runs = syntheticRuns;
+  }
+
   if (passed) {
     rec.passes += 1;
   } else {
