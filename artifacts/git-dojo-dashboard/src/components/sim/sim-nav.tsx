@@ -23,7 +23,7 @@ export function SimGlobalNav({
   breadcrumbs?: string[]
 }) {
   return (
-    <div className="bg-[#161b22] border border-white/10 rounded-lg overflow-hidden font-sans shadow-xl text-left flex flex-col h-[600px] max-h-[70vh]">
+    <div className="bg-[#161b22] border border-white/10 rounded-lg overflow-hidden font-sans shadow-xl text-left flex flex-col h-[600px] max-h-[50vh] sm:max-h-[70vh]">
       {/* Top Nav Bar */}
       <div className="h-16 px-4 border-b border-white/10 flex items-center justify-between bg-[#010409]">
         <div className="flex items-center gap-4">
