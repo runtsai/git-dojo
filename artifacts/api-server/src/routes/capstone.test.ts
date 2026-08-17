@@ -17,7 +17,7 @@
  * Timer-based delays (the 1500 ms auto_init wait) are mocked with vi.useFakeTimers.
  */
 
-import { describe, it, expect, vi, beforeEach, beforeAll, afterAll } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach, beforeAll, afterAll } from "vitest";
 import express from "express";
 import type { Server } from "node:http";
 import {
@@ -560,6 +560,251 @@ describe("POST /api/capstone/verify/:missionId — response shape", () => {
         mockCapstoneState = s;
       });
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// POST /api/capstone/repo — mid-operation GitHub failures
+// ---------------------------------------------------------------------------
+
+describe("POST /api/capstone/repo — mid-operation GitHub failures", () => {
+  /**
+   * The route inserts `await new Promise(r => setTimeout(r, 1500))` after the
+   * repo is created.  vi.runAllTimersAsync() is unreliable here because the
+   * setTimeout is created asynchronously (after several awaited ghJson calls)
+   * and may not be in the timer queue when runAllTimersAsync sweeps.
+   *
+   * Instead we spy on globalThis.setTimeout and invoke the callback immediately,
+   * so the auto-init wait resolves synchronously — no fake-timer mechanics needed.
+   */
+  beforeEach(() => {
+    const _originalSetTimeout = globalThis.setTimeout.bind(globalThis);
+    vi.spyOn(globalThis, "setTimeout").mockImplementation(
+      (fn: TimerHandler, _delay?: number, ...args: unknown[]) => {
+        // Invoke the callback immediately so the route's 1500 ms auto_init
+        // wait resolves without blocking the test.
+        if (typeof fn === "function") (fn as (...a: unknown[]) => void)(...args);
+        // Return a real Timeout object (via a 0-ms no-op) so callers such as
+        // undici's internal parser that expect .unref() on the return value
+        // do not crash.
+        return _originalSetTimeout(() => {}, 0);
+      },
+    );
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  /** Canned successful responses for each step preceding the one under test. */
+  const repo = makeRepo();
+  const collisionCheck404 = { ok: false, status: 404, data: null, errorMessage: "Not Found" };
+  const createRepoOk = { ok: true, status: 201, data: repo, errorMessage: null };
+  const readCommitsOk = { ok: true, status: 200, data: [{ sha: "seed-sha-1" }], errorMessage: null };
+  const listPRsOk = { ok: true, status: 200, data: [], errorMessage: null };
+  const readHeadRefOk = { ok: true, status: 200, data: { object: { sha: "head-sha-abc" } }, errorMessage: null };
+  const createBranchOk = { ok: true, status: 201, data: {}, errorMessage: null };
+  const seedFileOk = { ok: true, status: 201, data: { commit: { sha: "file-sha" } }, errorMessage: null };
+  const networkFail = { ok: false, status: 0, data: null, errorMessage: "network error" };
+
+  it("returns 409 when repo creation fails; state stays null", async () => {
+    mockGhJson.mockImplementation(async (path: string, init?: { method?: string }) => {
+      const method = (init?.method ?? "GET").toUpperCase();
+      if (method === "GET" && path === "/repos/testuser/dojo-live-capstone") return collisionCheck404;
+      if (method === "POST" && path === "/user/repos") return networkFail;
+      throw new Error(`Unexpected: ${method} ${path}`);
+    });
+
+    const res = await fetch(`${base}/api/capstone/repo`, { method: "POST" });
+
+    expect(res.status).toBe(409);
+    const body = (await res.json()) as { error: string };
+    expect(typeof body.error).toBe("string");
+    // No state should have been saved — we never got a repo id back
+    expect(mockCapstoneState).toBeNull();
+  });
+
+  it("returns 409 when reading HEAD ref fails (pre-branch step); state has repo but no PR", async () => {
+    mockGhJson.mockImplementation(async (path: string, init?: { method?: string }) => {
+      const method = (init?.method ?? "GET").toUpperCase();
+      if (method === "GET" && path === "/repos/testuser/dojo-live-capstone") return collisionCheck404;
+      if (method === "POST" && path === "/user/repos") return createRepoOk;
+      if (method === "GET" && path.includes("/commits")) return readCommitsOk;
+      if (method === "GET" && path.includes("/pulls?state=open")) return listPRsOk;
+      if (method === "GET" && path.includes("/git/ref/heads/")) return networkFail; // ← fails here
+      throw new Error(`Unexpected: ${method} ${path}`);
+    });
+
+    const res = await fetch(`${base}/api/capstone/repo`, { method: "POST" });
+
+    expect(res.status).toBe(409);
+    const body = (await res.json()) as { error: string };
+    expect(typeof body.error).toBe("string");
+    // State was saved after repo creation (prNumber=null); no partial PR info
+    expect(mockCapstoneState).not.toBeNull();
+    expect(mockCapstoneState!.prNumber).toBeNull();
+  });
+
+  it("returns 409 when branch creation fails; state has repo but no PR", async () => {
+    mockGhJson.mockImplementation(async (path: string, init?: { method?: string }) => {
+      const method = (init?.method ?? "GET").toUpperCase();
+      if (method === "GET" && path === "/repos/testuser/dojo-live-capstone") return collisionCheck404;
+      if (method === "POST" && path === "/user/repos") return createRepoOk;
+      if (method === "GET" && path.includes("/commits")) return readCommitsOk;
+      if (method === "GET" && path.includes("/pulls?state=open")) return listPRsOk;
+      if (method === "GET" && path.includes("/git/ref/heads/")) return readHeadRefOk;
+      if (method === "POST" && path.includes("/git/refs")) return networkFail; // ← fails here
+      throw new Error(`Unexpected: ${method} ${path}`);
+    });
+
+    const res = await fetch(`${base}/api/capstone/repo`, { method: "POST" });
+
+    expect(res.status).toBe(409);
+    const body = (await res.json()) as { error: string };
+    expect(typeof body.error).toBe("string");
+    expect(mockCapstoneState!.prNumber).toBeNull();
+  });
+
+  it("returns 409 when file seeding fails; state has repo but no PR", async () => {
+    mockGhJson.mockImplementation(async (path: string, init?: { method?: string }) => {
+      const method = (init?.method ?? "GET").toUpperCase();
+      if (method === "GET" && path === "/repos/testuser/dojo-live-capstone") return collisionCheck404;
+      if (method === "POST" && path === "/user/repos") return createRepoOk;
+      if (method === "GET" && path.includes("/commits")) return readCommitsOk;
+      if (method === "GET" && path.includes("/pulls?state=open")) return listPRsOk;
+      if (method === "GET" && path.includes("/git/ref/heads/")) return readHeadRefOk;
+      if (method === "POST" && path.includes("/git/refs")) return createBranchOk;
+      if (method === "PUT" && path.includes("/contents/DOJO_MISSION")) return networkFail; // ← fails here
+      throw new Error(`Unexpected: ${method} ${path}`);
+    });
+
+    const res = await fetch(`${base}/api/capstone/repo`, { method: "POST" });
+
+    expect(res.status).toBe(409);
+    const body = (await res.json()) as { error: string };
+    expect(typeof body.error).toBe("string");
+    expect(mockCapstoneState!.prNumber).toBeNull();
+  });
+
+  it("returns 409 when opening the practice PR fails; state has repo but no PR", async () => {
+    mockGhJson.mockImplementation(async (path: string, init?: { method?: string }) => {
+      const method = (init?.method ?? "GET").toUpperCase();
+      if (method === "GET" && path === "/repos/testuser/dojo-live-capstone") return collisionCheck404;
+      if (method === "POST" && path === "/user/repos") return createRepoOk;
+      if (method === "GET" && path.includes("/commits")) return readCommitsOk;
+      if (method === "GET" && path.includes("/pulls?state=open")) return listPRsOk;
+      if (method === "GET" && path.includes("/git/ref/heads/")) return readHeadRefOk;
+      if (method === "POST" && path.includes("/git/refs")) return createBranchOk;
+      if (method === "PUT" && path.includes("/contents/DOJO_MISSION")) return seedFileOk;
+      if (method === "POST" && path.includes("/pulls")) return networkFail; // ← fails here
+      throw new Error(`Unexpected: ${method} ${path}`);
+    });
+
+    const res = await fetch(`${base}/api/capstone/repo`, { method: "POST" });
+
+    expect(res.status).toBe(409);
+    const body = (await res.json()) as { error: string };
+    expect(typeof body.error).toBe("string");
+    // Repo exists in state but no PR was persisted
+    expect(mockCapstoneState!.prNumber).toBeNull();
+    expect(mockCapstoneState!.prUrl).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// POST /api/capstone/verify/:missionId — mid-operation GitHub failures
+// ---------------------------------------------------------------------------
+
+describe("POST /api/capstone/verify/:missionId — mid-operation GitHub failures", () => {
+  /**
+   * verifyStateTrust calls GET /repos/{fullName} and returns trusted:false when
+   * ghJson returns { ok: false } (not a 404). The route then clears state and
+   * returns 409. This exercises the "GitHub becomes unreachable between the
+   * connected-login check and the actual mission verification" scenario.
+   */
+  it("returns 409 when verifyStateTrust repo fetch fails (not 404) mid-verify", async () => {
+    mockCapstoneState = makeCapstoneState();
+
+    mockGhJson.mockResolvedValue({
+      ok: false,
+      status: 503,
+      data: null,
+      errorMessage: "Service Unavailable",
+    });
+
+    const res = await fetch(`${base}/api/capstone/verify/push-commit`, {
+      method: "POST",
+    });
+
+    expect(res.status).toBe(409);
+    const body = (await res.json()) as { error: string };
+    expect(typeof body.error).toBe("string");
+    // State should be cleared after trust verification failure
+    expect(mockCapstoneState).toBeNull();
+  });
+
+  /**
+   * When ghJson fails during the mission-specific check (after verifyStateTrust
+   * succeeds), the route sets an error detail and returns verified:false — it
+   * does NOT crash or return 500.
+   */
+  it("push-commit: returns verified=false (not 500) when commits fetch fails", async () => {
+    mockCapstoneState = makeCapstoneState();
+    const networkFail = { ok: false, status: 0, data: null, errorMessage: "network error" };
+
+    mockGhJson.mockImplementation(async (path: string) => {
+      // verifyStateTrust succeeds
+      if (path === "/repos/testuser/dojo-live-capstone") {
+        return { ok: true, status: 200, data: makeRepo(), errorMessage: null };
+      }
+      // mission-specific commits fetch fails
+      if (path.includes("/commits")) return networkFail;
+      throw new Error(`Unexpected ghJson call: ${path}`);
+    });
+
+    const res = await fetch(`${base}/api/capstone/verify/push-commit`, { method: "POST" });
+    expect(res.status).not.toBe(500);
+    const body = (await res.json()) as { verified: boolean; detail: string };
+    expect(body.verified).toBe(false);
+    expect(typeof body.detail).toBe("string");
+  });
+
+  it("create-branch: returns verified=false (not 500) when branches fetch fails", async () => {
+    mockCapstoneState = makeCapstoneState();
+    const networkFail = { ok: false, status: 0, data: null, errorMessage: "network error" };
+
+    mockGhJson.mockImplementation(async (path: string) => {
+      if (path === "/repos/testuser/dojo-live-capstone") {
+        return { ok: true, status: 200, data: makeRepo(), errorMessage: null };
+      }
+      if (path.includes("/branches")) return networkFail;
+      throw new Error(`Unexpected ghJson call: ${path}`);
+    });
+
+    const res = await fetch(`${base}/api/capstone/verify/create-branch`, { method: "POST" });
+    expect(res.status).not.toBe(500);
+    const body = (await res.json()) as { verified: boolean; detail: string };
+    expect(body.verified).toBe(false);
+    expect(typeof body.detail).toBe("string");
+  });
+
+  it("merge-pr: returns verified=false (not 500) when PR fetch fails", async () => {
+    mockCapstoneState = makeCapstoneState();
+    const networkFail = { ok: false, status: 0, data: null, errorMessage: "network error" };
+
+    mockGhJson.mockImplementation(async (path: string) => {
+      if (path === "/repos/testuser/dojo-live-capstone") {
+        return { ok: true, status: 200, data: makeRepo(), errorMessage: null };
+      }
+      if (path.includes("/pulls/42")) return networkFail;
+      throw new Error(`Unexpected ghJson call: ${path}`);
+    });
+
+    const res = await fetch(`${base}/api/capstone/verify/merge-pr`, { method: "POST" });
+    expect(res.status).not.toBe(500);
+    const body = (await res.json()) as { verified: boolean; detail: string };
+    expect(body.verified).toBe(false);
+    expect(typeof body.detail).toBe("string");
   });
 });
 
