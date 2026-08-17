@@ -580,7 +580,7 @@ describe("POST /api/capstone/repo — mid-operation GitHub failures", () => {
   beforeEach(() => {
     const _originalSetTimeout = globalThis.setTimeout.bind(globalThis);
     vi.spyOn(globalThis, "setTimeout").mockImplementation(
-      (fn: TimerHandler, _delay?: number, ...args: unknown[]) => {
+      (fn: Parameters<typeof setTimeout>[0], _delay?: number, ...args: unknown[]) => {
         // Invoke the callback immediately so the route's 1500 ms auto_init
         // wait resolves without blocking the test.
         if (typeof fn === "function") (fn as (...a: unknown[]) => void)(...args);

@@ -588,6 +588,39 @@ describe("queryDue recovery filter — end-to-end via recordGraderResult", () =>
     expect(entry!.failures).toBeGreaterThan(0);
   });
 
+  it("legacy friction record (empty runs, non-zero failures) appears in friction list with all rolling-window fields at zero and is not skipped", () => {
+    // A FrictionRecord whose `runs` array is empty (legacy format, pre-rolling-window)
+    // but whose `failures` count is non-zero must:
+    //   1. appear in the friction list (failures > 0 gate passes)
+    //   2. expose all four rolling-window counters as 0 (no runs to draw from)
+    //   3. NOT be treated as recovered (recentPasses === 0, so isRecovered is false)
+    setDrillData({
+      "source-legacy": {
+        failures: 4,
+        passes: 1,
+        runs: [], // legacy record — rolling window not yet populated
+      },
+    });
+
+    const candidates = [{ id: "d1", sourceId: "source-legacy" }];
+    const { friction } = queryDue(candidates);
+
+    // 1. Entry IS included in the friction list.
+    expect(friction.length).toBe(1);
+    const entry = friction.find((f) => f.sourceId === "source-legacy")!;
+    expect(entry).toBeDefined();
+
+    // 2. All four rolling-window fields are 0 (empty runs → nothing to compute).
+    expect(entry.recentPasses).toBe(0);
+    expect(entry.recentFailures).toBe(0);
+    expect(entry.olderPasses).toBe(0);
+    expect(entry.olderFailures).toBe(0);
+
+    // 3. Entry is NOT marked as recovered (recentPasses === 0 prevents it).
+    expect(entry.recovered).toBe(false);
+  });
+
+
   it("shows recovered badge once then hides a source that recovers after 10+ runs fill the window with passes at the end", () => {
     // 10 failures then 5 passes gives runs = [F×5, P×5] (window = last 10).
     // newerHalf (last 5) = [P, P, P, P, P] → fully recovered.
