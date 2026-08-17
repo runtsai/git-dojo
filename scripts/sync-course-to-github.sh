@@ -28,9 +28,40 @@ COURSE_DIR="$WORKSPACE_ROOT/git-dojo"
 
 # ── 1. Sanity checks ──────────────────────────────────────────────────────────
 
-if [ ! -d "$COURSE_DIR/lesson-01-first-snapshot" ]; then
+# Canonical lesson manifest — list every expected lesson directory explicitly.
+# This list is the authoritative source of truth, independent of the copy glob.
+# If a lesson is renamed, added, or removed, update this list intentionally;
+# the sync will refuse to proceed until the manifest and the directory state agree.
+EXPECTED_LESSONS=(
+  lesson-01-first-snapshot
+  lesson-02-the-ledger
+  lesson-03-undo-without-erasing
+  lesson-04-branches
+  lesson-05-the-conflict
+  lesson-06-fake-github
+  lesson-07-capstone-contractor-review
+  lesson-08-the-collision
+  lesson-09-the-standoff
+)
+
+if [ ! -d "$COURSE_DIR" ]; then
   echo "ERROR: course directory not found at $COURSE_DIR"
-  echo "       Expected to find lesson-01-first-snapshot/ inside it."
+  exit 1
+fi
+
+# Pre-copy manifest check: every expected lesson must exist in the source tree.
+# A lesson renamed to a non-lesson-* name will be caught here before cp runs.
+MISSING_FROM_SOURCE=()
+for _lesson in "${EXPECTED_LESSONS[@]}"; do
+  if [ ! -d "$COURSE_DIR/$_lesson" ]; then
+    MISSING_FROM_SOURCE+=("$_lesson")
+  fi
+done
+if [ "${#MISSING_FROM_SOURCE[@]}" -gt 0 ]; then
+  echo "ERROR: the following expected lesson folders are missing from $COURSE_DIR:"
+  printf '  - %s\n' "${MISSING_FROM_SOURCE[@]}"
+  echo "  A lesson may have been renamed or deleted."
+  echo "  Update EXPECTED_LESSONS in this script to match the new layout and re-run."
   exit 1
 fi
 
@@ -99,6 +130,22 @@ cp "$COURSE_DIR/setup.sh" .
 cp "$COURSE_DIR/setup.ps1" .
 cp "$COURSE_DIR/reset.sh" .
 cp "$COURSE_DIR/README.md" .
+
+# ── Post-copy manifest check: every expected lesson must have arrived ─────────
+# Belt-and-suspenders: the pre-copy check already guards against renames, but
+# this second pass catches any cp failure that would leave a folder absent.
+MISSING_AFTER_COPY=()
+for _lesson in "${EXPECTED_LESSONS[@]}"; do
+  if [ ! -d "$_lesson" ]; then
+    MISSING_AFTER_COPY+=("$_lesson")
+  fi
+done
+if [ "${#MISSING_AFTER_COPY[@]}" -gt 0 ]; then
+  echo "ERROR: the following lesson folders were not copied to the sync directory:"
+  printf '  - %s\n' "${MISSING_AFTER_COPY[@]}"
+  echo "  Verify $COURSE_DIR and re-run."
+  exit 1
+fi
 
 git add -A
 

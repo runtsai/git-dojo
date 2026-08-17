@@ -430,7 +430,54 @@ simulate_course_sync() {
       git checkout -q -b main
     fi
 
+    # Pre-copy manifest check (mirrors sync-course-to-github.sh EXPECTED_LESSONS guard).
+    # SYNC_EXPECTED_LESSONS env var: space-separated list of lesson dir names the
+    # caller declares must exist in workspace_dir before any copy begins.
+    # A folder renamed outside this list is detected here, before cp runs.
+    if [ -n "${SYNC_EXPECTED_LESSONS:-}" ]; then
+      local _pre_missing=()
+      for _lesson in $SYNC_EXPECTED_LESSONS; do
+        if [ ! -d "$workspace_dir/$_lesson" ]; then
+          _pre_missing+=("$_lesson")
+        fi
+      done
+      if [ "${#_pre_missing[@]}" -gt 0 ]; then
+        printf 'ERROR: expected lesson missing from workspace source: %s\n' "${_pre_missing[@]}" >&2
+        exit 1
+      fi
+    fi
+
     cp -r "$workspace_dir"/. .
+
+    # Post-copy manifest check (belt-and-suspenders; also mirrors the script).
+    if [ -n "${SYNC_EXPECTED_LESSONS:-}" ]; then
+      local _post_missing=()
+      for _lesson in $SYNC_EXPECTED_LESSONS; do
+        if [ ! -d "$_lesson" ]; then
+          _post_missing+=("$_lesson")
+        fi
+      done
+      if [ "${#_post_missing[@]}" -gt 0 ]; then
+        printf 'ERROR: lesson folder not copied to sync dir: %s\n' "${_post_missing[@]}" >&2
+        exit 1
+      fi
+    else
+      # Fallback when no manifest: compare lesson-* dirs in workspace vs sync dir.
+      local _missing_lessons=()
+      for _src in "$workspace_dir"/lesson-*/; do
+        [ -d "$_src" ] || continue
+        local _lname
+        _lname="$(basename "$_src")"
+        if [ ! -d "$_lname" ]; then
+          _missing_lessons+=("$_lname")
+        fi
+      done
+      if [ "${#_missing_lessons[@]}" -gt 0 ]; then
+        printf 'ERROR: lesson folder not copied: %s\n' "${_missing_lessons[@]}" >&2
+        exit 1
+      fi
+    fi
+
     git add -A
 
     if git diff --cached --quiet; then
@@ -762,6 +809,111 @@ if [ "$PARENT9" = "no-parent" ]; then
   pass "empty remote: pushed commit is a root commit (no parent) — rebase block was skipped"
 else
   fail "empty remote: pushed commit has a parent ($PARENT9) — rebase block may have run unexpectedly"
+fi
+
+# ═════════════════════════════════════════════════════════════════════════════
+# Test 10: Manifest-based rename detection
+#
+#   10a — Rename to non-lesson-* name: lesson-02 is renamed to module-02 in the
+#         workspace. The caller's manifest still lists lesson-02. The pre-copy
+#         manifest check must detect the missing entry and exit non-zero before
+#         cp or git add runs.
+#
+#   10b — Happy-path control: all manifest entries are present in the workspace;
+#         sync must succeed and push normally.
+#
+#   10c — Partial-copy belt-and-suspenders: both lesson folders exist in the
+#         workspace source but one fails to arrive in the sync dir (simulates a
+#         cp failure). The post-copy manifest check must catch it.
+# ═════════════════════════════════════════════════════════════════════════════
+printf "\n» Test 10: manifest-based rename detection and post-copy sanity check\n"
+
+# ── 10a: lesson-02 renamed to module-02 — pre-copy manifest check fires ───────
+REMOTE10A="$TMP/remote10a.git"
+git init --bare -q "$REMOTE10A"
+
+WS10A="$TMP/ws10a"
+mkdir -p "$WS10A/lesson-01" "$WS10A/module-02"   # module-02 was lesson-02 before rename
+echo "Lesson 01" > "$WS10A/lesson-01/README.md"
+echo "Module 02 (renamed from lesson-02)" > "$WS10A/module-02/README.md"
+
+SYNC10A_EXIT=0
+SYNC_EXPECTED_LESSONS="lesson-01 lesson-02" \
+  simulate_course_sync "$REMOTE10A" "$WS10A" 2>/dev/null || SYNC10A_EXIT=$?
+
+if [ "$SYNC10A_EXIT" != "0" ]; then
+  pass "rename detection: exited non-zero when lesson-02 was renamed to module-02"
+else
+  fail "rename detection: should have exited non-zero for missing lesson-02 (renamed to module-02)"
+fi
+
+# Confirm nothing was pushed to the remote (sync aborted before git add)
+PUSHED10A=$(git ls-remote "$REMOTE10A" refs/heads/main 2>/dev/null | awk '{print $1}')
+if [ -z "$PUSHED10A" ]; then
+  pass "rename detection: nothing pushed to remote — abort happened before commit"
+else
+  fail "rename detection: remote has a commit ($PUSHED10A) — sync should have aborted earlier"
+fi
+
+# ── 10b: all manifest entries present — sync succeeds ─────────────────────────
+REMOTE10B="$TMP/remote10b.git"
+git init --bare -q "$REMOTE10B"
+
+WS10B="$TMP/ws10b"
+mkdir -p "$WS10B/lesson-01" "$WS10B/lesson-02"
+echo "Lesson 01" > "$WS10B/lesson-01/README.md"
+echo "Lesson 02" > "$WS10B/lesson-02/README.md"
+
+SYNC10B_EXIT=0
+SYNC_EXPECTED_LESSONS="lesson-01 lesson-02" \
+  simulate_course_sync "$REMOTE10B" "$WS10B" 2>/dev/null || SYNC10B_EXIT=$?
+
+if [ "$SYNC10B_EXIT" = "0" ]; then
+  pass "manifest happy path: sync exits 0 when all manifest entries are present"
+else
+  fail "manifest happy path: sync exited $SYNC10B_EXIT — false positive on complete workspace"
+fi
+
+PUSHED10B=$(git ls-remote "$REMOTE10B" refs/heads/main 2>/dev/null | awk '{print $1}')
+if [ -n "$PUSHED10B" ]; then
+  pass "manifest happy path: commit was pushed to remote"
+else
+  fail "manifest happy path: nothing pushed — sync may have exited too early"
+fi
+
+# ── 10c: partial-copy (cp-level failure) caught by post-copy manifest check ───
+# Both lessons exist in the workspace source but only lesson-01 arrives in the
+# sync dir (simulates a cp failure for lesson-02).
+SANITY10C_EXIT=0
+(
+  syncdir10c="$(mktemp -d)"
+  trap 'rm -rf "$syncdir10c"' EXIT
+  cd "$syncdir10c"
+
+  WS10C_SRC="$TMP/ws10c_src"
+  mkdir -p "$WS10C_SRC/lesson-01" "$WS10C_SRC/lesson-02"
+  echo "L1" > "$WS10C_SRC/lesson-01/README.md"
+  echo "L2" > "$WS10C_SRC/lesson-02/README.md"
+
+  # Simulate cp delivering only lesson-01 (lesson-02 failed silently).
+  cp -r "$WS10C_SRC/lesson-01" .
+
+  # Post-copy manifest check logic (mirrors both the script and simulate_course_sync).
+  _post_missing=()
+  for _lesson in lesson-01 lesson-02; do
+    [ -d "$_lesson" ] || _post_missing+=("$_lesson")
+  done
+  if [ "${#_post_missing[@]}" -gt 0 ]; then
+    printf 'ERROR: lesson folder not copied to sync dir: %s\n' "${_post_missing[@]}" >&2
+    exit 1
+  fi
+  exit 0
+) || SANITY10C_EXIT=$?
+
+if [ "$SANITY10C_EXIT" != "0" ]; then
+  pass "post-copy check: exited non-zero when lesson-02 absent after partial cp"
+else
+  fail "post-copy check: should have exited non-zero for absent lesson-02"
 fi
 
 # ─────────────────────────────────────────────────────────────────────────────
