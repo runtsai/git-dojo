@@ -929,3 +929,87 @@ describe("cascading merge (merge commit re-merged into a third branch)", () => {
     expect(maxCol).toBeGreaterThanOrEqual(2);
   });
 });
+
+// ---------------------------------------------------------------------------
+// 3-column window color uniqueness — 8+ simultaneous branches
+// ---------------------------------------------------------------------------
+
+describe("3-column window color uniqueness with 8+ simultaneous branches", () => {
+  // 8 branches diverge from the same root commit. They are all processed at the
+  // same time (each is a tip child of root), so they sit on columns 0-7
+  // simultaneously. The expanded 12-color palette and the updated pickColor
+  // logic must ensure that for every trio of consecutive columns [n, n+1, n+2],
+  // no two of the three assigned colors are identical.
+
+  function build8Branches() {
+    const root = makeCommit("Root");
+    const tips = Array.from({ length: 8 }, (_, k) =>
+      makeCommit(`Branch-${k + 1}`, [root.hash]),
+    );
+    return { root, tips };
+  }
+
+  it("every column among 8 simultaneous branches gets a distinct column index", () => {
+    const { root, tips } = build8Branches();
+    const { rows } = layoutGraph([...tips, root]);
+    const cols = tips.map(
+      (t) => rows.find((r) => r.commit.hash === t.hash)!.col,
+    );
+    expect(new Set(cols).size).toBe(8);
+  });
+
+  it("no color repeats within any 3-column window when 8 simultaneous branches exist", () => {
+    const { root, tips } = build8Branches();
+    const { rows } = layoutGraph([...tips, root]);
+
+    // Build col→color map for the simultaneous tip rows only.
+    const colColor = new Map<number, string>();
+    for (const t of tips) {
+      const r = rows.find((row) => row.commit.hash === t.hash)!;
+      colColor.set(r.col, r.color);
+    }
+
+    const cols = [...colColor.keys()].sort((a, b) => a - b);
+
+    // Slide a window of width 3 across all consecutive column triplets.
+    for (let i = 0; i < cols.length - 2; i++) {
+      const [a, b, c] = [cols[i]!, cols[i + 1]!, cols[i + 2]!];
+      // Only test windows where columns are truly consecutive (no gap).
+      if (b !== a + 1 || c !== b + 1) continue;
+      const ca = colColor.get(a)!;
+      const cb = colColor.get(b)!;
+      const cc = colColor.get(c)!;
+      expect(ca).not.toBe(cb, `cols ${a} and ${b} share color ${ca}`);
+      expect(ca).not.toBe(cc, `cols ${a} and ${c} share color ${ca}`);
+      expect(cb).not.toBe(cc, `cols ${b} and ${c} share color ${cb}`);
+    }
+  });
+
+  it("no color repeats within any 3-column window when 12 simultaneous branches exist", () => {
+    // Push all 12 colors into play at once — requires the full extended palette.
+    const root = makeCommit("Root");
+    const tips = Array.from({ length: 12 }, (_, k) =>
+      makeCommit(`Branch-${k + 1}`, [root.hash]),
+    );
+    const { rows } = layoutGraph([...tips, root]);
+
+    const colColor = new Map<number, string>();
+    for (const t of tips) {
+      const r = rows.find((row) => row.commit.hash === t.hash)!;
+      colColor.set(r.col, r.color);
+    }
+
+    const cols = [...colColor.keys()].sort((a, b) => a - b);
+
+    for (let i = 0; i < cols.length - 2; i++) {
+      const [a, b, c] = [cols[i]!, cols[i + 1]!, cols[i + 2]!];
+      if (b !== a + 1 || c !== b + 1) continue;
+      const ca = colColor.get(a)!;
+      const cb = colColor.get(b)!;
+      const cc = colColor.get(c)!;
+      expect(ca).not.toBe(cb, `cols ${a} and ${b} share color ${ca}`);
+      expect(ca).not.toBe(cc, `cols ${a} and ${c} share color ${ca}`);
+      expect(cb).not.toBe(cc, `cols ${b} and ${c} share color ${cb}`);
+    }
+  });
+});

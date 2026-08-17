@@ -13,12 +13,20 @@ const COL_W = 18;
 const NODE_R = 5;
 
 const LANE_COLORS = [
+  // Primary palette — vivid, high-contrast hues
   "#ff6b00", // primary orange
   "#34d399", // emerald
   "#38bdf8", // sky
   "#a78bfa", // violet
   "#fbbf24", // amber
   "#fb7185", // rose
+  // Extended palette — lightness/saturation variants for overflow lanes
+  "#f97316", // orange-500 (warmer variant)
+  "#2dd4bf", // teal
+  "#818cf8", // indigo
+  "#e879f9", // fuchsia
+  "#4ade80", // green
+  "#f472b6", // pink
 ];
 
 /**
@@ -57,19 +65,25 @@ export function layoutGraph(commits: RepoCommit[]): { rows: LayoutRow[]; edges: 
   let maxCol = 0;
 
   /**
-   * Pick a color for `col` that does not match either immediate neighbor lane.
+   * Pick a color for `col` that does not repeat within any 3-column window.
+   * That means we must avoid colors already assigned to columns col-2, col-1,
+   * col+1, and col+2 (so that any window of three consecutive columns is
+   * free of repeated colors).
    * `preferred` is the hash-derived color; it is used when it doesn't conflict.
    * Falls back to the first non-conflicting color in LANE_COLORS.
    */
   function pickColor(col: number, preferred: string): string {
-    const neighborColors = new Set<string>();
-    if (col > 0 && laneColors[col - 1] != null) neighborColors.add(laneColors[col - 1]!);
-    if (laneColors[col + 1] != null) neighborColors.add(laneColors[col + 1]!);
-    if (!neighborColors.has(preferred)) return preferred;
-    for (const c of LANE_COLORS) {
-      if (!neighborColors.has(c)) return c;
+    const windowColors = new Set<string>();
+    for (let offset = -2; offset <= 2; offset++) {
+      if (offset === 0) continue;
+      const neighbor = col + offset;
+      if (neighbor >= 0 && laneColors[neighbor] != null) windowColors.add(laneColors[neighbor]!);
     }
-    // More neighbors than colors — extremely unlikely; best-effort fallback.
+    if (!windowColors.has(preferred)) return preferred;
+    for (const c of LANE_COLORS) {
+      if (!windowColors.has(c)) return c;
+    }
+    // More window neighbors than colors — best-effort fallback.
     return preferred;
   }
 
