@@ -48,6 +48,21 @@ if (LOOP_FADE_IN_MS > LOOP_FADE_LEAD_MS) {
     `Either increase LOOP_FADE_LEAD_MS or reduce LOOP_FADE_IN_MS.`
   );
 }
+// Startup assertion: verify the fade-out completes before s0 ends.
+//
+// The fade-out (black → transparent) starts at the very beginning of s0 and
+// lasts LOOP_FADE_OUT_MS.  If LOOP_FADE_OUT_MS >= SCENE_DURATIONS.s0, the
+// black overlay would still be fading when s1 cuts in — silently producing a
+// broken transition with no warning.
+if (LOOP_FADE_OUT_MS >= SCENE_DURATIONS.s0) {
+  throw new Error(
+    `[VideoTemplate] Invalid loop-fade timing: LOOP_FADE_OUT_MS (${LOOP_FADE_OUT_MS} ms) ` +
+    `must be less than SCENE_DURATIONS.s0 (${SCENE_DURATIONS.s0} ms). ` +
+    `The fade-out starts at the beginning of s0 and takes ${LOOP_FADE_OUT_MS} ms — ` +
+    `it would still be fading when s1 cuts in. ` +
+    `Either reduce LOOP_FADE_OUT_MS or increase SCENE_DURATIONS.s0.`
+  );
+}
 
 const SCENE_COMPONENTS: Record<string, React.ComponentType> = {
   s0: Scene0,
