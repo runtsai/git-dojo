@@ -10,18 +10,35 @@
 
 import { describe, it, expect } from "vitest";
 import { tiers } from "./tiers";
+import type { TierDef } from "./tiers";
 import { breakthroughs } from "./breakthroughs/index";
 import { crises } from "./crises";
 import { lessonLocations } from "./map/index";
 import { CLI_LESSON_IDS } from "./lessons";
 import { drillBank } from "./drills";
 
+// ── Helpers ──────────────────────────────────────────────────────────────────
+
+/**
+ * Returns the module IDs that belong to tiers whose status is "active".
+ * coming_soon tiers are explicitly excluded so their module IDs never appear
+ * in coverage or integrity sets.
+ *
+ * This helper is used by both the production derived sets below AND the
+ * fixture-based regression test, ensuring that any weakening of the status
+ * filter is caught by the fixture test even when the real tier data has no
+ * modules on coming_soon tiers.
+ */
+export function activeModuleIdsFrom(tierList: TierDef[]): string[] {
+  return tierList
+    .filter((t) => t.status === "active")
+    .flatMap((t) => (t.modules ?? []).map((m) => m.id));
+}
+
 // ── Derived content sets ─────────────────────────────────────────────────────
 
 /** Module ids from active tiers only (coming_soon tiers are skipped). */
-const activeModuleIds: string[] = tiers
-  .filter((t) => t.status === "active")
-  .flatMap((t) => (t.modules ?? []).map((m) => m.id));
+const activeModuleIds: string[] = activeModuleIdsFrom(tiers);
 
 /** Breakthrough ids from the breakthroughs registry. */
 const breakthroughIds: string[] = breakthroughs.map((b) => b.id);
@@ -329,6 +346,90 @@ describe("drills integrity — no-sourceId drills wired via unlockedBy", () => {
           `Add the correct module/lesson/crisis id to unlockedBy, or add a sourceId if this drill belongs to a specific graded piece of content.`
         : "";
     expect(broken, message).toEqual([]);
+  });
+});
+
+describe("drills integrity — coming-soon tier IDs excluded from validUnlockedByIds", () => {
+  /**
+   * activeModuleIds is built by filtering tiers on status === "active".
+   * validUnlockedByIds then includes activeModuleIds alongside lessons and
+   * crises.  If the status === "active" filter is removed or weakened, module
+   * IDs from coming_soon tiers would flow into validUnlockedByIds, silently
+   * satisfying the unlockedBy integrity checks for drills that should not yet
+   * be reachable.
+   *
+   * Because the real tier data has no modules on coming_soon tiers today, this
+   * suite uses a local fixture that deliberately includes a coming_soon tier
+   * with modules.  The fixture exercises the filter logic in isolation so the
+   * tests are non-vacuous and will catch a weakened or missing status filter.
+   */
+  const fixtureTiers: TierDef[] = [
+    {
+      id: "fix-active",
+      title: "Active Tier",
+      description: "In production",
+      status: "active",
+      modules: [
+        { id: "fix-active-1", title: "Active module 1", path: "/a/1" },
+        { id: "fix-active-2", title: "Active module 2", path: "/a/2" },
+      ],
+    },
+    {
+      id: "fix-coming-soon",
+      title: "Coming Soon Tier",
+      description: "Not yet live",
+      status: "coming_soon",
+      modules: [
+        { id: "fix-cs-1", title: "Coming-soon module 1", path: "/cs/1" },
+        { id: "fix-cs-2", title: "Coming-soon module 2", path: "/cs/2" },
+      ],
+    },
+  ];
+
+  /**
+   * Active module IDs produced by the shared production helper.
+   * If the status === "active" filter inside activeModuleIdsFrom is removed,
+   * this will include fix-cs-1 and fix-cs-2, causing the test below to fail.
+   */
+  const fixtureActiveIds = activeModuleIdsFrom(fixtureTiers);
+
+  /** The valid set as built by the integrity checks (active IDs only). */
+  const fixtureValidIds = new Set<string>(fixtureActiveIds);
+
+  /** Module IDs from coming_soon tiers in the fixture. */
+  const fixtureComingSoonModuleIds = fixtureTiers
+    .filter((t) => t.status !== "active")
+    .flatMap((t) => (t.modules ?? []).map((m) => m.id));
+
+  it("fixture has coming-soon modules so the filter test is non-vacuous", () => {
+    expect(
+      fixtureComingSoonModuleIds.length,
+      "The fixture must include at least one coming_soon tier with modules; " +
+        "otherwise the assertion below is trivially vacuous.",
+    ).toBeGreaterThan(0);
+  });
+
+  it("activeModuleIdsFrom excludes coming-soon module IDs from the valid set", () => {
+    /**
+     * fixtureValidIds is built via the shared activeModuleIdsFrom helper —
+     * the same function that produces the production activeModuleIds.
+     * Removing or weakening the status === "active" filter inside
+     * activeModuleIdsFrom causes fix-cs-1 / fix-cs-2 to appear in
+     * fixtureValidIds, which makes this assertion fail.
+     */
+    const leaked = fixtureComingSoonModuleIds.filter((id) =>
+      fixtureValidIds.has(id),
+    );
+    const message =
+      leaked.length > 0
+        ? `Coming-soon module ID(s) found in the valid set produced by activeModuleIdsFrom:\n` +
+          leaked.map((id) => `  "${id}"`).join("\n") + "\n" +
+          `These IDs come from tiers with status !== "active" in the fixture. ` +
+          `The status === "active" filter inside activeModuleIdsFrom has been ` +
+          `removed or weakened — restore it so coming-soon modules cannot satisfy ` +
+          `coverage or integrity checks for the active curriculum.`
+        : "";
+    expect(leaked, message).toEqual([]);
   });
 });
 
