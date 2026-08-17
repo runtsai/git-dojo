@@ -452,11 +452,12 @@ export async function readWorkingFileDiff(
     try {
       // Never follow symlinks: an untracked symlink pointing outside the
       // playground must not leak the target file's contents. Reject links
-      // and re-check containment on the canonical (realpath) location.
+      // immediately and re-check containment on the canonical (realpath)
+      // location for regular files.
       const lst = lstatSync(abs);
+      if (lst.isSymbolicLink()) return null;
       const realDir = realpathSync(dir);
       if (
-        !lst.isSymbolicLink() &&
         lst.isFile() &&
         realpathSync(abs).startsWith(realDir + path.sep) &&
         lst.size <= 256 * 1024

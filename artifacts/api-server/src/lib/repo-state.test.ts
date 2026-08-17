@@ -4,7 +4,7 @@
  */
 import { describe, it, expect, afterAll } from "vitest";
 import { execFileSync } from "node:child_process";
-import { mkdtempSync, writeFileSync, rmSync, mkdirSync } from "node:fs";
+import { mkdtempSync, writeFileSync, rmSync, mkdirSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { parseUnifiedDiff, readCommitDiff, readWorkingFileDiff } from "./repo-state.js";
@@ -804,5 +804,81 @@ describe("readWorkingFileDiff — integration", () => {
     expect(driversDiff!.unstaged!.added).toBeGreaterThan(0);
     expect(driversDiff!.unstaged!.removed).toBeGreaterThan(0);
     expect(driversDiff!.staged).toBeNull();
+  });
+
+  describe("path-traversal safety", () => {
+    it("returns null for a symlink that points to a file outside the repo", async () => {
+      const dir = makeRepo();
+      reposToClean.push(dir);
+
+      // Create a separate temp directory that acts as the "outside" location.
+      const outsideDir = mkdtempSync(path.join(tmpdir(), "git-dojo-outside-"));
+      reposToClean.push(outsideDir);
+
+      const env = {
+        ...process.env,
+        GIT_AUTHOR_NAME: "Test",
+        GIT_AUTHOR_EMAIL: "test@test.com",
+        GIT_COMMITTER_NAME: "Test",
+        GIT_COMMITTER_EMAIL: "test@test.com",
+        GIT_TERMINAL_PROMPT: "0",
+        GIT_CONFIG_GLOBAL: "/dev/null",
+        HOME: dir,
+      };
+      const g = (...args: string[]) => execFileSync("git", args, { cwd: dir, env });
+
+      // Commit a base file so the repo is initialised.
+      writeFileSync(path.join(dir, "base.txt"), "base\n");
+      g("add", ".");
+      g("commit", "-m", "init");
+
+      // Write the sensitive file outside the repo.
+      const secretPath = path.join(outsideDir, "secret.txt");
+      writeFileSync(secretPath, "TOP SECRET\n");
+
+      // Place a symlink inside the repo pointing to the file outside it.
+      // The symlink itself is untracked (not git-added), which is what the
+      // guard is designed to catch.
+      const linkPath = path.join(dir, "escape.txt");
+      symlinkSync(secretPath, linkPath);
+
+      // readWorkingFileDiff must refuse to read through the symlink.
+      const diff = await readWorkingFileDiff(dir, "escape.txt");
+      expect(diff).toBeNull();
+    });
+
+    it("still returns a valid diff for a normal untracked file inside the repo", async () => {
+      const dir = makeRepo();
+      reposToClean.push(dir);
+
+      const env = {
+        ...process.env,
+        GIT_AUTHOR_NAME: "Test",
+        GIT_AUTHOR_EMAIL: "test@test.com",
+        GIT_COMMITTER_NAME: "Test",
+        GIT_COMMITTER_EMAIL: "test@test.com",
+        GIT_TERMINAL_PROMPT: "0",
+        GIT_CONFIG_GLOBAL: "/dev/null",
+        HOME: dir,
+      };
+      const g = (...args: string[]) => execFileSync("git", args, { cwd: dir, env });
+
+      // Commit a base file so the repo is initialised.
+      writeFileSync(path.join(dir, "base.txt"), "base\n");
+      g("add", ".");
+      g("commit", "-m", "init");
+
+      // Drop a plain untracked file inside the repo.
+      writeFileSync(path.join(dir, "notes.txt"), "alpha\nbeta\n");
+
+      // The guard must not over-block a legitimate untracked file.
+      const diff = await readWorkingFileDiff(dir, "notes.txt");
+      expect(diff).not.toBeNull();
+      expect(diff!.status).toBe("untracked");
+      expect(diff!.unstaged).not.toBeNull();
+      expect(diff!.unstaged!.changeKind).toBe("added");
+      expect(diff!.unstaged!.added).toBe(2);
+      expect(diff!.staged).toBeNull();
+    });
   });
 });
