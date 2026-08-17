@@ -436,6 +436,7 @@ export const GetDueDrillsResponse = zod.object({
   "olderPasses": zod.number().describe('Passes in the older half of the last 10 grader runs'),
   "olderFailures": zod.number().describe('Failures in the older half of the last 10 grader runs'),
   "windowFailures": zod.number().describe('Number of failed runs within the rolling window (last 30 grader runs). Use this for display instead of the raw cumulative failures counter so the subtitle stays consistent with current struggle level.\n'),
+  "windowPasses": zod.number().describe('Number of passed runs within the rolling window (last 30 grader runs). Pair with windowFailures to compute a self-consistent pass ratio.\n'),
   "recovered": zod.boolean().describe('True when the learner has fully recovered: recentFailures === 0 and recentPasses > 0. Recovered entries are included in the friction list so the UI can celebrate the improvement before hiding the row.\n')
 }).describe('Grader friction for one lesson or crisis source')).describe('Per-source grader friction for sources referenced by the candidates, sorted by failures descending. Only sources with at least one failure are included.')
 })

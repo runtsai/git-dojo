@@ -225,6 +225,11 @@ export interface DrillFrictionEntry {
    */
   windowFailures: number;
   /**
+   * Passes within the rolling window (last FRICTION_WINDOW runs). Pair with
+   * windowFailures to compute a self-consistent pass ratio.
+   */
+  windowPasses: number;
+  /**
    * True when the learner has fully recovered: recentFailures === 0 and
    * recentPasses > 0. Recovered entries are included so the UI can celebrate
    * the improvement before hiding the row on the next refresh.
@@ -292,6 +297,7 @@ export function queryDue(candidates: DueQueryCandidate[]): {
       }
 
       const windowFailures = rec.runs.filter((r) => !r.passed).length;
+      const windowPasses = rec.runs.filter((r) => r.passed).length;
       friction.push({
         sourceId,
         failures: rec.failures,
@@ -302,6 +308,7 @@ export function queryDue(candidates: DueQueryCandidate[]): {
         olderPasses,
         olderFailures,
         windowFailures,
+        windowPasses,
         recovered: isRecovered,
       });
     }

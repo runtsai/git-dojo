@@ -338,7 +338,7 @@ function WeakSpotsPanel({ friction }: { friction: DrillFrictionEntry[] }) {
             {active.map((entry) => {
               const label = sourceLabelMap.get(entry.sourceId) ?? entry.sourceId;
               const href = sourceLink(entry.sourceId);
-              const totalRuns = entry.failures + entry.passes;
+              const totalRuns = entry.windowFailures + entry.windowPasses;
               const trend = computeTrend(entry);
               return (
                 <div key={entry.sourceId} className="flex items-center justify-between gap-4 p-4">
@@ -353,7 +353,7 @@ function WeakSpotsPanel({ friction }: { friction: DrillFrictionEntry[] }) {
                       <p className="text-xs text-muted-foreground">
                         {entry.windowFailures} failed check{entry.windowFailures === 1 ? "" : "s"}
                         {totalRuns > 0 && (
-                          <> · {entry.passes} of {totalRuns} passed</>
+                          <> · {entry.windowPasses} of {totalRuns} passed</>
                         )}
                       </p>
                       <TrendBadge trend={trend} />

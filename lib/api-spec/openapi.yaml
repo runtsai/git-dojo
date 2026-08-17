@@ -950,6 +950,12 @@ components:
             runs). Use this for display instead of the raw cumulative
             `failures` counter so the subtitle stays consistent with current
             struggle level.
+        windowPasses:
+          type: number
+          description: >
+            Number of passed runs within the rolling window (last 30 grader
+            runs). Pair with windowFailures to compute a self-consistent
+            pass ratio (windowPasses / (windowFailures + windowPasses)).
         recovered:
           type: boolean
           description: >
@@ -957,7 +963,7 @@ components:
             and recentPasses > 0. Recovered entries are included in the
             friction list so the UI can celebrate the improvement before
             hiding the row.
-      required: [sourceId, failures, passes, effectiveFailures, recentPasses, recentFailures, olderPasses, olderFailures, windowFailures, recovered]
+      required: [sourceId, failures, passes, effectiveFailures, recentPasses, recentFailures, olderPasses, olderFailures, windowFailures, windowPasses, recovered]
     DrillDueResult:
       type: object
       properties:
