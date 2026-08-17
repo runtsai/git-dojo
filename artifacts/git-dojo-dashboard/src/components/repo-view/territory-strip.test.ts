@@ -501,6 +501,60 @@ describe("detached HEAD", () => {
     const workbenchEvents = events.filter((e) => e.to === "workbench");
     expect(workbenchEvents).toHaveLength(0);
   });
+
+  // -------------------------------------------------------------------------
+  // Leaving detached HEAD: reattaching to a branch after inspecting an old commit
+  // -------------------------------------------------------------------------
+
+  it("leaving detached HEAD back to a branch populates freshKeys with newly-appeared workbench files", () => {
+    // Before: detached HEAD — inspecting an old commit, no workbench files
+    const prev = state({
+      detachedHead: true,
+      currentBranch: null,
+      branches: [{ name: "main", isCurrent: false, headHash: "abc" }],
+      files: [],
+    });
+    // After: reattached to main — two files appear on the workbench (e.g. from
+    // uncommitted changes that were shelved while detached)
+    const next = state({
+      detachedHead: false,
+      currentBranch: "main",
+      branches: [{ name: "main", isCurrent: true, headHash: "abc" }],
+      files: [
+        { path: "reattached.ts", status: "modified" },
+        { path: "notes.md", status: "untracked" },
+      ],
+    });
+    const events = detectMovements(prev, next, counter);
+    const ev = events.find((e) => e.from === "sealed" && e.to === "workbench");
+    expect(ev).toBeDefined();
+    // freshKeys must include the paths that newly appeared on the workbench
+    expect(ev!.freshKeys).toContain("reattached.ts");
+    expect(ev!.freshKeys).toContain("notes.md");
+  });
+
+  it("leaving detached HEAD back to a branch produces empty freshKeys when no new workbench files appear", () => {
+    // Before: detached HEAD with a modified file visible on the workbench
+    const prev = state({
+      detachedHead: true,
+      currentBranch: null,
+      branches: [{ name: "main", isCurrent: false, headHash: "abc" }],
+      files: [{ path: "carried.ts", status: "modified" }],
+    });
+    // After: reattached to main — the same file is still on the workbench
+    // (no new files appeared as a result of the switch)
+    const next = state({
+      detachedHead: false,
+      currentBranch: "main",
+      branches: [{ name: "main", isCurrent: true, headHash: "abc" }],
+      files: [{ path: "carried.ts", status: "modified" }],
+    });
+    const events = detectMovements(prev, next, counter);
+    const ev = events.find((e) => e.from === "sealed" && e.to === "workbench");
+    expect(ev).toBeDefined();
+    // carried.ts was already on the workbench before reattachment — must NOT be highlighted
+    expect(ev!.freshKeys).toEqual([]);
+  });
 });
 
 // ---------------------------------------------------------------------------
