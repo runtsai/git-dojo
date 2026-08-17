@@ -28,4 +28,6 @@ export interface DrillFrictionEntry {
   olderFailures: number;
   /** Number of failed runs within the rolling window (last 30 grader runs). Use this for display instead of the raw cumulative failures counter so the subtitle stays consistent with current struggle level. */
   windowFailures: number;
+  /** True when the learner has fully recovered: recentFailures === 0 and recentPasses > 0. Recovered entries are included in the friction list so the UI can celebrate the improvement before hiding the row. */
+  recovered: boolean;
 }

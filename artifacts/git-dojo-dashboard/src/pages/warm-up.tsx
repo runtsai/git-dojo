@@ -321,50 +321,90 @@ function TrendBadge({ trend }: { trend: Trend }) {
 }
 
 function WeakSpotsPanel({ friction }: { friction: DrillFrictionEntry[] }) {
-  if (friction.length === 0) return null;
+  const active = friction.filter((e) => !e.recovered);
+  const recovered = friction.filter((e) => e.recovered);
+
+  if (active.length === 0 && recovered.length === 0) return null;
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
-        <AlertTriangle className="w-4 h-4 shrink-0 text-amber-500/80" />
-        <span>Where you've struggled</span>
-      </div>
-      <div className="surface-card divide-y divide-white/5">
-        {friction.map((entry) => {
-          const label = sourceLabelMap.get(entry.sourceId) ?? entry.sourceId;
-          const href = sourceLink(entry.sourceId);
-          const totalRuns = entry.failures + entry.passes;
-          const trend = computeTrend(entry);
-          return (
-            <div key={entry.sourceId} className="flex items-center justify-between gap-4 p-4">
-              <div className="min-w-0">
-                <Link
-                  href={href}
-                  className="text-sm font-medium text-foreground hover:text-primary transition-colors truncate block"
-                >
-                  {label}
-                </Link>
-                <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                  <p className="text-xs text-muted-foreground">
-                    {entry.windowFailures} failed check{entry.windowFailures === 1 ? "" : "s"}
-                    {totalRuns > 0 && (
-                      <> · {entry.passes} of {totalRuns} passed</>
-                    )}
-                  </p>
-                  <TrendBadge trend={trend} />
+      {active.length > 0 && (
+        <>
+          <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+            <AlertTriangle className="w-4 h-4 shrink-0 text-amber-500/80" />
+            <span>Where you've struggled</span>
+          </div>
+          <div className="surface-card divide-y divide-white/5">
+            {active.map((entry) => {
+              const label = sourceLabelMap.get(entry.sourceId) ?? entry.sourceId;
+              const href = sourceLink(entry.sourceId);
+              const totalRuns = entry.failures + entry.passes;
+              const trend = computeTrend(entry);
+              return (
+                <div key={entry.sourceId} className="flex items-center justify-between gap-4 p-4">
+                  <div className="min-w-0">
+                    <Link
+                      href={href}
+                      className="text-sm font-medium text-foreground hover:text-primary transition-colors truncate block"
+                    >
+                      {label}
+                    </Link>
+                    <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                      <p className="text-xs text-muted-foreground">
+                        {entry.windowFailures} failed check{entry.windowFailures === 1 ? "" : "s"}
+                        {totalRuns > 0 && (
+                          <> · {entry.passes} of {totalRuns} passed</>
+                        )}
+                      </p>
+                      <TrendBadge trend={trend} />
+                    </div>
+                  </div>
+                  <Link
+                    href={href}
+                    className="shrink-0 text-xs px-3 py-1.5 rounded-md bg-secondary text-foreground hover:bg-secondary/70 transition-colors font-medium"
+                    aria-label={`Review ${label}`}
+                  >
+                    Review
+                  </Link>
                 </div>
-              </div>
-              <Link
-                href={href}
-                className="shrink-0 text-xs px-3 py-1.5 rounded-md bg-secondary text-foreground hover:bg-secondary/70 transition-colors font-medium"
-                aria-label={`Review ${label}`}
-              >
-                Review
-              </Link>
-            </div>
-          );
-        })}
-      </div>
+              );
+            })}
+          </div>
+        </>
+      )}
+
+      {recovered.length > 0 && (
+        <>
+          <div className="flex items-center gap-2 text-sm font-medium text-muted-foreground">
+            <Check className="w-4 h-4 shrink-0 text-emerald-500/80" />
+            <span>Recently recovered</span>
+          </div>
+          <div className="surface-card divide-y divide-white/5 opacity-70">
+            {recovered.map((entry) => {
+              const label = sourceLabelMap.get(entry.sourceId) ?? entry.sourceId;
+              const href = sourceLink(entry.sourceId);
+              return (
+                <div key={entry.sourceId} className="flex items-center justify-between gap-4 p-4">
+                  <div className="min-w-0">
+                    <Link
+                      href={href}
+                      className="text-sm font-medium text-emerald-400/80 hover:text-emerald-300 transition-colors truncate block"
+                    >
+                      {label}
+                    </Link>
+                    <p className="text-xs text-emerald-500/70 mt-0.5">
+                      All recent checks passed
+                    </p>
+                  </div>
+                  <span className="shrink-0 inline-flex items-center gap-1 text-xs font-medium text-emerald-500/70 px-3 py-1.5">
+                    <Check className="w-3.5 h-3.5" /> Recovered
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
     </div>
   );
 }

@@ -43,6 +43,13 @@ interface FrictionRecord {
   passes: number;
   /** Rolling window of the last FRICTION_WINDOW runs (newest last). */
   runs: FrictionEntry[];
+  /**
+   * ISO 8601 timestamp set the first time queryDue returns this source as
+   * recovered. While non-null and the source remains recovered, subsequent
+   * queryDue calls omit the entry so the badge is shown exactly once per
+   * recovery cycle. Cleared whenever a new failure is recorded.
+   */
+  recoveredSince: string | null;
 }
 
 interface DrillData {
@@ -85,6 +92,7 @@ function normaliseFriction(raw: Record<string, unknown>): Record<string, Frictio
         // Legacy records have no runs array; start fresh so decay applies
         // going forward while raw totals are preserved for display.
         runs: Array.isArray(r.runs) ? (r.runs as FrictionEntry[]) : [],
+        recoveredSince: typeof r.recoveredSince === "string" ? r.recoveredSince : null,
       };
     }
   }
@@ -216,6 +224,12 @@ export interface DrillFrictionEntry {
    * stays consistent with current struggle level.
    */
   windowFailures: number;
+  /**
+   * True when the learner has fully recovered: recentFailures === 0 and
+   * recentPasses > 0. Recovered entries are included so the UI can celebrate
+   * the improvement before hiding the row on the next refresh.
+   */
+  recovered: boolean;
 }
 
 /** Stats for every candidate, due items first (highest priority first). */
@@ -242,6 +256,7 @@ export function queryDue(candidates: DueQueryCandidate[]): {
     if (c.sourceId) seenSourceIds.add(c.sourceId);
   }
   const friction: DrillFrictionEntry[] = [];
+  let needsSave = false;
   for (const sourceId of seenSourceIds) {
     const rec = data.friction[sourceId];
     if (rec && rec.failures > 0) {
@@ -255,10 +270,26 @@ export function queryDue(candidates: DueQueryCandidate[]): {
       const recentFailures = newerHalf.length - recentPasses;
       const olderPasses = olderHalf.filter((r) => r.passed).length;
       const olderFailures = olderHalf.length - olderPasses;
-      // Skip entries where the learner has fully recovered within the recent
-      // window: at least one recent pass and no recent failures means the
-      // panel would only be celebrating old pain, not flagging a current gap.
-      if (recentFailures === 0 && recentPasses > 0) continue;
+
+      const isRecovered = recentFailures === 0 && recentPasses > 0;
+
+      if (isRecovered) {
+        if (rec.recoveredSince !== null) {
+          // Already shown the badge on a previous refresh — hide the entry.
+          continue;
+        }
+        // First time we see this source as recovered: stamp the timestamp so
+        // the next refresh omits it, then include it once with recovered: true.
+        rec.recoveredSince = new Date(now).toISOString();
+        needsSave = true;
+      } else {
+        // Active weak spot: clear any stale recoveredSince stamp so the badge
+        // can reappear if the learner recovers again in a future cycle.
+        if (rec.recoveredSince !== null) {
+          rec.recoveredSince = null;
+          needsSave = true;
+        }
+      }
 
       const windowFailures = rec.runs.filter((r) => !r.passed).length;
       friction.push({
@@ -271,14 +302,18 @@ export function queryDue(candidates: DueQueryCandidate[]): {
         olderPasses,
         olderFailures,
         windowFailures,
+        recovered: isRecovered,
       });
     }
   }
+  if (needsSave) save(data);
   // Sort by effective (decayed) failures so the list reflects current weak spots.
-  // Tie-break on raw failure count (descending) then sourceId (ascending) so
-  // two sources whose decayed scores converge to the same rounded value never
-  // swap positions arbitrarily mid-session.
+  // Recovered entries always appear after active ones so the panel stays
+  // focused on current gaps. Tie-break on raw failure count (descending) then
+  // sourceId (ascending) so two sources whose decayed scores converge to the
+  // same rounded value never swap positions arbitrarily mid-session.
   friction.sort((a, b) => {
+    if (a.recovered !== b.recovered) return a.recovered ? 1 : -1;
     const diff = b.effectiveFailures - a.effectiveFailures;
     if (diff !== 0) return diff;
     if (b.failures !== a.failures) return b.failures - a.failures;
@@ -325,9 +360,20 @@ export function recordAttempt(
  */
 export function recordGraderResult(sourceId: string, passed: boolean): void {
   const data = load();
-  const rec: FrictionRecord = data.friction[sourceId] ?? { failures: 0, passes: 0, runs: [] };
-  if (passed) rec.passes += 1;
-  else rec.failures = Math.min(rec.failures + 1, 999);
+  const rec: FrictionRecord = data.friction[sourceId] ?? {
+    failures: 0,
+    passes: 0,
+    runs: [],
+    recoveredSince: null,
+  };
+  if (passed) {
+    rec.passes += 1;
+  } else {
+    rec.failures = Math.min(rec.failures + 1, 999);
+    // A new failure ends the recovery cycle so the badge can appear again
+    // if the learner recovers in a future window.
+    rec.recoveredSince = null;
+  }
   // Append to rolling window; trim to the most recent FRICTION_WINDOW entries.
   rec.runs.push({ at: new Date().toISOString(), passed });
   if (rec.runs.length > FRICTION_WINDOW) {

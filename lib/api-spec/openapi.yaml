@@ -950,7 +950,14 @@ components:
             runs). Use this for display instead of the raw cumulative
             `failures` counter so the subtitle stays consistent with current
             struggle level.
-      required: [sourceId, failures, passes, effectiveFailures, recentPasses, recentFailures, olderPasses, olderFailures, windowFailures]
+        recovered:
+          type: boolean
+          description: >
+            True when the learner has fully recovered: recentFailures === 0
+            and recentPasses > 0. Recovered entries are included in the
+            friction list so the UI can celebrate the improvement before
+            hiding the row.
+      required: [sourceId, failures, passes, effectiveFailures, recentPasses, recentFailures, olderPasses, olderFailures, windowFailures, recovered]
     DrillDueResult:
       type: object
       properties:

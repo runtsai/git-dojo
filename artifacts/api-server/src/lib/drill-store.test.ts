@@ -24,7 +24,11 @@ vi.mock("node:fs", async (importOriginal) => {
       if (mockFileContents.value === null) throw new Error("ENOENT");
       return mockFileContents.value;
     }),
-    writeFileSync: vi.fn(),
+    // Capture writes so that a second load() call within the same test sees
+    // the updated state (e.g. recoveredSince stamped by the first queryDue).
+    writeFileSync: vi.fn((_path: unknown, content: unknown) => {
+      if (typeof content === "string") mockFileContents.value = content;
+    }),
     mkdirSync: vi.fn(),
   };
 });
@@ -248,13 +252,13 @@ describe("queryDue friction sort stability", () => {
     }
   });
 
-  it("fully recovered entries are excluded and do not affect stable sort", () => {
+  it("fully recovered entry appears once with recovered:true, then is excluded on the next call", () => {
     const now = Date.now();
     setDrillData({
       "source-recovered": {
         failures: 5,
         passes: 10,
-        // All-pass recent window → excluded by the recovery filter
+        // All-pass recent window → recovered state
         runs: Array.from({ length: 10 }, (_, i) => passAt(i * 1_000, now)),
       },
       "source-weak": {
@@ -268,10 +272,24 @@ describe("queryDue friction sort stability", () => {
       { id: "d1", sourceId: "source-recovered" },
       { id: "d2", sourceId: "source-weak" },
     ];
-    const { friction } = queryDue(candidates);
-    // source-recovered should not appear (fully recovered)
-    expect(friction.length).toBe(1);
-    expect(friction[0].sourceId).toBe("source-weak");
+
+    // First call: recovered entry should appear with recovered:true at the end.
+    const { friction: first } = queryDue(candidates);
+    expect(first.length).toBe(2);
+    const weakEntry = first.find((e) => e.sourceId === "source-weak")!;
+    const recoveredEntry = first.find((e) => e.sourceId === "source-recovered")!;
+    expect(weakEntry).toBeDefined();
+    expect(recoveredEntry).toBeDefined();
+    expect(recoveredEntry.recovered).toBe(true);
+    expect(weakEntry.recovered).toBe(false);
+    // Active entries sort before recovered ones.
+    expect(first[0].sourceId).toBe("source-weak");
+    expect(first[1].sourceId).toBe("source-recovered");
+
+    // Second call (same persisted state): recovered entry should be omitted.
+    const { friction: second } = queryDue(candidates);
+    expect(second.length).toBe(1);
+    expect(second[0].sourceId).toBe("source-weak");
   });
 });
 
@@ -293,25 +311,32 @@ describe("queryDue recovery filter — end-to-end via recordGraderResult", () =>
     });
   });
 
-  it("hides a source from friction after enough passes fill the recent half-window", () => {
+  it("shows recovered badge once then hides a source after enough passes fill the recent half-window", () => {
     const candidates = [{ id: "d1", sourceId: "source-a" }];
 
-    // Record 3 failures — source should appear as a weak spot.
+    // Record 3 failures — source should appear as an active weak spot.
     recordGraderResult("source-a", false);
     recordGraderResult("source-a", false);
     recordGraderResult("source-a", false);
 
     const { friction: before } = queryDue(candidates);
     expect(before.some((f) => f.sourceId === "source-a")).toBe(true);
+    expect(before.find((f) => f.sourceId === "source-a")!.recovered).toBe(false);
 
     // Record 5 consecutive passes so the newer half of the recent window
     // (last 5 of the last 10 runs) contains only passes.
     // Total runs: [F, F, F, P, P, P, P, P] → newerHalf = [P, P, P, P, P]
-    // → recentFailures === 0, recentPasses === 5 → entry is excluded.
+    // → recentFailures === 0, recentPasses === 5 → recovered.
     for (let i = 0; i < 5; i++) {
       recordGraderResult("source-a", true);
     }
 
+    // First post-recovery call: badge shows with recovered:true.
+    const { friction: badge } = queryDue(candidates);
+    expect(badge.some((f) => f.sourceId === "source-a")).toBe(true);
+    expect(badge.find((f) => f.sourceId === "source-a")!.recovered).toBe(true);
+
+    // Second call: entry is omitted (one-refresh lifecycle).
     const { friction: after } = queryDue(candidates);
     expect(after.some((f) => f.sourceId === "source-a")).toBe(false);
   });
@@ -360,18 +385,25 @@ describe("queryDue recovery filter — end-to-end via recordGraderResult", () =>
     expect(friction.some((f) => f.sourceId === "source-old-only")).toBe(true);
   });
 
-  it("excludes a source that recovers after 10+ runs fill the window with passes at the end", () => {
+  it("shows recovered badge once then hides a source that recovers after 10+ runs fill the window with passes at the end", () => {
     // 10 failures then 5 passes gives runs = [F×5, P×5] (window = last 10).
-    // newerHalf (last 5) = [P, P, P, P, P] → fully recovered → excluded.
+    // newerHalf (last 5) = [P, P, P, P, P] → fully recovered.
     const candidates = [{ id: "d1", sourceId: "source-long" }];
 
     for (let i = 0; i < 10; i++) recordGraderResult("source-long", false);
-    // Verify it's present before recovery.
+    // Verify it's present as an active weak spot before recovery.
     const { friction: mid } = queryDue(candidates);
     expect(mid.some((f) => f.sourceId === "source-long")).toBe(true);
+    expect(mid.find((f) => f.sourceId === "source-long")!.recovered).toBe(false);
 
     for (let i = 0; i < 5; i++) recordGraderResult("source-long", true);
 
+    // First post-recovery call: badge shows with recovered:true.
+    const { friction: badge } = queryDue(candidates);
+    expect(badge.some((f) => f.sourceId === "source-long")).toBe(true);
+    expect(badge.find((f) => f.sourceId === "source-long")!.recovered).toBe(true);
+
+    // Second call: entry is omitted (one-refresh lifecycle).
     const { friction: final } = queryDue(candidates);
     expect(final.some((f) => f.sourceId === "source-long")).toBe(false);
   });
