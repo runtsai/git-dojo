@@ -595,7 +595,21 @@ async function main(): Promise<void> {
     GetDueDrillsResponse,
   );
 
-  // 9a. Record a drill attempt — persists an answer and reschedules the item.
+  // 9a. Malformed drills-due bodies must be rejected with HTTP 400.
+  //     These checks guard the Zod validation in drills.ts against silent
+  //     breakage during future refactors.
+  await smokeExpect400(
+    "/api/drills/due",
+    {},
+    "POST /api/drills/due (missing candidates → 400)",
+  );
+  await smokeExpect400(
+    "/api/drills/due",
+    { candidates: "all" },
+    "POST /api/drills/due (candidates is string, not array → 400)",
+  );
+
+  // 9b. Record a drill attempt — persists an answer and reschedules the item.
   //     Uses a synthetic itemId so it never collides with real learner data.
   //     The operation is idempotent in practice (re-running just updates the
   //     existing scheduling record for "smoke-probe").
