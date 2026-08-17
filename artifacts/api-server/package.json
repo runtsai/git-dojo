@@ -7,7 +7,7 @@
     "dev": "export NODE_ENV=development && pnpm run test && pnpm run build && bash ./start-and-smoke.sh",
     "build": "node ./build.mjs",
     "start": "node --enable-source-maps ./dist/index.mjs",
-    "test": "vitest run --config vitest.config.ts",
+    "test": "vitest run --config vitest.config.ts && bash test-smoke-banner.sh && bash test-smoke-timeout.sh",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {

@@ -18,11 +18,12 @@ HEALTHZ="http://localhost:${PORT}/api/healthz"
 
 # State file survives within a single Replit workflow session but is wiped on a
 # full container restart — which is exactly the scope we care about.
-SMOKE_STATE_FILE="/tmp/api-smoke-last-status"
+# Both paths can be overridden via environment variables (used by tests).
+SMOKE_STATE_FILE="${SMOKE_STATE_FILE:-/tmp/api-smoke-last-status}"
 
 # JSON result file read by the /api/healthz endpoint.  Written atomically so
 # the server never reads a partial file.
-SMOKE_RESULT_FILE="/tmp/api-smoke-result.json"
+SMOKE_RESULT_FILE="${SMOKE_RESULT_FILE:-/tmp/api-smoke-result.json}"
 
 write_smoke_result() {
   local passed="$1"   # "true" or "false"
