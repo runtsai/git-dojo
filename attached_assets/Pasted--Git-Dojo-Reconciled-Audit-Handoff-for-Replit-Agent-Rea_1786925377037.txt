@@ -1,0 +1,170 @@
+# Git Dojo — Reconciled Audit Handoff (for Replit Agent)
+
+## Read this first
+
+This document merges two independent audit passes by another AI (Claude):
+
+1. **Pass A — access-constrained.** Ran against the live site only. The SPA
+   returned meta tags with no rendered lesson content to non-browser fetch
+   tools, and no public repo was findable at the time. Most findings in that
+   pass are explicitly labeled COULD NOT VERIFY. It did establish one
+   structural, evidence-independent point (see Finding 7) from the owner's
+   own site map, and it produced a set of visual-learning proposals that are
+   opinions, not defects.
+2. **Pass B — source-verified.** Ran against the actual repo (`main` zip).
+   All 9 terminal lessons were **executed end-to-end in a real shell** and
+   graded by the repo's own `check.sh` scripts. Every content finding below
+   is confirmed by `grep -n` file:line citation, not inference.
+
+**Reconciliation rule applied:** where Pass A guessed something and Pass B
+could check it, Pass B's result is authoritative and is what's listed below.
+Nothing in this document should be treated as pre-approved. That's the
+point of what we're asking you to do next.
+
+## What we are asking you to do — in order
+
+1. **Do not implement anything yet.**
+2. **Write your own independent rebuttal/response to every item below.**
+   For each: state whether you agree it's real, whether the evidence holds
+   up against the current state of the code (it may have changed since this
+   audit), whether you'd characterize severity differently, and whether you
+   have a different or better fix than the one proposed. If you think a
+   finding is wrong, say so and show why — don't just implement the
+   suggested fix.
+3. **Where you agree something is real, propose your own fix** — you're not
+   obligated to use the fix language below, it's a starting point, not a
+   spec.
+4. **Flag anything below that conflicts with work already in flight** (e.g.
+   the pending task-update queue, the video pipeline work) so we don't
+   collide with it.
+5. **After your response, Adam and Claude will reconcile with you** —
+   disagreements get argued, not silently overridden either direction —
+   and only then does anything get scoped for implementation.
+
+---
+
+## Confirmed findings (Pass B, source-verified — grep + live execution)
+
+### Finding 1 — CRITICAL — Unrendered placeholder string ships to learners
+**Location:** `artifacts/git-dojo-dashboard/src/content/tier1/module-1-1.tsx:308`
+**Evidence:** literal string `[File Tree Content]` present in source where a
+file-tree/history component should render, on the Part 5 assessment screen —
+the first graded interaction in the entire course.
+**Proposed fix (not mandatory):** render the actual repo/file-tree component
+here (you already have `sim-repo` / `commit-timeline` components elsewhere in
+the codebase — reuse one), or remove the frame if it's dead code.
+
+### Finding 2 — HIGH — Phantom backward references in Module 1.1
+**Location:** `module-1-1.tsx:99` and `module-1-1.tsx:121`
+**Evidence (verbatim):**
+- Line 99: *"It runs in the terminal (like you saw in the Command Test
+  Center)"*
+- Line 121: *"This is the same information `git log` and `git status`
+  showed you in the terminal, drawn instead of typed."*
+
+This is Module 1.1 — a learner's first screen. Neither the Command Test
+Center nor any terminal has been used yet. **Proof this is a genuine
+inversion, not a style choice:** Part 5 of the same module gets it right —
+*"The commands behind this screen live in the Command Test Center — Lesson
+1 and 2, whenever you're curious. Optional, always."* Parts 1–2 need the
+same forward-reference treatment as Part 5.
+**Proposed fix:** rewrite both lines to forward-reference instead of
+assuming prior context.
+
+### Finding 3 — HIGH — "Zero gating" claim contradicted by the app itself
+**Location:** `pages/home.tsx:101` vs. Tiers 3–6 rendering LOCKED, plus
+`pages/module-2-4-unlock.test.ts` confirming module 2.4 is itself
+unlock-gated.
+**Evidence:** hero copy states *"Two independent tracks. Zero gating."*
+while the product visibly gates content in two different places.
+**Proposed fix:** either change the claim ("Start anywhere" reads honest)
+or relabel locked tiers as "In development" rather than implying an
+earned-unlock system that contradicts the promise on the same page.
+
+### Finding 4 — HIGH — Part 5 copy promises an interaction it doesn't deliver
+**Location:** `module-1-1.tsx`, Part 5 (same screen as Finding 1)
+**Evidence:** copy says *"Prove it by finding his commit in the history"* —
+the actual interaction is a 3-option multiple-choice quiz, not history
+exploration.
+**Proposed fix:** either make the interaction real (tie it to the same
+component fixing Finding 1), or change the copy to match what's actually
+being asked ("Where would you look?").
+
+### Finding 5 — MEDIUM — Owner-specific identity saturates a public product
+**Location:** confirmed across 8+ dashboard files (`sim-nav.tsx`,
+`sim-repo.tsx`, `layout.tsx`, all of `tier1/*.tsx`, `tier2/pr-data.ts`) and
+terminal lesson content (sample text "RTS.AI working notes," "RTS Freight,"
+and setup scripts that literally configure the learner's git identity as
+`"Adam Cornelius" / owner@example.com` in lessons 6–8).
+**Evidence:** the sample repo throughout is `rts-records/company-handbook`,
+aerospace-compliance framed, and Adam's own name is hardcoded as the
+in-fiction "owner" persona.
+**Proposed fix:** swap to a neutral fictional org/persona so a general
+learner isn't inside someone else's company by default. This is a judgment
+call, not a bug — flag if you think the branding is intentional and should
+stay, but make that case rather than silently keeping or silently changing
+it.
+
+### Finding 6 — MEDIUM (revised down from Pass A's broader claim) — Governance vocabulary
+**Location:** 17 occurrences across 9+ files, dashboard modules AND terminal
+lessons.
+**Evidence:** terms like "sealed record," "custody trail," "CURRENT TRUTH"
+appear. **Correction to Pass A:** the terminal track (Lesson 1 README)
+*does* define this vocabulary on first use — "a commit is a frozen
+exact-object... `git commit` is sealing it into the record." That's earned,
+intentional terminology, not a defect. **The dashboard modules (tier1/tier2
+`.tsx` files) use the same vocabulary without that same on-first-use
+definition.** Scope any fix to the dashboard files only — don't touch the
+terminal lesson prose, which already does this correctly.
+
+---
+
+## Verified-clean (Pass B — do not "fix" what isn't broken)
+
+- **All 9 terminal lessons pass their own graders when followed as
+  written**, executed on a stock machine with `master` as git's global
+  default. Zero broken/deprecated commands found. Command syntax is modern
+  (`git switch`, `git restore`, `restore --staged`) and correct.
+- **Branch-pinning is already solved correctly.** Every `setup.sh` pins
+  `main` explicitly (`git symbolic-ref HEAD refs/heads/main`, including
+  bare hubs via `--git-dir`), matching the fix already documented in
+  `.agents/memory/git-default-branch.md`. **Do not re-touch this — it
+  works and was verified by live execution, not just code reading.**
+- **Prerequisite/error handling is a genuine strength:** the identity-check
+  warning in Lesson 1's `setup.sh`, the `doctor.sh` diagnostic, the ERR
+  trap in every setup script pointing to it, and the explicit
+  `--no-edit` guidance in Lessons 8–9 (preventing the classic vim-editor
+  beginner trap) are all correct and shouldn't be simplified away.
+
+---
+
+## Structural item from Pass A (owner's stated map, not code-verified — worth your read)
+
+**Finding 7 — Curriculum sequencing gap.** By the site's own advertised
+structure, the *required* main path (Tiers 1–2) teaches GitHub's web UI,
+while the actual Git mental model — commit, branch, merge, undo — lives in
+the Test Center and Crisis Room, both optional/secondary. Pass B's
+execution of all 9 terminal lessons confirms that content is excellent
+*once reached* — the concern is that a learner who only does the required
+path never gets routed there.
+**This is a design opinion for you to weigh in on, not a confirmed defect.**
+Push back if you think the funnel already handles this (e.g. if there's a
+bridge/CTA between tiers that wasn't checked), or agree and propose a
+sequencing fix if not.
+
+---
+
+## Explicitly out of scope for this reconciliation
+Visual-aid proposals from Pass A (commit-graph animations, merge
+visualizations, etc.) are opinions about future work, not audit findings.
+Worth reading, not worth treating as a to-do list. If you want to comment
+on any of them, feel free, but they don't need a rebuttal the way Findings
+1–7 do.
+
+---
+
+## What we need back from you
+A response covering, for each of Findings 1–7: agree/disagree + why,
+current code state if it's changed, your proposed fix if you agree, and
+any collision with in-flight work. Then we reconcile together before
+anything gets implemented.
