@@ -1,0 +1,41 @@
+# Git Dojo — Reconciled Audit (Final)
+
+Single source of truth. Two AI passes (mine + Replit's) plus one live dispute, resolved against actual source. Scope: `home.tsx` + `module-1-1.tsx`.
+
+## Fix list — 8 items
+
+| # | Severity | Location | Issue | Fix | Verified by |
+|---|---|---|---|---|---|
+| 1 | **High** | `module-1-1.tsx` ~324-354 | **Answer-leak bug.** Correct commit (`commit-2`) uniquely gets `border-emerald-500` (green) on click; wrong ones get `border-primary` (orange). Learner can click each to find the right one before submitting. | One identical "selected" style for all three; reveal correctness only after submit. | Both passes, independently, at file:line |
+| 2 | **High** | `module-1-1.tsx:99, 121` | Phantom backward references — "like you saw in the Command Test Center," "showed you in the terminal" — before the learner has done either. Module 1.1 Part 5 does the correct forward-reference version. | Rewrite both as forward references, matching Part 5's tone. | Both passes |
+| 3 | **High** | `home.tsx:101` vs. Lock icons / `isPrereqLocked` / coming-soon "Locked" tiers | "Zero gating" claim contradicted by visible, functional gating on the same page. **The gate itself is real infrastructure** — prerequisite-unlock tests just merged, two more queued (circular-chain, wrong-track-bypass). | **Fix the words, not the gate.** Drop "Zero gating" → e.g. "No signups, no paywalls." Relabel coming-soon tiers "In development." Do not touch lock logic. | Both passes; scope correction from Replit agent |
+| 4 | Medium | `module-1-1.tsx:308` | `[File Tree Content]` placeholder renders. Confirmed dimmed/non-interactive (`opacity-50 pointer-events-none`) — decorative, not blocking. Downgraded from my original Critical. | Reuse the existing two-file list from Part 2, dimmed — no new component. | Both passes; severity + fix corrected by Replit agent |
+| 5 | Medium | Lessons 6-9 setup scripts + dashboard tier1/tier2 | Owner's real name ("Adam Cornelius") and company (RTS.AI/aerospace) hardcoded into the fiction. | Rename persona (e.g. "Alex, the owner"); neutralize company framing. Keep the contractor/handbook scenario — it's pedagogically sound. **Owner's call**, not a default. | Both passes |
+| 6 | Medium | Dashboard tier1/tier2 `.tsx` (12+ occurrences) | Governance vocabulary ("sealed record," "CURRENT TRUTH," "custody trail") undefined in dashboard modules. **Terminal lesson prose already defines these correctly on first use — leave it alone.** | One-line first-use definitions in dashboard files only, starting with Module 1.1. | Both passes; scope narrowed by both |
+| 7 | Medium | Tier2 modules | Sequencing gap: main path teaches GitHub's UI; core Git lives in optional Test Center/Crisis Room. Bridging exists at 1.1's footer and the home orientation panel — **then zero Test Center references anywhere in tier2**, confirmed by grep. | Contextual "try this for real" pointer at the end of each visual module → a specific Test Center lesson or Breakthrough. Not a restructure. | Structural claim (mine) sharpened with a grep fact (Replit agent) |
+| 8 | Low | `home.tsx:373-375` | Empty whitespace-only `div` (leftover duration/label slot) renders on every module row. | Remove or restore intended content. | Replit agent; I verified |
+
+## Retracted — do not action
+
+- ~~**"Part 5 promises history exploration it doesn't deliver."**~~ **Wrong.** `handleQuizSubmit` (lines 38-58) hard-gates completion: must open history, must click the correct commit, must answer correctly — each with its own error message. Cannot be passed by guessing. I read the JSX render, not the validation function. Replit agent caught this with a direct code citation; I re-verified and it holds.
+- ~~**"`VideoTemplate.tsx` sitting uncommitted."`~~ Claimed from a Replit UI screenshot two turns prior; `git status` on the actual tree shows it clean. Retracted, cause unresolved (possibly committed since, possibly a stale panel view).
+
+## Collision notes (from Replit agent, confirmed sensible)
+
+- **#3** must not touch lock logic — two prerequisite-gate tasks are still queued. Wording-only change avoids collision.
+- **#1, #2, #4, #6** all touch `module-1-1.tsx`, same file as just-merged map-hints/module-shell work. Sequence after that work settles, not concurrent with it.
+- **#5** overlaps the terminal-lesson grader family — renaming the persona in setup scripts requires re-running all 9 graders (I already confirmed 9/9 pass at current state; re-run is cheap, just don't skip it).
+- Nothing here touches the video pipeline.
+
+## What changed through reconciliation
+
+Three real corrections happened, not just agreement-stacking:
+1. Replit agent found the answer-leak bug independently — both audits missed it, or in my case, missed it entirely on the first pass.
+2. Replit agent refuted my Part 5 finding with a direct citation of gating logic — checked and correct, retracted.
+3. Replit agent sharpened the sequencing finding from a structural guess into a grepped fact (zero tier2 Test Center refs) and correctly identified that fixing #3's *gate* rather than its *claim* would break in-flight work.
+
+That's three cases where the process caught something a single pass wouldn't have. Worth noting for how you use this pattern going forward.
+
+---
+
+**Status:** 8 actionable items, all evidence-verified by at least two independent checks. Nothing implemented. Ready to hand back to the Replit agent as the approved scope, or you can review/reorder first — your call on what gets built and when.
