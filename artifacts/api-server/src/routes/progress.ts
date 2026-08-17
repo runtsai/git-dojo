@@ -4,7 +4,7 @@ import {
   CompleteModuleBody,
   CompleteModuleResponse,
 } from "@workspace/api-zod";
-import { MODULE_PREREQUISITES } from "@workspace/course-content";
+import { MODULE_PREREQUISITES, tiers } from "@workspace/course-content";
 import { loadEntries, recordCompletion } from "../lib/progress-store";
 
 const router: IRouter = Router();
@@ -14,15 +14,16 @@ const router: IRouter = Router();
  * ones that actually exist. CLI (Track B) badges are recorded server-side by
  * the check route when the lesson's grader genuinely passes — never from the
  * client — so a badge always means the work was done.
+ *
+ * Derived from `tiers` in @workspace/course-content so it stays in sync
+ * automatically when new modules are added — no manual update needed here.
  */
-const VISUAL_MODULE_IDS = new Set([
-  "1.1", "1.2", "1.3", "1.4", "1.5",
-  "2.1", "2.2", "2.3", "2.4", "2.5",
-  "3.1", "3.2", "3.3", "3.4", "3.5",
-  "4.1", "4.2", "4.3", "4.4", "4.5",
-  "5.1", "5.2", "5.3", "5.4", "5.5", "5.6",
-  "6.1", "6.2", "6.3",
-]);
+const VISUAL_MODULE_IDS = new Set(
+  tiers
+    .filter((tier) => tier.status === "active")
+    .flatMap((tier) => tier.modules ?? [])
+    .map((m) => m.id),
+);
 
 
 router.get("/progress", (_req, res) => {
