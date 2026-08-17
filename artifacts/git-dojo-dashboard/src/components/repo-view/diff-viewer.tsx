@@ -88,7 +88,7 @@ export function getFileDiffDisplay(diff: FileDiff): {
   };
 }
 
-function FileDiffCard({ diff }: { diff: FileDiff }) {
+export function FileDiffCard({ diff }: { diff: FileDiff }) {
   const { labelText, oldPath, newPath } = getFileDiffDisplay(diff);
   const label = CHANGE_LABEL[diff.changeKind];
   return (
