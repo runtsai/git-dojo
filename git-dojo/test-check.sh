@@ -36,6 +36,27 @@ run_grader() {
   rm -f "$tmpout"
 }
 
+# run_grader_expect_fail <lesson_dir> <label> <expected_fail_fragment>
+# Runs check.sh in an intentionally incomplete scenario.
+# Asserts: (a) check.sh exits non-zero or emits at least one FAIL: line,
+#          (b) at least one FAIL: line contains expected_fail_fragment.
+run_grader_expect_fail() {
+  local lesson_dir="$1" label="$2" fragment="$3"
+  local tmpout rc=0
+  tmpout="$(mktemp)"
+  bash "$lesson_dir/check.sh" 2>&1 | tee "$tmpout" || rc=$?
+  local fail_lines
+  fail_lines="$(grep "^FAIL:" "$tmpout" 2>/dev/null || true)"
+  if [ -z "$fail_lines" ] && [ "$rc" -eq 0 ]; then
+    fail "$label — expected a FAIL line or non-zero exit but got neither"
+  elif ! printf '%s\n' "$fail_lines" | grep -qF "$fragment"; then
+    fail "$label — expected FAIL line containing '$fragment' not found; got: $fail_lines"
+  else
+    ok "$label — check.sh correctly emitted FAIL: …$fragment…"
+  fi
+  rm -f "$tmpout"
+}
+
 # ── Isolated git identity ─────────────────────────────────────────────────────
 CHECK_HOME="$(mktemp -d)"
 export HOME="$CHECK_HOME"
@@ -202,6 +223,28 @@ git add about.txt
 git commit -qm "Adopt about page from contractor delivery"
 
 run_grader "$LESSON_07" "Lesson 07"
+
+# ═════════════════════════════════════════════════════════════════════════════
+# Sad-path: Lesson 01 with only 2 commits (ideas.txt step skipped)
+# Verifies the grader catches an incomplete scenario and names the right check.
+# ═════════════════════════════════════════════════════════════════════════════
+step "Lesson 01 sad-path — only 2 commits, ideas.txt never committed"
+bash "$LESSON_01/setup.sh" > /dev/null 2>&1
+
+cd "$PLAY_01"
+git init -q
+git symbolic-ref HEAD refs/heads/main
+git add notes.txt
+git commit -qm "Start tracking working notes"
+printf "\nAdded first real entry.\n" >> notes.txt
+git add notes.txt
+git commit -qm "Add first entry to working notes"
+# Deliberately omit the third commit (ideas.txt) to trigger the grader's
+# "At least 3 commits sealed" and "ideas.txt exists and is committed" checks.
+
+run_grader_expect_fail "$LESSON_01" \
+  "Lesson 01 sad-path (2 commits, no ideas.txt)" \
+  "At least 3 commits sealed"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Cleanup
