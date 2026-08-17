@@ -1,6 +1,24 @@
 import { useState } from "react";
 import { useCompleteModule, getGetProgressQueryKey } from "@workspace/api-client-react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, type QueryClient } from "@tanstack/react-query";
+
+/**
+ * Called by the completion mutation's onSuccess callback.
+ *
+ * Exported so it can be tested without rendering the component:
+ * a test can pass a mock QueryClient and spy that invalidateQueries
+ * was called with the correct progress key.
+ *
+ * Removing or changing the invalidateQueries call here would immediately
+ * break the module-2-4-completion tests.
+ */
+export function handleModule24Success(
+  queryClient: Pick<QueryClient, "invalidateQueries">,
+  setStep: (n: number) => void,
+): void {
+  queryClient.invalidateQueries({ queryKey: getGetProgressQueryKey() });
+  setStep(4);
+}
 import { Link } from "wouter";
 import {
   GitMerge,
@@ -138,10 +156,7 @@ export function Module2_4() {
     completeModule.mutate(
       { data: { moduleId: "2.4", track: "visual" } },
       {
-        onSuccess: () => {
-          queryClient.invalidateQueries({ queryKey: getGetProgressQueryKey() });
-          setStep(4);
-        },
+        onSuccess: () => handleModule24Success(queryClient, setStep),
         onSettled: () => setSubmitting(false),
       }
     );

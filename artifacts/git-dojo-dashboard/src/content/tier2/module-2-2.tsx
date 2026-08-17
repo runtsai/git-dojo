@@ -1,7 +1,27 @@
 import { useState } from "react";
 import type { VisualModuleProps } from "@/types/visual-module";
 import { useCompleteModule, getGetProgressQueryKey } from "@workspace/api-client-react";
-import { useQueryClient } from "@tanstack/react-query";
+import { useQueryClient, type QueryClient } from "@tanstack/react-query";
+
+/**
+ * Called by the completion mutation's onSuccess callback.
+ *
+ * Exported so it can be tested without rendering the component:
+ * a test can pass a mock QueryClient and spy that invalidateQueries
+ * was called with the correct progress key.
+ *
+ * Removing or changing the invalidateQueries call here would immediately
+ * break the module-2-2-completion tests.
+ */
+export function handleModule22Success(
+  queryClient: Pick<QueryClient, "invalidateQueries">,
+  setStep: (n: number) => void,
+  onStepChange?: (n: number) => void,
+): void {
+  queryClient.invalidateQueries({ queryKey: getGetProgressQueryKey() });
+  setStep(6);
+  onStepChange?.(6);
+}
 import { CheckCircle2, Eye, KeyRound } from "lucide-react";
 import {
   SimPrContainer,
@@ -51,10 +71,7 @@ export function Module2_2({ onStepChange }: VisualModuleProps = {}) {
     completeModule.mutate(
       { data: { moduleId: "2.2", track: "visual" } },
       {
-        onSuccess: () => {
-          queryClient.invalidateQueries({ queryKey: getGetProgressQueryKey() });
-          setStep(6); onStepChange?.(6);
-        }
+        onSuccess: () => handleModule22Success(queryClient, setStep, onStepChange),
       }
     );
   };
