@@ -145,6 +145,20 @@ else
 fi
 
 # ═════════════════════════════════════════════════════════════════════════════
+# check.sh "empty playground" regression tests (lessons 01–09)
+# Verifies that each lesson's check.sh emits at least one FAIL: line when the
+# playground folder exists but is completely empty (no git repo, no files).
+# ═════════════════════════════════════════════════════════════════════════════
+step "check.sh empty-playground checks (lessons 01–09)"
+if bash "$LESSONS_DIR/test-check-empty-playground.sh" 2>&1; then
+  ok "test-check-empty-playground.sh — all lessons emit FAIL when playground is empty"
+  PASS_TOTAL=$((PASS_TOTAL+1))
+else
+  fail "test-check-empty-playground.sh — one or more lessons did not emit a counted FAIL"
+  FAIL_TOTAL=$((FAIL_TOTAL+1))
+fi
+
+# ═════════════════════════════════════════════════════════════════════════════
 # Grader regression tests (lessons 01–07)
 # ═════════════════════════════════════════════════════════════════════════════
 step "Grader checks (lessons 01–07)"
