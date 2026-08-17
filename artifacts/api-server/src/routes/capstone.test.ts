@@ -481,6 +481,86 @@ describe("POST /api/capstone/verify/:missionId — response shape", () => {
     });
     expect(res.status).toBe(404);
   });
+
+  it("concurrent verify: badge awarded exactly once when two merge-pr calls race", async () => {
+    // Start with the other two missions already verified so both concurrent
+    // requests will each conclude that all missions are done and attempt to
+    // award the badge.
+    mockCapstoneState = makeCapstoneState({
+      missionsVerifiedAt: {
+        "push-commit": "2026-01-01T00:00:00.000Z",
+        "create-branch": "2026-01-01T00:01:00.000Z",
+      },
+    });
+
+    const { loadCapstone, saveCapstone } = await import("../lib/capstone-store.js");
+    const { recordCompletion } = await import("../lib/progress-store.js");
+
+    // Override the capstone-store mocks so every call returns an independent
+    // deep clone of the shared state — exactly as the real implementation does
+    // when it deserialises JSON from disk on each call. Without this, both
+    // concurrent requests share the same object reference: a mutation by one
+    // is instantly visible to the other through its own `state` pointer, so
+    // the race never actually manifests in tests even without the fix.
+    vi.mocked(loadCapstone).mockImplementation(
+      () => (mockCapstoneState ? (JSON.parse(JSON.stringify(mockCapstoneState)) as CapstoneState) : null),
+    );
+    vi.mocked(saveCapstone).mockImplementation((s: CapstoneState) => {
+      mockCapstoneState = JSON.parse(JSON.stringify(s)) as CapstoneState;
+    });
+
+    try {
+      // A short async delay on the PR-state check ensures both requests are
+      // in-flight simultaneously, so both read the pre-badge snapshot before
+      // either reaches the badge-write block.
+      mockGhJson.mockImplementation(async (path: string) => {
+        if (path === "/repos/testuser/dojo-live-capstone") {
+          return { ok: true, status: 200, data: makeRepo(), errorMessage: null };
+        }
+        if (path.includes("/pulls/42")) {
+          await new Promise<void>((resolve) => setTimeout(resolve, 20));
+          return {
+            ok: true,
+            status: 200,
+            data: { merged: true, state: "closed" },
+            errorMessage: null,
+          };
+        }
+        throw new Error(`Unexpected ghJson call: ${path}`);
+      });
+
+      // Fire both verify requests simultaneously.
+      const [res1, res2] = await Promise.all([
+        fetch(`${base}/api/capstone/verify/merge-pr`, { method: "POST" }),
+        fetch(`${base}/api/capstone/verify/merge-pr`, { method: "POST" }),
+      ]);
+
+      expect(res1.ok, `first response not ok: ${res1.status}`).toBe(true);
+      expect(res2.ok, `second response not ok: ${res2.status}`).toBe(true);
+
+      // recordCompletion must be called exactly once — the race guard in the
+      // handler reloads fresh state before writing so only one request wins
+      // the badge.
+      expect(recordCompletion).toHaveBeenCalledTimes(1);
+      expect(recordCompletion).toHaveBeenCalledWith("go-live-capstone", "live");
+
+      // The persisted badgeEarnedAt must be a single valid ISO timestamp.
+      expect(mockCapstoneState).not.toBeNull();
+      expect(typeof mockCapstoneState!.badgeEarnedAt).toBe("string");
+      expect(
+        Number.isFinite(Date.parse(mockCapstoneState!.badgeEarnedAt!)),
+        "badgeEarnedAt must be a valid ISO date string",
+      ).toBe(true);
+    } finally {
+      // Restore the original shallow implementations so subsequent tests are
+      // unaffected (vi.clearAllMocks in beforeEach clears call counts but not
+      // implementations set via mockImplementation).
+      vi.mocked(loadCapstone).mockImplementation(() => mockCapstoneState);
+      vi.mocked(saveCapstone).mockImplementation((s: CapstoneState) => {
+        mockCapstoneState = s;
+      });
+    }
+  });
 });
 
 // ---------------------------------------------------------------------------

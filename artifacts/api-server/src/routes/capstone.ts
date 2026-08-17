@@ -481,14 +481,26 @@ router.post("/capstone/verify/:missionId", requireOwner, async (req, res): Promi
   }
 
   if (verified && !state.missionsVerifiedAt[missionId as MissionId]) {
-    state.missionsVerifiedAt[missionId as MissionId] = new Date().toISOString();
-    const allDone = MISSIONS.every((m) => !!state.missionsVerifiedAt[m.id]);
-    if (allDone && !state.badgeEarnedAt) {
-      state.badgeEarnedAt = new Date().toISOString();
-      recordCompletion("go-live-capstone", "live");
-      req.log.info("Go Live capstone badge earned (all missions verified against GitHub)");
+    // Reload the latest persisted state before writing. Two concurrent verify
+    // requests can both race through the async GitHub checks above while each
+    // holds a snapshot that pre-dates the other's badge write. Reloading here
+    // — with no await between this point and saveCapstone — makes the
+    // check-then-write block effectively atomic in Node.js's single-threaded
+    // event loop, so the badge and recordCompletion are issued at most once.
+    const latestState = loadCapstone() ?? state;
+    if (!latestState.missionsVerifiedAt[missionId as MissionId]) {
+      latestState.missionsVerifiedAt[missionId as MissionId] = new Date().toISOString();
+      const allDone = MISSIONS.every((m) => !!latestState.missionsVerifiedAt[m.id]);
+      if (allDone && !latestState.badgeEarnedAt) {
+        latestState.badgeEarnedAt = new Date().toISOString();
+        recordCompletion("go-live-capstone", "live");
+        req.log.info("Go Live capstone badge earned (all missions verified against GitHub)");
+      }
+      saveCapstone(latestState);
+      // Patch the snapshot used by the status payload below.
+      state.missionsVerifiedAt = latestState.missionsVerifiedAt;
+      state.badgeEarnedAt = latestState.badgeEarnedAt;
     }
-    saveCapstone(state);
   }
 
   res.json(
