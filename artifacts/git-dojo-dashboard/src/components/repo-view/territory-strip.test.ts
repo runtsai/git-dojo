@@ -555,6 +555,37 @@ describe("detached HEAD", () => {
     // carried.ts was already on the workbench before reattachment — must NOT be highlighted
     expect(ev!.freshKeys).toEqual([]);
   });
+
+  it("detached HEAD → detached HEAD: file count decreases between polls — no workbench-appearance event fires", () => {
+    // Scenario: during an interactive rebase HEAD moves from a commit with more
+    // workbench files to a commit with fewer.  Only files disappear; no new
+    // paths appear.  The strip must not emit a workbench-appearance event for
+    // paths that no longer exist in the snapshot, and freshKeys must be empty.
+    const first = state({
+      detachedHead: true,
+      currentBranch: null,
+      files: [
+        { path: "kept.ts", status: "modified" },
+        { path: "removed-by-rebase.ts", status: "untracked" },
+      ],
+    });
+    // Second poll: HEAD moved to an earlier commit that doesn't include
+    // removed-by-rebase.ts — only kept.ts remains on the workbench.
+    const second = state({
+      detachedHead: true,
+      currentBranch: null,
+      files: [{ path: "kept.ts", status: "modified" }],
+    });
+    const events = detectMovements(first, second, counter);
+
+    // No new paths appeared → no workbench-appearance event should fire.
+    const workbenchEvents = events.filter((e) => e.to === "workbench");
+    expect(workbenchEvents).toHaveLength(0);
+
+    // freshKeys across all events must be empty — no stale path should be highlighted.
+    const allFreshKeys = events.flatMap((e) => e.freshKeys);
+    expect(allFreshKeys).toHaveLength(0);
+  });
 });
 
 // ---------------------------------------------------------------------------
