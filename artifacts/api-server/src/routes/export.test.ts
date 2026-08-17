@@ -160,6 +160,7 @@ import exportRouter, {
   getRenderCacheForTest,
   isValidMp4Buffer,
 } from "./export.js";
+import puppeteer from "puppeteer-core";
 
 // ---------------------------------------------------------------------------
 // HTTP helper — collect status + full body from a GET request.
@@ -728,5 +729,161 @@ describe("isValidMp4Buffer", () => {
     const buf = makeMinimalValidMp4();
     buf.write("mp42", 8, "ascii"); // overwrite "isom" major-brand with "mp42"
     expect(isValidMp4Buffer(buf)).toBe(true);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Render crash — both concurrent callers get a clear 500
+//
+// Verifies that when renderMp4 rejects mid-flight (puppeteer throws), every
+// caller that joined the shared renderPromise receives a 500 response with
+// an error body — not a hang or an empty response — and that renderPromise is
+// cleared so a subsequent request can start a fresh render.
+// ---------------------------------------------------------------------------
+
+describe("export render crash — both concurrent callers get a 500", () => {
+  let server: http.Server;
+  let port: number;
+
+  beforeEach(async () => {
+    renderCallCount = 0;
+    evaluateImpl = (expr) => {
+      if (typeof expr === "string" && expr.includes("__exportTotalMs")) {
+        return Promise.resolve(MOCK_TOTAL_RUNTIME_MS);
+      }
+      return Promise.resolve(undefined);
+    };
+    resetRenderCacheForTest();
+
+    // The cache-sweep describe overrides existsSync and readFile with specific
+    // implementations that persist across describe blocks (vi.clearAllMocks()
+    // clears call history, not implementations).  Restore both to their default
+    // render-path behaviour so the route passes the BG_MUSIC_PATH check,
+    // reaches renderMp4, and returns the fake MP4 buffer on success.
+    const { existsSync } = await import("node:fs");
+    vi.mocked(existsSync).mockImplementation((p: unknown) => {
+      const s = String(p);
+      if (s.endsWith(".mp3")) return true;  // BG music present
+      return false;                          // disk cache absent
+    });
+
+    const fsp = await import("node:fs/promises");
+    vi.mocked(fsp.readFile).mockResolvedValue(
+      Buffer.from("fake-mp4-content") as unknown as Awaited<
+        ReturnType<typeof import("node:fs/promises").readFile>
+      >,
+    );
+
+    const app = express();
+    app.use((req, _res, next) => {
+      (req as unknown as Record<string, unknown>)["log"] = {
+        info: () => {},
+        warn: () => {},
+        error: () => {},
+      };
+      next();
+    });
+    app.use("/", exportRouter);
+
+    server = http.createServer(app);
+    await new Promise<void>((resolve) =>
+      server.listen(0, "127.0.0.1", resolve),
+    );
+    port = (server.address() as AddressInfo).port;
+  });
+
+  afterEach(async () => {
+    // Restore the launch mock to the default success path so subsequent test
+    // suites (or retries within this suite) are not poisoned by any leftover
+    // mockImplementationOnce queued here.
+    vi.mocked(puppeteer.launch).mockImplementation(async () => {
+      renderCallCount++;
+      const mockPage = {
+        setViewport: vi.fn().mockResolvedValue(undefined),
+        goto: vi.fn().mockResolvedValue(undefined),
+        waitForFunction: vi.fn().mockResolvedValue(undefined),
+        evaluate: vi.fn().mockImplementation((expr: unknown) => evaluateImpl(expr)),
+        screencast: vi.fn().mockResolvedValue({ stop: vi.fn().mockResolvedValue(undefined) }),
+      };
+      return {
+        newPage: vi.fn().mockResolvedValue(mockPage),
+        close: vi.fn().mockResolvedValue(undefined),
+      } as unknown as import("puppeteer-core").Browser;
+    });
+
+    await new Promise<void>((resolve, reject) =>
+      server.close((err) => (err ? reject(err) : resolve())),
+    );
+  });
+
+  // Helper: return a rejection that is delayed by `ms` milliseconds.
+  // This matters because an immediately-rejected Promise resolves in the
+  // microtask queue BEFORE the server's I/O callback for R2's connection
+  // fires, so R2 would see renderPromise === null and start a fresh render.
+  // A genuine timer delay lets the event loop accept R2's connection and
+  // run its handler up to "await renderPromise" before the rejection lands.
+  function delayedReject(err: Error, ms = 30): Promise<never> {
+    return new Promise((_, reject) => setTimeout(() => reject(err), ms));
+  }
+
+  it("both concurrent requests receive status 500 when renderMp4 crashes", async () => {
+    const crashError = new Error("puppeteer crashed mid-flight");
+    vi.mocked(puppeteer.launch).mockImplementationOnce(() =>
+      delayedReject(crashError),
+    );
+
+    const [r1, r2] = await Promise.all([
+      makeRequest(port, "/export/promo-video"),
+      makeRequest(port, "/export/promo-video"),
+    ]);
+
+    expect(r1.status).toBe(500);
+    expect(r2.status).toBe(500);
+  });
+
+  it("both error responses carry a non-empty error body when renderMp4 crashes", async () => {
+    const crashMessage = "puppeteer crashed mid-flight";
+    vi.mocked(puppeteer.launch).mockImplementationOnce(() =>
+      delayedReject(new Error(crashMessage)),
+    );
+
+    const [r1, r2] = await Promise.all([
+      makeRequest(port, "/export/promo-video"),
+      makeRequest(port, "/export/promo-video"),
+    ]);
+
+    const body1 = JSON.parse(r1.body.toString()) as { error: string };
+    const body2 = JSON.parse(r2.body.toString()) as { error: string };
+
+    // Both bodies must name the crash reason so the caller knows what failed.
+    expect(body1.error).toContain(crashMessage);
+    expect(body2.error).toContain(crashMessage);
+  });
+
+  it("renderPromise is cleared after a crash so a subsequent request retries successfully", async () => {
+    const crashError = new Error("puppeteer crashed mid-flight");
+    vi.mocked(puppeteer.launch).mockImplementationOnce(() =>
+      delayedReject(crashError),
+    );
+
+    // Fire two concurrent requests — both should fail.
+    const [r1, r2] = await Promise.all([
+      makeRequest(port, "/export/promo-video"),
+      makeRequest(port, "/export/promo-video"),
+    ]);
+
+    expect(r1.status).toBe(500);
+    expect(r2.status).toBe(500);
+
+    // In-memory cache must still be null — no successful render occurred.
+    expect(getRenderCacheForTest()).toBeNull();
+
+    // A subsequent request must succeed now that the mock is back to normal
+    // (mockImplementationOnce is consumed; the default success path applies).
+    const r3 = await makeRequest(port, "/export/promo-video");
+    expect(r3.status).toBe(200);
+    expect(r3.body.length).toBeGreaterThan(0);
+    // Cache must be populated by the successful retry.
+    expect(getRenderCacheForTest()).not.toBeNull();
   });
 });
