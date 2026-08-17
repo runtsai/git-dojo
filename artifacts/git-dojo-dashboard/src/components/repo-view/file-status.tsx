@@ -1,10 +1,10 @@
 import { RepoFile } from "@workspace/api-client-react";
 import { File, FilePlus, FileEdit, FileMinus, AlertCircle, HelpCircle } from "lucide-react";
 
-export function FileStatus({ files, onFileClick }: { files: RepoFile[]; onFileClick?: (f: RepoFile) => void }) {
+export function FileStatus({ files, onFileClick, dimmed = false }: { files: RepoFile[]; onFileClick?: (f: RepoFile) => void; dimmed?: boolean }) {
   if (files.length === 0) {
     return (
-      <div className="surface-card p-6 md:p-8">
+      <div className={`surface-card p-6 md:p-8 transition-opacity duration-500 ${dimmed ? "opacity-50 pointer-events-none select-none" : ""}`}>
         <h3 className="text-xl font-bold mb-6 text-foreground tracking-tight">Working Directory</h3>
         <div className="flex flex-col items-center justify-center py-12 text-muted-foreground border-2 border-dashed border-white/10 rounded-xl bg-black/40 shadow-inner">
           <File className="w-10 h-10 mb-4 opacity-30 text-white" />
@@ -57,8 +57,11 @@ export function FileStatus({ files, onFileClick }: { files: RepoFile[]; onFileCl
   };
 
   return (
-    <div className="surface-card p-6 md:p-8">
-      <h3 className="text-xl font-bold mb-6 text-foreground tracking-tight">File Status</h3>
+    <div className={`surface-card p-6 md:p-8 transition-opacity duration-500 ${dimmed ? "opacity-50 pointer-events-none select-none" : ""}`}>
+      <div className="flex flex-wrap items-center gap-3 mb-6">
+        <h3 className="text-xl font-bold text-foreground tracking-tight">File Status</h3>
+        {dimmed && <span className="ml-auto text-[11px] font-medium text-amber-400/80">last known state</span>}
+      </div>
       
       <Section title="Staged (Ready to Commit)" items={staged} icon={FilePlus} colorClass="text-emerald-400" bgClass="bg-emerald-500/5" borderClass="border-emerald-500/20" />
       <Section title="Modified (Not Staged)" items={modified} icon={FileEdit} colorClass="text-amber-500" bgClass="bg-amber-500/5" borderClass="border-amber-500/20" />

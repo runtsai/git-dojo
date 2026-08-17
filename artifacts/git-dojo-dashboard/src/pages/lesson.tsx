@@ -252,7 +252,7 @@ function LessonContent({ lessonId }: { lessonId: string }) {
         </div>
       ) : (
         <>
-          <SummaryPanel summary={displayRepo.summary} isDetached={displayRepo.detachedHead} currentBranch={displayRepo.currentBranch} />
+          <SummaryPanel summary={displayRepo.summary} isDetached={displayRepo.detachedHead} currentBranch={displayRepo.currentBranch} dimmed={showingStale} />
 
           <TerritoryStrip
             repo={displayRepo}
@@ -267,6 +267,7 @@ function LessonContent({ lessonId }: { lessonId: string }) {
               <FileStatus
                 files={displayRepo.files}
                 onFileClick={(f) => setDiffSelection({ kind: "file", path: f.path })}
+                dimmed={showingStale}
               />
               <CommitTimeline
                 commits={displayRepo.commits}
@@ -275,12 +276,13 @@ function LessonContent({ lessonId }: { lessonId: string }) {
                 currentBranch={displayRepo.currentBranch}
                 syncStatus={displayRepo.syncStatus}
                 onCommitClick={(c) => setDiffSelection({ kind: "commit", hash: c.hash, shortHash: c.shortHash })}
+                dimmed={showingStale}
               />
             </div>
             <div className="space-y-8">
               {displayRepo.hasBot && <TeammateAction lessonId={lessonId!} />}
               <CheckRunner lessonId={lessonId!} />
-              <BranchList branches={displayRepo.branches} />
+              <BranchList branches={displayRepo.branches} dimmed={showingStale} />
             </div>
           </div>
         </>

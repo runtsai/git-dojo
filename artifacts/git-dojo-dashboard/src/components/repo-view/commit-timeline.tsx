@@ -180,12 +180,14 @@ interface Props {
   syncStatus?: SyncStatus | null;
   /** When provided, clicking a commit reveals what it actually changed. */
   onCommitClick?: (commit: RepoCommit) => void;
+  /** When true, renders last-known data dimmed while the API is unreachable. */
+  dimmed?: boolean;
 }
 
-export function CommitTimeline({ commits, branches = [], remoteBranches = [], currentBranch = null, syncStatus = null, onCommitClick }: Props) {
+export function CommitTimeline({ commits, branches = [], remoteBranches = [], currentBranch = null, syncStatus = null, onCommitClick, dimmed = false }: Props) {
   if (commits.length === 0) {
     return (
-      <div className="surface-card p-6 md:p-8">
+      <div className={`surface-card p-6 md:p-8 transition-opacity duration-500 ${dimmed ? "opacity-50 pointer-events-none select-none" : ""}`}>
         <h3 className="text-xl font-bold mb-6 text-foreground tracking-tight">Commit History</h3>
         <div className="text-center py-12 text-muted-foreground border-2 border-dashed border-white/10 rounded-xl bg-black/40 shadow-inner">
           <GitCommitIcon className="w-10 h-10 mx-auto mb-4 opacity-30 text-white" />
@@ -207,7 +209,7 @@ export function CommitTimeline({ commits, branches = [], remoteBranches = [], cu
   }
 
   return (
-    <div className="surface-card p-6 md:p-8">
+    <div className={`surface-card p-6 md:p-8 transition-opacity duration-500 ${dimmed ? "opacity-50 pointer-events-none select-none" : ""}`}>
       <div className="flex flex-wrap items-center gap-3 mb-6">
         <h3 className="text-xl font-bold text-foreground tracking-tight">Commit History</h3>
         {syncStatus && (syncStatus.ahead > 0 || syncStatus.behind > 0) && (
@@ -222,6 +224,7 @@ export function CommitTimeline({ commits, branches = [], remoteBranches = [], cu
             in sync with {syncStatus.remoteBranch}
           </span>
         )}
+        {dimmed && <span className="ml-auto text-[11px] font-medium text-amber-400/80">last known state</span>}
       </div>
 
       <div className="flex overflow-x-auto">

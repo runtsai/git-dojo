@@ -1,17 +1,20 @@
 import { RepoBranch } from "@workspace/api-client-react";
 import { GitBranch, Check } from "lucide-react";
 
-export function BranchList({ branches }: { branches: RepoBranch[] }) {
+export function BranchList({ branches, dimmed = false }: { branches: RepoBranch[]; dimmed?: boolean }) {
   if (branches.length === 0) return null;
 
   return (
-    <div className="surface-card p-6 md:p-8">
-      <h3 className="text-xl font-bold mb-6 flex items-center gap-3 text-foreground tracking-tight">
+    <div className={`surface-card p-6 md:p-8 transition-opacity duration-500 ${dimmed ? "opacity-50 pointer-events-none select-none" : ""}`}>
+      <div className="flex flex-wrap items-center gap-3 mb-6">
+      <h3 className="text-xl font-bold flex items-center gap-3 text-foreground tracking-tight">
         <div className="p-2 bg-black/40 rounded-xl shadow-inner border border-white/5">
           <GitBranch className="w-5 h-5 text-foreground" />
         </div>
         Branches
       </h3>
+        {dimmed && <span className="ml-auto text-[11px] font-medium text-amber-400/80">last known state</span>}
+      </div>
       
       <div className="space-y-3">
         {branches.map(b => (

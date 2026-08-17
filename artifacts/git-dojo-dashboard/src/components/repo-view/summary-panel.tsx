@@ -4,11 +4,15 @@ interface Props {
   summary: string;
   isDetached: boolean;
   currentBranch: string | null;
+  /** When true, renders last-known data dimmed while the API is unreachable. */
+  dimmed?: boolean;
 }
 
-export function SummaryPanel({ summary, isDetached, currentBranch }: Props) {
+export function SummaryPanel({ summary, isDetached, currentBranch, dimmed = false }: Props) {
   return (
-    <div className={`relative overflow-hidden border rounded-xl p-5 sm:p-8 md:p-10 shadow-lg ${
+    <div className={`relative overflow-hidden border rounded-xl p-5 sm:p-8 md:p-10 shadow-lg transition-opacity duration-500 ${
+      dimmed ? "opacity-50 pointer-events-none select-none" : ""
+    } ${
       isDetached 
         ? 'bg-amber-500/10 border-amber-500/30' 
         : 'bg-primary/5 border-primary/20 shadow-[0_0_30px_rgba(255,107,0,0.05)]'
@@ -19,7 +23,7 @@ export function SummaryPanel({ summary, isDetached, currentBranch }: Props) {
       </div>
       
       <div className="relative z-10">
-        <div className="flex items-center gap-3 mb-6">
+        <div className="flex flex-wrap items-center gap-3 mb-6">
           {isDetached ? (
             <span className="inline-flex items-center gap-2 px-4 py-1.5 rounded bg-amber-500/20 text-amber-500 border border-amber-500/30 text-sm font-bold uppercase tracking-widest shadow-inner">
               <AlertTriangle className="w-4 h-4" /> Detached HEAD
@@ -29,6 +33,7 @@ export function SummaryPanel({ summary, isDetached, currentBranch }: Props) {
               <GitBranch className="w-4 h-4" /> Branch: {currentBranch}
             </span>
           ) : null}
+          {dimmed && <span className="ml-auto text-[11px] font-medium text-amber-400/80">last known state</span>}
         </div>
         
         <h2 className="text-xl sm:text-2xl md:text-3xl font-medium leading-relaxed text-foreground max-w-4xl tracking-tight">
