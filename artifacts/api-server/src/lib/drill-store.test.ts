@@ -252,6 +252,173 @@ describe("queryDue friction sort stability", () => {
     }
   });
 
+  it("source whose decayed score rounds to zero sorts to the bottom but remains present when recentFailures > 0", () => {
+    // A source whose only failures are extremely old has a decayed score that
+    // rounds to 0.  It must sort after all sources with effectiveFailures > 0,
+    // but it must still appear in the list because the recovery filter only
+    // removes an entry when recentFailures === 0 && recentPasses > 0 — a
+    // source with only (very old) failures has recentFailures > 0.
+    const now = Date.now();
+
+    // Failure so old (200 days) its decay contribution is negligible (~2.5e-5)
+    const veryOldAge = 200 * 24 * 60 * 60 * 1000;
+
+    setDrillData({
+      "source-zero": {
+        // One very old failure: decayed score ≈ 0, but recentFailures = 1
+        failures: 3,
+        passes: 0,
+        runs: [failureAt(veryOldAge, now)],
+      },
+      "source-active": {
+        // Recent failure: decayed score ≈ 1.0
+        failures: 1,
+        passes: 0,
+        runs: [failureAt(1_000, now)],
+      },
+    });
+
+    const candidates = [
+      { id: "d1", sourceId: "source-zero" },
+      { id: "d2", sourceId: "source-active" },
+    ];
+    const { friction } = queryDue(candidates);
+
+    // Both sources must appear (recentFailures > 0 for each, so neither is
+    // caught by the recovery filter).
+    expect(friction.length).toBe(2);
+    const zeroEntry = friction.find((f) => f.sourceId === "source-zero")!;
+    const activeEntry = friction.find((f) => f.sourceId === "source-active")!;
+    expect(zeroEntry).toBeDefined();
+    expect(activeEntry).toBeDefined();
+
+    // source-zero must NOT be flagged as recovered (it has recentFailures > 0).
+    expect(zeroEntry.recovered).toBe(false);
+
+    // source-active has a higher effectiveFailures and sorts first.
+    expect(friction[0].sourceId).toBe("source-active");
+    expect(friction[1].sourceId).toBe("source-zero");
+
+    // The score ordering must hold.
+    expect(activeEntry.effectiveFailures).toBeGreaterThan(zeroEntry.effectiveFailures);
+  });
+
+  it("source at score zero sorts below a second zero-score source by sourceId tie-break", () => {
+    // Two sources both fully decayed to effectiveFailures = 0.  The sort must
+    // still be deterministic: tie-break on raw failures desc, then sourceId asc.
+    const now = Date.now();
+    const veryOldAge = 200 * 24 * 60 * 60 * 1000;
+
+    setDrillData({
+      "source-z": {
+        failures: 2,
+        passes: 0,
+        runs: [failureAt(veryOldAge, now)],
+      },
+      "source-a": {
+        failures: 2,
+        passes: 0,
+        runs: [failureAt(veryOldAge, now)],
+      },
+    });
+
+    const candidates = [
+      { id: "d1", sourceId: "source-z" },
+      { id: "d2", sourceId: "source-a" },
+    ];
+    const { friction } = queryDue(candidates);
+
+    expect(friction.length).toBe(2);
+    // Same effectiveFailures (≈ 0) and same raw failures → tie-break on sourceId asc.
+    expect(friction[0].effectiveFailures).toBe(friction[1].effectiveFailures);
+    expect(friction[0].sourceId).toBe("source-a");
+    expect(friction[1].sourceId).toBe("source-z");
+  });
+
+  it("zero-score recovered source disappears on the next call while active sources retain their order", () => {
+    // Scenario: source-zero has very old failures (effectiveFailures ≈ 0) and
+    // a recent all-pass run-tail that qualifies it as "recovered".  Two active
+    // sources with effectiveFailures > 0 are also present.
+    //
+    // Call 1: all three sources appear — active sources first (ordered by score),
+    //         source-zero last with recovered: true and effectiveFailures ≈ 0.
+    // Call 2: source-zero is omitted (one-shot recovery badge); the surviving
+    //         pair keeps its score-descending order with no positional gaps.
+    const now = Date.now();
+    const veryOldAge = 200 * 24 * 60 * 60 * 1000; // 200 days → decay ≈ 0
+
+    // source-zero: 3 very old failures (score≈0) + 5 recent passes filling
+    // the newer half of the window → recentFailures=0, recentPasses=5 → recovered.
+    // raw failures > 0 so the friction loop includes it.
+    setDrillData({
+      "source-high": {
+        failures: 5,
+        passes: 0,
+        runs: [
+          failureAt(1_000, now),
+          failureAt(2_000, now),
+          failureAt(3_000, now),
+          failureAt(4_000, now),
+          failureAt(5_000, now),
+        ],
+      },
+      "source-low": {
+        failures: 2,
+        passes: 0,
+        runs: [failureAt(1_000, now), failureAt(2_000, now)],
+      },
+      "source-zero": {
+        failures: 3,
+        passes: 5,
+        runs: [
+          // 3 very old failures (contribute ≈ 0 to decayed score)
+          failureAt(veryOldAge, now),
+          failureAt(veryOldAge + 1_000, now),
+          failureAt(veryOldAge + 2_000, now),
+          // 5 recent passes (fill the newer half → recovered)
+          passAt(5_000, now),
+          passAt(4_000, now),
+          passAt(3_000, now),
+          passAt(2_000, now),
+          passAt(1_000, now),
+        ],
+      },
+    });
+
+    const candidates = [
+      { id: "d1", sourceId: "source-high" },
+      { id: "d2", sourceId: "source-low" },
+      { id: "d3", sourceId: "source-zero" },
+    ];
+
+    // ── Call 1: all three appear, zero-score source is last and recovered ──
+    const { friction: first } = queryDue(candidates);
+    expect(first.length).toBe(3);
+
+    const zeroEntry = first.find((f) => f.sourceId === "source-zero")!;
+    expect(zeroEntry).toBeDefined();
+    expect(zeroEntry.recovered).toBe(true);
+    expect(zeroEntry.effectiveFailures).toBe(0);
+
+    // Active sources come before the recovered entry.
+    expect(first[0].sourceId).toBe("source-high");
+    expect(first[1].sourceId).toBe("source-low");
+    expect(first[2].sourceId).toBe("source-zero");
+
+    // Active sources are ordered by effectiveFailures descending.
+    expect(first[0].effectiveFailures).toBeGreaterThan(first[1].effectiveFailures);
+    expect(first[1].effectiveFailures).toBeGreaterThan(0);
+
+    // ── Call 2: source-zero is omitted; active pair retains its order ──────
+    const { friction: second } = queryDue(candidates);
+    expect(second.length).toBe(2);
+    expect(second.some((f) => f.sourceId === "source-zero")).toBe(false);
+
+    expect(second[0].sourceId).toBe("source-high");
+    expect(second[1].sourceId).toBe("source-low");
+    expect(second[0].effectiveFailures).toBeGreaterThan(second[1].effectiveFailures);
+  });
+
   it("fully recovered entry appears once with recovered:true, then is excluded on the next call", () => {
     const now = Date.now();
     setDrillData({
