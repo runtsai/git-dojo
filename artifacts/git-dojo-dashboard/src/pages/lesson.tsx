@@ -16,6 +16,7 @@ import { TerritoryStrip } from "@/components/repo-view/territory-strip";
 import { DiffViewer, DiffSelection } from "@/components/repo-view/diff-viewer";
 import { safeStorage } from "@/lib/safe-storage";
 import { useEffect, useRef, useState } from "react";
+import { lessonDisplayTitle } from "@/lib/lesson-display";
 
 function WayfindingPanel({ lessonId }: { lessonId: string }) {
   const [expanded, setExpanded] = useState(false);
@@ -117,7 +118,7 @@ function LessonContent({ lessonId }: { lessonId: string }) {
 
   useEffect(() => {
     if (lessonId) {
-      const displayTitle = lessonTitle || lessonId;
+      const displayTitle = lessonDisplayTitle(lessonTitle, lessonId);
       document.title = `${displayTitle} | Test Center`;
     }
   }, [lessonId, lessonTitle]);
@@ -181,7 +182,7 @@ function LessonContent({ lessonId }: { lessonId: string }) {
               <div className="p-2 bg-primary/10 rounded-md text-primary shadow-sm border border-primary/20 shrink-0">
                 <Terminal className="w-6 h-6" />
               </div>
-              <span className="min-w-0 break-words">{lessonTitle ? lessonTitle : lessonId}</span>
+              <span className="min-w-0 break-words">{lessonDisplayTitle(lessonTitle, lessonId)}</span>
             </h1>
             {isFetching && <RefreshCw className="w-4 h-4 text-primary animate-spin opacity-50" />}
           </div>
