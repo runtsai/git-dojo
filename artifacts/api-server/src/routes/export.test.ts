@@ -122,6 +122,10 @@ vi.mock("node:fs/promises", async (importOriginal) => {
     mkdtemp: vi.fn().mockResolvedValue("/tmp/fake-promo-work"),
     mkdir: vi.fn().mockResolvedValue(undefined),
     writeFile: vi.fn().mockResolvedValue(undefined),
+    // rename() is the final step of the atomic writeDiskCache: it moves the
+    // temp file to the final cache path so the cache path is never partially
+    // written.  Default: succeed immediately.
+    rename: vi.fn().mockResolvedValue(undefined),
     rm: vi.fn().mockResolvedValue(undefined),
     // stat is called on both the captured .webm and the output .mp4.
     stat: vi.fn().mockResolvedValue({ size: 1024 }),
@@ -643,6 +647,197 @@ describe("loadDiskCache – cache sweep", () => {
     // A truncated file that only contains ftyp (no moov, no mdat) must be
     // rejected so the client never receives a partial/unplayable video.
     expect(getRenderCacheForTest()).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// writeDiskCache — atomic write behaviour
+//
+// Verifies that writeDiskCache uses a write-then-rename pattern so the final
+// cache path is never partially written:
+//
+//   1. writeFile is called with a sibling `.tmp` path, NOT the final path.
+//   2. rename() is then called from the `.tmp` path to the final path.
+//   3. When rename() fails (simulating a crash between write and rename), rm()
+//      is called on the `.tmp` path so the orphaned temp file is cleaned up.
+//
+// These tests drive writeDiskCache indirectly via a successful render request,
+// because the function is intentionally unexported.
+// ---------------------------------------------------------------------------
+
+describe("writeDiskCache – atomic write", () => {
+  const FAKE_CACHE_DIR = "/tmp/test-atomic-write-cache";
+
+  let readdirMock: ReturnType<typeof vi.fn>;
+  let writeFileMock: ReturnType<typeof vi.fn>;
+  let renameMock: ReturnType<typeof vi.fn>;
+  let rmMock: ReturnType<typeof vi.fn>;
+
+  let server: http.Server;
+  let port: number;
+
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    process.env["PROMO_EXPORT_CACHE_DIR"] = FAKE_CACHE_DIR;
+    renderCallCount = 0;
+    evaluateImpl = (expr) => {
+      if (typeof expr === "string" && expr.includes("__exportTotalMs")) {
+        return Promise.resolve(MOCK_TOTAL_RUNTIME_MS);
+      }
+      return Promise.resolve(undefined);
+    };
+    resetRenderCacheForTest();
+
+    const fsp = await import("node:fs/promises");
+    const fs = await import("node:fs");
+
+    readdirMock  = vi.mocked(fsp.readdir);
+    writeFileMock = vi.mocked(fsp.writeFile);
+    renameMock   = vi.mocked(fsp.rename);
+    rmMock       = vi.mocked(fsp.rm);
+
+    // Source dirs return []; cache dir is empty (no stale files).
+    readdirMock.mockResolvedValue([]);
+    // readFile at the end of renderMp4 returns a fake MP4 buffer.
+    vi.mocked(fsp.readFile).mockResolvedValue(
+      Buffer.from("fake-mp4-content") as unknown as Awaited<ReturnType<typeof fsp.readFile>>,
+    );
+    // existsSync: BG music present, disk cache absent.
+    vi.mocked(fs.existsSync).mockImplementation((p: unknown) => {
+      const s = String(p);
+      if (s.endsWith(".mp3")) return true;
+      return false;
+    });
+
+    const app = express();
+    app.use((req, _res, next) => {
+      (req as unknown as Record<string, unknown>)["log"] = {
+        info: () => {},
+        warn: () => {},
+        error: () => {},
+      };
+      next();
+    });
+    app.use("/", exportRouter);
+
+    server = http.createServer(app);
+    await new Promise<void>((resolve) =>
+      server.listen(0, "127.0.0.1", resolve),
+    );
+    port = (server.address() as AddressInfo).port;
+  });
+
+  afterEach(async () => {
+    delete process.env["PROMO_EXPORT_CACHE_DIR"];
+    vi.clearAllMocks();
+    await new Promise<void>((resolve, reject) =>
+      server.close((err) => (err ? reject(err) : resolve())),
+    );
+  });
+
+  it("writes to a UUID-named .tmp sibling file before renaming to the final cache path", async () => {
+    const currentHash = await computePromoSourceHash();
+    const finalPath = path.join(FAKE_CACHE_DIR, `${currentHash}.mp4`);
+    // The temp path is <finalPath>.<uuid>.tmp — unique per invocation.
+    const tmpPattern = new RegExp(
+      `^${finalPath.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\.[0-9a-f-]+\\.tmp$`,
+    );
+
+    const result = await makeRequest(port, "/export/promo-video");
+    expect(result.status).toBe(200);
+
+    // writeFile must have been called with the UUID-named .tmp path, not the
+    // final path directly.
+    const writeFileCalls = writeFileMock.mock.calls as unknown[][];
+    const cacheWriteCall = writeFileCalls.find(
+      (args) => typeof args[0] === "string" && (args[0] as string).startsWith(FAKE_CACHE_DIR),
+    );
+    expect(cacheWriteCall).toBeDefined();
+    expect(cacheWriteCall![0] as string).toMatch(tmpPattern);
+    expect(cacheWriteCall![0]).not.toBe(finalPath);
+
+    // rename must have been called moving the same .tmp path to the final path.
+    const renameCalls = renameMock.mock.calls as unknown[][];
+    const renameCall = renameCalls.find(
+      (args) =>
+        typeof args[0] === "string" &&
+        tmpPattern.test(args[0] as string) &&
+        args[1] === finalPath,
+    );
+    expect(renameCall).toBeDefined();
+  });
+
+  it("cleans up the per-invocation .tmp file when rename fails so the orphan does not linger", async () => {
+    const currentHash = await computePromoSourceHash();
+    const finalPath = path.join(FAKE_CACHE_DIR, `${currentHash}.mp4`);
+    const tmpPattern = new RegExp(
+      `^${finalPath.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\.[0-9a-f-]+\\.tmp$`,
+    );
+
+    // Simulate a crash / permission error between write and rename.
+    renameMock.mockRejectedValueOnce(
+      Object.assign(new Error("ENOSPC: no space left on device"), { code: "ENOSPC" }),
+    );
+
+    // The route must still return 200 — writeDiskCache failures are non-fatal.
+    const result = await makeRequest(port, "/export/promo-video");
+    expect(result.status).toBe(200);
+
+    // rename was attempted with the UUID .tmp path.
+    const renameCalls = renameMock.mock.calls as unknown[][];
+    const renameCall = renameCalls.find(
+      (args) =>
+        typeof args[0] === "string" &&
+        tmpPattern.test(args[0] as string) &&
+        args[1] === finalPath,
+    );
+    expect(renameCall).toBeDefined();
+
+    // Extract the exact tmp path that was used so we can assert rm cleaned it up.
+    const usedTmpPath = renameCall![0] as string;
+
+    // rm must have been called with that exact .tmp path so the orphan is removed.
+    const rmCalls = rmMock.mock.calls as unknown[][];
+    const tmpCleanup = rmCalls.find(
+      (args) => typeof args[0] === "string" && args[0] === usedTmpPath,
+    );
+    expect(tmpCleanup).toBeDefined();
+  });
+
+  it("uses a different .tmp path for each write invocation so concurrent writers never clobber each other", async () => {
+    const currentHash = await computePromoSourceHash();
+    const finalPath = path.join(FAKE_CACHE_DIR, `${currentHash}.mp4`);
+    const tmpPattern = new RegExp(
+      `^${finalPath.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\.[0-9a-f-]+\\.tmp$`,
+    );
+
+    // First render cycle.
+    const r1 = await makeRequest(port, "/export/promo-video");
+    expect(r1.status).toBe(200);
+
+    // Collect the .tmp path used in the first write.
+    const writeFileCalls1 = (writeFileMock.mock.calls as unknown[][]).filter(
+      (args) => typeof args[0] === "string" && tmpPattern.test(args[0] as string),
+    );
+    expect(writeFileCalls1).toHaveLength(1);
+    const tmpPath1 = writeFileCalls1[0]![0] as string;
+
+    // Reset so a second render is triggered (bypass the in-memory cache).
+    resetRenderCacheForTest();
+    writeFileMock.mockClear();
+
+    // Second render cycle.
+    const r2 = await makeRequest(port, "/export/promo-video");
+    expect(r2.status).toBe(200);
+
+    const writeFileCalls2 = (writeFileMock.mock.calls as unknown[][]).filter(
+      (args) => typeof args[0] === "string" && tmpPattern.test(args[0] as string),
+    );
+    expect(writeFileCalls2).toHaveLength(1);
+    const tmpPath2 = writeFileCalls2[0]![0] as string;
+
+    // The two invocations must have used distinct temp paths.
+    expect(tmpPath1).not.toBe(tmpPath2);
   });
 });
 

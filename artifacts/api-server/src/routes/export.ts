@@ -2,8 +2,8 @@ import { Router, type IRouter } from "express";
 import { execFile } from "node:child_process";
 import { execSync } from "node:child_process";
 import { promisify } from "node:util";
-import { createHash } from "node:crypto";
-import { mkdtemp, mkdir, rm, stat, readdir, readFile, writeFile } from "node:fs/promises";
+import { createHash, randomUUID } from "node:crypto";
+import { mkdtemp, mkdir, rm, stat, readdir, readFile, writeFile, rename } from "node:fs/promises";
 import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
@@ -183,19 +183,40 @@ async function sweepStaleCacheFiles(keepHash: string): Promise<void> {
 
 /**
  * Persist the rendered MP4 to disk so it survives server restarts.
- * After a successful write, sweeps any stale `.mp4` files left over from
+ *
+ * Uses an atomic write pattern to prevent a partially-written file from ever
+ * appearing at the cache path:
+ *   1. Write the buffer to a sibling `.tmp` file in the same directory.
+ *   2. `rename()` the temp file onto the final cache path.
+ *
+ * On Linux, `rename()` is atomic at the filesystem level — the cache path
+ * either holds the complete file or retains its previous content; a partial
+ * write can never be observed at the final path.  The temp file is cleaned up
+ * on error so it does not accumulate.
+ *
+ * After a successful rename, sweeps any stale `.mp4` files left over from
  * previous renders so they don't accumulate on long-lived servers.
  * Failures are logged but never propagated — a write error must not break
  * an already-successful render.
  */
 async function writeDiskCache(sourceHash: string, buffer: Buffer): Promise<void> {
+  const finalPath = diskCachePath(sourceHash);
+  // Use a per-invocation UUID so concurrent writers (e.g. multiple API
+  // processes sharing the same /tmp directory) never clobber each other's
+  // temp file.  Each process writes its own unique inode; the winning rename()
+  // is the last one to land, but every intermediate inode is complete before
+  // any rename is attempted.
+  const tmpPath = `${finalPath}.${randomUUID()}.tmp`;
   try {
     await mkdir(getCacheDir(), { recursive: true });
-    await writeFile(diskCachePath(sourceHash), buffer);
-    logger.info({ path: diskCachePath(sourceHash) }, "export: disk cache written");
+    await writeFile(tmpPath, buffer);
+    await rename(tmpPath, finalPath);
+    logger.info({ path: finalPath }, "export: disk cache written");
     await sweepStaleCacheFiles(sourceHash);
   } catch (err) {
     logger.warn({ err }, "export: failed to write disk cache (non-fatal)");
+    // Best-effort cleanup of this invocation's temp file so it doesn't linger.
+    await rm(tmpPath, { force: true }).catch(() => {});
   }
 }
 
