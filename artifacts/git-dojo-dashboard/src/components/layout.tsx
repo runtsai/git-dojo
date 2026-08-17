@@ -1,6 +1,6 @@
 import { Link, useLocation } from "wouter";
 import { useHealthCheck, getHealthCheckQueryKey } from "@workspace/api-client-react";
-import { Activity, ShieldCheck, ShieldAlert, Terminal, Lightbulb, Rocket, Siren, Dumbbell, Map as MapIcon, Menu, X } from "lucide-react";
+import { Activity, ShieldCheck, ShieldAlert, AlertTriangle, Terminal, Lightbulb, Rocket, Siren, Dumbbell, Map as MapIcon, Menu, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useDrillStatus } from "@/hooks/use-drills";
 
@@ -109,9 +109,17 @@ export function Layout({ children }: { children: React.ReactNode }) {
               )}
             </Link>
 
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-secondary/50 border border-white/5 text-xs font-medium ml-2 shadow-inner">
+            <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-medium ml-2 shadow-inner ${
+              isError
+                ? 'bg-destructive/10 border-destructive/30'
+                : health?.status === 'degraded'
+                ? 'bg-amber-500/10 border-amber-500/30'
+                : 'bg-secondary/50 border-white/5'
+            }`}>
               {isError ? (
                 <><ShieldAlert className="w-3.5 h-3.5 text-destructive" /> <span className="text-muted-foreground">Offline</span></>
+              ) : health?.status === 'degraded' ? (
+                <><AlertTriangle className="w-3.5 h-3.5 text-amber-500" /> <span className="text-amber-500">Degraded</span></>
               ) : health?.status === 'ok' ? (
                 <><ShieldCheck className="w-3.5 h-3.5 text-emerald-500" /> <span className="text-muted-foreground">Active</span></>
               ) : (
@@ -238,6 +246,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
               <span className="text-muted-foreground">System Status</span>
               {isError ? (
                 <span className="flex items-center gap-2 text-destructive"><ShieldAlert className="w-4 h-4" /> Offline</span>
+              ) : health?.status === 'degraded' ? (
+                <span className="flex items-center gap-2 text-amber-500"><AlertTriangle className="w-4 h-4" /> Degraded</span>
               ) : health?.status === 'ok' ? (
                 <span className="flex items-center gap-2 text-emerald-500"><ShieldCheck className="w-4 h-4" /> Active</span>
               ) : (
@@ -247,6 +257,22 @@ export function Layout({ children }: { children: React.ReactNode }) {
           </div>
         )}
       </header>
+
+      {health?.status === 'degraded' && (
+        <div className="bg-amber-500/10 border-b border-amber-500/30 px-4 py-2.5">
+          <div className="max-w-7xl mx-auto flex items-center gap-3 text-sm">
+            <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" />
+            <span className="text-amber-500 font-semibold">API degraded</span>
+            <span className="text-amber-500/70">—</span>
+            <span className="text-amber-500/80">
+              Startup smoke check failed
+              {health.smokeCheckedAt
+                ? ` · checked ${new Date(health.smokeCheckedAt).toLocaleTimeString()}`
+                : ''}
+            </span>
+          </div>
+        </div>
+      )}
       
       <main className="flex-1 w-full max-w-7xl mx-auto px-4 sm:px-6 py-8 md:py-12 flex flex-col min-h-0">
         {children}
