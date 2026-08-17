@@ -586,6 +586,20 @@ async function main(): Promise<void> {
     CompleteModuleResponse,
   );
 
+  // 8b. Malformed progress-complete bodies must be rejected with HTTP 400.
+  //     These checks guard the Zod validation in progress.ts against silent
+  //     breakage during future refactors.
+  await smokeExpect400(
+    "/api/progress/complete",
+    { track: "visual" },
+    "POST /api/progress/complete (missing moduleId → 400)",
+  );
+  await smokeExpect400(
+    "/api/progress/complete",
+    { moduleId: "1.1", track: 42 },
+    "POST /api/progress/complete (track is number, not enum string → 400)",
+  );
+
   // 9. Drills due — POST because the candidate set is client-owned, but it is
   //    a pure query with no persistence.  A non-empty candidates array ensures
   //    the per-item schema fields are exercised.
