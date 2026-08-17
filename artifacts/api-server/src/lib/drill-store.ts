@@ -87,8 +87,8 @@ function normaliseFriction(raw: Record<string, unknown>): Record<string, Frictio
     if (v && typeof v === "object") {
       const r = v as Record<string, unknown>;
       out[k] = {
-        failures: typeof r.failures === "number" ? r.failures : 0,
-        passes: typeof r.passes === "number" ? r.passes : 0,
+        failures: typeof r.failures === "number" ? Math.min(r.failures, 999) : 0,
+        passes: typeof r.passes === "number" ? Math.min(r.passes, 999) : 0,
         // Legacy records have no runs array; start fresh so decay applies
         // going forward while raw totals are preserved for display.
         runs: Array.isArray(r.runs) ? (r.runs as FrictionEntry[]) : [],
