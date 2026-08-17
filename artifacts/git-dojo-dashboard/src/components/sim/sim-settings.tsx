@@ -7,7 +7,7 @@ export function SimSettingsContainer({ children }: { children: ReactNode }) {
       <div className="bg-[#161b22] px-4 py-3 border-b border-white/10">
         <span className="font-bold text-white text-sm">Settings</span>
       </div>
-      <div className="p-6 md:p-8 space-y-12">
+      <div className="p-4 md:p-8 space-y-8 md:space-y-12">
         {children}
       </div>
     </div>

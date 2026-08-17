@@ -56,7 +56,7 @@ export function Module2_2({ onStepChange }: VisualModuleProps = {}) {
 
   const handleSubmit = () => {
     if (!foundSecret && !foundBehavior) {
-      setShowError("Read config.txt line by line. Two of the added lines should stop this merge cold — hover a line and press the plus button to comment on it.");
+      setShowError("Read config.txt line by line. Two of the added lines should stop this merge cold — tap or hover a line and press the + button to comment on it.");
       return;
     }
     if (!foundSecret) {
@@ -169,7 +169,7 @@ export function Module2_2({ onStepChange }: VisualModuleProps = {}) {
           <div className="inline-block px-3 py-1 bg-primary/10 text-primary border border-primary/20 rounded text-xs font-bold uppercase tracking-wider mb-2">Part 5: Prove It</div>
           <h2 className="text-3xl font-bold mb-2">Find what's wrong</h2>
           <p className="text-muted-foreground text-lg reading-text">
-            Ruth's delivery is below. Two of the added lines should stop this merge cold. <strong className="text-foreground">Find both and leave an inline comment on each</strong> — hover the line, press the plus, say what you see.
+            Ruth's delivery is below. Two of the added lines should stop this merge cold. <strong className="text-foreground">Find both and leave an inline comment on each</strong> — tap or hover a line, press the <strong className="text-foreground">+</strong> button, say what you see.
           </p>
 
           <SimPrContainer>

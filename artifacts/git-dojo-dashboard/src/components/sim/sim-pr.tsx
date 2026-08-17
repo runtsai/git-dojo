@@ -242,7 +242,7 @@ export function SimFilesChanged({
                           setEditing({ file: f.file, lineIndex: i });
                           setDraft("");
                         }}
-                        className="w-6 shrink-0 flex items-center justify-center text-primary-foreground bg-primary rounded-sm my-0.5 opacity-0 group-hover:opacity-100 focus-visible:opacity-100 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                        className="w-6 shrink-0 flex items-center justify-center text-primary-foreground bg-primary rounded-sm my-0.5 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 focus-visible:opacity-100 transition-opacity focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                       >
                         <Plus className="w-3.5 h-3.5" />
                       </button>
