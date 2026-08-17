@@ -87,6 +87,52 @@ fi
 rm -rf "$TMP3"
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Case 4: playground contains a lesson with a nested .git directory
+# ─────────────────────────────────────────────────────────────────────────────
+printf "\n\033[1;34m» reset.sh — playground with nested .git inside a lesson\033[0m\n"
+
+TMP4="$(mktemp -d)"
+
+# Create a sibling directory outside the playground to verify it is untouched.
+mkdir -p "$TMP4/sibling-dir"
+printf "untouched\n" > "$TMP4/sibling-dir/canary.txt"
+
+# Create a lesson playground that contains a nested .git repo (simulates a
+# lesson whose setup.sh called git init inside the playground directory).
+mkdir -p "$TMP4/playground/lesson-01"
+mkdir -p "$TMP4/playground/lesson-01/.git/refs/heads"
+mkdir -p "$TMP4/playground/lesson-01/.git/objects"
+printf "ref: refs/heads/main\n" > "$TMP4/playground/lesson-01/.git/HEAD"
+printf "some tracked file\n" > "$TMP4/playground/lesson-01/notes.txt"
+
+# Also add a second lesson with its own nested git repo.
+mkdir -p "$TMP4/playground/lesson-02"
+mkdir -p "$TMP4/playground/lesson-02/.git/refs/heads"
+mkdir -p "$TMP4/playground/lesson-02/.git/objects"
+printf "ref: refs/heads/main\n" > "$TMP4/playground/lesson-02/.git/HEAD"
+
+if run_reset_in "$TMP4"; then
+  ok "reset exits 0 when playground contains nested .git directories"
+else
+  fail "reset exited non-zero when playground contains nested .git directories"
+fi
+
+if [ ! -d "$TMP4/playground" ]; then
+  ok "playground removed even though it contained nested .git directories"
+else
+  fail "playground still present after reset — nested .git may have blocked rm -rf"
+fi
+
+# Verify nothing outside the playground directory was touched.
+if [ -f "$TMP4/sibling-dir/canary.txt" ] && [ "$(cat "$TMP4/sibling-dir/canary.txt")" = "untouched" ]; then
+  ok "sibling directory outside playground was not touched by reset"
+else
+  fail "sibling directory outside playground was modified or removed by reset"
+fi
+
+rm -rf "$TMP4"
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Summary
 # ─────────────────────────────────────────────────────────────────────────────
 printf "\n\033[1m════════════════════════════════\033[0m\n"
