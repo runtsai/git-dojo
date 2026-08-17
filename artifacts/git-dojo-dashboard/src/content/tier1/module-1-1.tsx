@@ -136,7 +136,7 @@ export function Module1_1({ onStepChange }: VisualModuleProps = {}) {
                 <Terminal className="w-5 h-5" /> Git
               </h3>
               <p className="text-muted-foreground reading-text">
-                Git is the invisible tool living <strong>on your computer</strong>. It runs in the terminal (like you saw in the Command Test Center) and locally tracks the sealed record of changes you make to your files.
+                Git is the invisible tool living <strong>on your computer</strong>. It runs in the terminal — a typed command window you can try later in the Command Test Center, optional as always. Its job: keeping a sealed record (a tamper-proof history) of every change you make to your files.
               </p>
             </div>
             
@@ -146,7 +146,7 @@ export function Module1_1({ onStepChange }: VisualModuleProps = {}) {
                 <Building2 className="w-5 h-5" /> GitHub
               </h3>
               <p className="text-muted-foreground reading-text">
-                GitHub is a <strong>website</strong> that hosts a copy of that tracked history in the cloud. It adds a visual, social layer on top so a second person can look at the exact same CURRENT TRUTH you have.
+                GitHub is a <strong>website</strong> that hosts a copy of that tracked history in the cloud. It adds a visual, social layer on top so a second person can look at the exact same CURRENT TRUTH — the one agreed-upon latest version — that you have.
               </p>
             </div>
           </div>
@@ -158,7 +158,7 @@ export function Module1_1({ onStepChange }: VisualModuleProps = {}) {
           <div className="inline-block px-3 py-1 bg-primary/10 text-primary border border-primary/20 rounded text-xs font-bold uppercase tracking-wider mb-2">Part 2: The Interface</div>
           <h2 className="text-3xl font-bold tracking-tight">The Visual Record</h2>
           <p className="text-muted-foreground reading-text text-lg">
-            This is the same information <code>git log</code> and <code>git status</code> showed you in the terminal, drawn instead of typed. Let's look at a fictional repository for your company's records.
+            Everything Git tracks can also be viewed as a picture instead of text. Let's look at a fictional repository — a tracked project folder — for a company's records. Each saved change in it is called a <strong>commit</strong>: one sealed entry in the record.
           </p>
 
           <div className="mt-8 sim-window">
@@ -344,8 +344,15 @@ export function Module1_1({ onStepChange }: VisualModuleProps = {}) {
                   </div>
                   
                   <div className="border border-white/10 rounded-lg opacity-50 pointer-events-none">
-                    <div className="bg-[#0d1117] text-white/80 text-sm p-8 text-center border-b border-white/5">
-                      [File Tree Content]
+                    <div className="bg-[#0d1117] text-white/60 text-sm">
+                      <div className="grid grid-cols-12 py-2.5 px-4 border-b border-white/5">
+                        <div className="col-span-6 flex items-center gap-2 font-medium"><FileText className="w-4 h-4 text-muted-foreground" /> handbook.md</div>
+                        <div className="col-span-6 text-right text-muted-foreground">last month</div>
+                      </div>
+                      <div className="grid grid-cols-12 py-2.5 px-4">
+                        <div className="col-span-6 flex items-center gap-2 font-medium"><FileText className="w-4 h-4 text-muted-foreground" /> safety-protocols.pdf</div>
+                        <div className="col-span-6 text-right text-muted-foreground">2 days ago</div>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -376,7 +383,7 @@ export function Module1_1({ onStepChange }: VisualModuleProps = {}) {
                     <button 
                       onClick={() => setSelectedCommit("commit-2")}
                       className={`w-full text-left bg-[#161b22] border rounded-xl p-4 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary relative z-10 ${
-                        selectedCommit === "commit-2" ? "border-emerald-500 shadow-[0_0_15px_rgba(16,185,129,0.2)] bg-emerald-500/5" : "border-white/10 hover:border-white/30 hover:bg-white/5"
+                        selectedCommit === "commit-2" ? "border-primary shadow-[0_0_15px_rgba(255,107,0,0.2)] bg-primary/5" : "border-white/10 hover:border-white/30 hover:bg-white/5"
                       }`}
                     >
                       <div className="flex items-center gap-3 text-white mb-2">

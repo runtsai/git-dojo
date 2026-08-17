@@ -98,7 +98,7 @@ export function Home() {
             The GitHub Mastery Path
           </h1>
           <p className="text-lg md:text-xl text-muted-foreground reading-text mt-4">
-            Learn how to trace, protect, and safely share the single source of truth for your company records. Two independent tracks. Zero gating.
+            Learn how to trace, protect, and safely share the single source of truth for your company records. Two independent tracks. No signups, no paywalls.
           </p>
         </div>
         {!showOrientation && (
@@ -300,7 +300,7 @@ export function Home() {
                         <span className={isActive ? (isTierComplete ? 'text-emerald-500' : 'text-primary') : 'text-muted-foreground'}>Tier {idx + 1}</span>
                         {isTierComplete && <span className="bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded text-[10px]">Complete</span>}
                         
-                        {tier.status === "coming_soon" && <span className="bg-black/50 border border-white/10 px-2 py-0.5 rounded text-[10px] flex items-center gap-1"><Lock className="w-3 h-3" /> Locked</span>}
+                        {tier.status === "coming_soon" && <span className="bg-black/50 border border-white/10 px-2 py-0.5 rounded text-[10px] flex items-center gap-1"><Lock className="w-3 h-3" /> In development</span>}
                       </div>
                       <h3 className="text-2xl font-bold text-foreground">{tier.title}</h3>
                     </div>
@@ -370,9 +370,6 @@ export function Home() {
                             </div>
                             
                             <div className="flex items-center justify-between sm:justify-end w-full sm:w-auto gap-4 pl-9 sm:pl-0">
-                              <div className="text-xs text-muted-foreground/70 flex items-center gap-1.5 bg-black/40 px-2 py-1 rounded border border-white/5">
-                                
-                              </div>
                               {isActive && !isCompleted && !prereqLocked && (
                                 <div className="text-xs font-bold text-primary bg-primary/10 px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap border border-primary/20">
                                   Start Module
