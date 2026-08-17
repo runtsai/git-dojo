@@ -4,6 +4,12 @@
 # Usage: bash git-dojo/selftest.sh
 set -euo pipefail
 
+# Serialize concurrent selftest runs so they do not stomp on each other's
+# shared playground directories.  The lock is released automatically when
+# this process exits (file descriptor 9 is closed by the OS).
+exec 9>/tmp/git-dojo-selftest.lock
+flock -x 9
+
 LESSONS_DIR="$(cd "$(dirname "$0")" && pwd)"
 PASS_TOTAL=0
 FAIL_TOTAL=0
@@ -21,6 +27,18 @@ assert_clean_playground() {
   rm -rf "$dir"
   if [ -d "$dir" ]; then
     fail "stale playground still exists after rm -rf: $dir"
+  fi
+}
+
+# After each lesson's setup.sh, assert the playground directory was actually
+# created.  If it is missing, emit a clear FAIL that points at the lesson
+# rather than letting the next `cd` produce a cryptic "no such directory".
+assert_playground_created() {
+  local dir="$1"
+  if [ ! -d "$dir" ]; then
+    fail "setup.sh did not create playground: $dir"
+    printf "  (selftest cannot continue for this lesson — aborting)\n" >&2
+    exit 1
   fi
 }
 
@@ -174,8 +192,10 @@ LESSON_01="$LESSONS_DIR/lesson-01-first-snapshot"
 PLAY_01="$LESSONS_DIR/playground/lesson-01"
 
 step "Lesson 01 — First Snapshot: setup"
+cd "$LESSONS_DIR"
 assert_clean_playground "$PLAY_01"
 bash "$LESSON_01/setup.sh" > /dev/null 2>&1
+assert_playground_created "$PLAY_01"
 
 step "Lesson 01 — learner: init, three commits (notes + edit + ideas)"
 cd "$PLAY_01"
@@ -203,8 +223,10 @@ LESSON_02="$LESSONS_DIR/lesson-02-the-ledger"
 PLAY_02="$LESSONS_DIR/playground/lesson-02"
 
 step "Lesson 02 — The Ledger: setup"
+cd "$LESSONS_DIR"
 assert_clean_playground "$PLAY_02"
 bash "$LESSON_02/setup.sh" > /dev/null 2>&1
+assert_playground_created "$PLAY_02"
 
 step "Lesson 02 — learner: find the fee-change commit and write audit.txt"
 cd "$PLAY_02"
@@ -223,8 +245,10 @@ LESSON_03="$LESSONS_DIR/lesson-03-undo-without-erasing"
 PLAY_03="$LESSONS_DIR/playground/lesson-03"
 
 step "Lesson 03 — Undo Without Erasing: setup"
+cd "$LESSONS_DIR"
 assert_clean_playground "$PLAY_03"
 bash "$LESSON_03/setup.sh" > /dev/null 2>&1
+assert_playground_created "$PLAY_03"
 
 step "Lesson 03 — learner: revert the streamline commit and the temp-note commit"
 cd "$PLAY_03"
@@ -244,8 +268,10 @@ LESSON_04="$LESSONS_DIR/lesson-04-branches"
 PLAY_04="$LESSONS_DIR/playground/lesson-04"
 
 step "Lesson 04 — Branches: setup"
+cd "$LESSONS_DIR"
 assert_clean_playground "$PLAY_04"
 bash "$LESSON_04/setup.sh" > /dev/null 2>&1
+assert_playground_created "$PLAY_04"
 
 step "Lesson 04 — learner: new-tagline branch, merge; bad-idea branch, abandon"
 cd "$PLAY_04"
@@ -276,8 +302,10 @@ LESSON_05="$LESSONS_DIR/lesson-05-the-conflict"
 PLAY_05="$LESSONS_DIR/playground/lesson-05"
 
 step "Lesson 05 — The Conflict: setup"
+cd "$LESSONS_DIR"
 assert_clean_playground "$PLAY_05"
 bash "$LESSON_05/setup.sh" > /dev/null 2>&1
+assert_playground_created "$PLAY_05"
 
 step "Lesson 05 — learner: merge insurance-adjustment (fast-forward), then merge fuel-adjustment (conflict → \$95)"
 cd "$PLAY_05"
@@ -301,8 +329,10 @@ LESSON_06="$LESSONS_DIR/lesson-06-fake-github"
 PLAY_06="$LESSONS_DIR/playground/lesson-06"
 
 step "Lesson 06 — Fake GitHub: setup"
+cd "$LESSONS_DIR"
 assert_clean_playground "$PLAY_06"
 bash "$LESSON_06/setup.sh" > /dev/null 2>&1
+assert_playground_created "$PLAY_06"
 
 step "Lesson 06 — owner (laptop): add services page and push"
 cd "$PLAY_06/laptop"
@@ -336,8 +366,10 @@ LESSON_07="$LESSONS_DIR/lesson-07-capstone-contractor-review"
 PLAY_07="$LESSONS_DIR/playground/lesson-07"
 
 step "Lesson 07 — Capstone: setup"
+cd "$LESSONS_DIR"
 assert_clean_playground "$PLAY_07"
 bash "$LESSON_07/setup.sh" > /dev/null 2>&1
+assert_playground_created "$PLAY_07"
 
 step "Lesson 07 — learner: write review.txt with findings and disposition, commit"
 cd "$PLAY_07"
@@ -372,8 +404,10 @@ LESSON_08="$LESSONS_DIR/lesson-08-the-collision"
 PLAY_08="$LESSONS_DIR/playground/lesson-08"
 
 step "Lesson 08 — The Collision: setup"
+cd "$LESSONS_DIR"
 assert_clean_playground "$PLAY_08"
 bash "$LESSON_08/setup.sh" > /dev/null 2>&1
+assert_playground_created "$PLAY_08"
 
 LAPTOP_08="$LESSONS_DIR/playground/lesson-08/laptop"
 
@@ -406,8 +440,10 @@ LESSON_09="$LESSONS_DIR/lesson-09-the-standoff"
 PLAY_09="$LESSONS_DIR/playground/lesson-09"
 
 step "Lesson 09 — The Standoff: setup"
+cd "$LESSONS_DIR"
 assert_clean_playground "$PLAY_09"
 bash "$LESSON_09/setup.sh" > /dev/null 2>&1
+assert_playground_created "$PLAY_09"
 
 LAPTOP_09="$LESSONS_DIR/playground/lesson-09/laptop"
 
