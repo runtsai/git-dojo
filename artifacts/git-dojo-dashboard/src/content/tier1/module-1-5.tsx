@@ -1,6 +1,9 @@
 import { useState } from "react";
 import type { VisualModuleProps } from "@/types/visual-module";
 import { useCompleteModule, getGetProgressQueryKey } from "@workspace/api-client-react";
+
+import { visualModuleSteps as _steps } from "../visual-module-steps";
+export const TOTAL_STEPS = _steps["1.5"];
 import { useQueryClient } from "@tanstack/react-query";
 import { CheckCircle2, Search, Bell, Map } from "lucide-react";
 import { SimGlobalNav, SimSearchOverlay, SimNotificationsOverlay } from "@/components/sim/sim-nav";
@@ -20,7 +23,7 @@ export function Module1_5({ onStepChange }: VisualModuleProps = {}) {
   
   const [showError, setShowError] = useState<string | null>(null);
 
-  const handleNext = () => { const next = Math.min(step + 1, 5); setStep(next); onStepChange?.(next); window.scrollTo(0, 0); };
+  const handleNext = () => { const next = Math.min(step + 1, TOTAL_STEPS); setStep(next); onStepChange?.(next); window.scrollTo(0, 0); };
   const handlePrev = () => { const prev = Math.max(step - 1, 1); setStep(prev); onStepChange?.(prev); window.scrollTo(0, 0); };
 
   const handleQuizSubmit = () => {
@@ -60,9 +63,9 @@ export function Module1_5({ onStepChange }: VisualModuleProps = {}) {
       completionTitle="Tier 1 Complete!"
       completionText="You've mastered the GitHub interface. You can navigate, audit history, configure settings, and stay on top of notifications. The Ground Truth is yours."
       onPrev={step > 1 ? handlePrev : undefined}
-      onNext={step < 5 ? handleNext : undefined}
+      onNext={step < TOTAL_STEPS ? handleNext : undefined}
       nextLabel={step === 4 ? "Begin Navigation Tasks" : "Continue"}
-      onSubmit={step === 5 ? handleQuizSubmit : undefined}
+      onSubmit={step === TOTAL_STEPS ? handleQuizSubmit : undefined}
       submitLabel="Complete Tasks"
       isPending={completeModule.isPending}
       isSubmitDisabled={step === 5 ? (!foundFile || !checkedNotification) : false}

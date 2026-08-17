@@ -2,6 +2,9 @@ import { useState } from "react";
 import { useCompleteModule, getGetProgressQueryKey } from "@workspace/api-client-react";
 import { useQueryClient, type QueryClient } from "@tanstack/react-query";
 
+import { visualModuleSteps as _steps } from "../visual-module-steps";
+export const TOTAL_STEPS = _steps["2.4"];
+
 /**
  * Called by the completion mutation's onSuccess callback.
  *
@@ -124,7 +127,7 @@ export function Module2_4() {
   const [submitting, setSubmitting] = useState(false);
 
   const handleNext = () => {
-    setStep((s) => Math.min(s + 1, 3));
+    setStep((s) => Math.min(s + 1, TOTAL_STEPS));
     window.scrollTo(0, 0);
   };
   const handlePrev = () => {
@@ -199,7 +202,7 @@ export function Module2_4() {
       totalDots={3}
       completionSlot={completionSlot}
       onPrev={step > 1 ? handlePrev : undefined}
-      onNext={step < 3 ? handleNext : undefined}
+      onNext={step < TOTAL_STEPS ? handleNext : undefined}
       nextLabel={
         step === 1 ? "See Ruth's reply" :
         step === 2 ? "Approve the fix" :

@@ -1,6 +1,9 @@
 import { useState } from "react";
 import type { VisualModuleProps } from "@/types/visual-module";
 import { useCompleteModule, getGetProgressQueryKey } from "@workspace/api-client-react";
+
+import { visualModuleSteps as _steps } from "../visual-module-steps";
+export const TOTAL_STEPS = _steps["2.3"];
 import { useQueryClient, type QueryClient } from "@tanstack/react-query";
 
 /**
@@ -45,7 +48,7 @@ export function Module2_3({ onStepChange }: VisualModuleProps = {}) {
   const [showError, setShowError] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
 
-  const handleNext = () => { const next = Math.min(step + 1, 5); setStep(next); onStepChange?.(next); window.scrollTo(0, 0); };
+  const handleNext = () => { const next = Math.min(step + 1, TOTAL_STEPS); setStep(next); onStepChange?.(next); window.scrollTo(0, 0); };
   const handlePrev = () => { const prev = Math.max(step - 1, 1); setStep(prev); onStepChange?.(prev); window.scrollTo(0, 0); };
 
   const handleSubmitReview = () => {
@@ -81,7 +84,7 @@ export function Module2_3({ onStepChange }: VisualModuleProps = {}) {
       nextModuleHref="/learn/2-4"
       nextModuleLabel="See Ruth's reply"
       onPrev={step > 1 ? handlePrev : undefined}
-      onNext={step < 5 ? handleNext : undefined}
+      onNext={step < TOTAL_STEPS ? handleNext : undefined}
       nextLabel={step === 4 ? "Deliver Your Verdict" : "Continue"}
       // Step 5: submit is inside SimReviewPanel – only expose Back in the shell nav
       error={showError}

@@ -1,4 +1,7 @@
 import { useState, type ReactNode } from "react";
+
+import { visualModuleSteps as _steps } from "../visual-module-steps";
+export const TOTAL_STEPS = _steps["1.1"];
 import type { VisualModuleProps } from "@/types/visual-module";
 import { useCompleteModule, getGetProgressQueryKey } from "@workspace/api-client-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -23,7 +26,7 @@ export function Module1_1({ onStepChange }: VisualModuleProps = {}) {
   const [showError, setShowError] = useState<string | null>(null);
 
   const handleNext = () => {
-    const next = Math.min(step + 1, 5);
+    const next = Math.min(step + 1, TOTAL_STEPS);
     setStep(next);
     onStepChange?.(next);
     window.scrollTo(0, 0);
@@ -116,9 +119,9 @@ export function Module1_1({ onStepChange }: VisualModuleProps = {}) {
       completionTitle="Module Passed!"
       completionText="You've completed the first step of the visual track. You now understand what GitHub is, and where the sealed record lives."
       onPrev={step > 1 ? handlePrev : undefined}
-      onNext={step < 5 ? handleNext : undefined}
+      onNext={step < TOTAL_STEPS ? handleNext : undefined}
       nextLabel={step === 4 ? "Begin Hands-On Task" : "Continue"}
-      onSubmit={step === 5 ? handleQuizSubmit : undefined}
+      onSubmit={step === TOTAL_STEPS ? handleQuizSubmit : undefined}
       submitLabel="Complete Task"
       isPending={completeModule.isPending}
       error={showError}

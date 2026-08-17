@@ -5,6 +5,7 @@ import { tiers } from "../tiers";
 import { CLI_LESSON_IDS } from "../lessons";
 import { crises } from "../crises";
 import { HINT_STEPS } from "../hint-steps";
+import { visualModuleSteps } from "../visual-module-steps";
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -156,12 +157,16 @@ describe("lessonLocations only references valid mapPlace/mapFlow ids", () => {
 // ---------------------------------------------------------------------------
 
 describe("visual module step arrays are not shorter than the module's step count", () => {
-  // All current visual modules clamp onStepChange() at step 5 (completion fires 6,
-  // which isValidStepChip() already rejects as an overshoot).
-  // If a steps array is accidentally trimmed below 5 the chip displays a WRONG
-  // TOTAL even on valid steps — e.g. "Step 4 of 4" on a 5-step module — because
+  // Each module imports TOTAL_STEPS from the central registry
+  // (visual-module-steps.ts) — the highest *interactive* step number shown to
+  // the learner.  Note: the completion callback fires TOTAL_STEPS+1 (e.g. 6
+  // for a 5-step module); isValidStepChip() rejects that value, so the chip is
+  // hidden on the success screen.  This test only cares about TOTAL_STEPS —
+  // the map-chip total the learner sees.
+  //
+  // If a steps array in lessonLocations is shorter than TOTAL_STEPS the chip
+  // displays a WRONG TOTAL: e.g. "Step 4 of 4" on a 5-step module, because
   // the chip renders `Step {stepIndex} of {location.steps.length}`.
-  const VISUAL_MODULE_MAX_STEP = 5;
 
   // Visual module ids follow the pattern "N.M" (e.g. "1.1", "2.3").
   const visualModuleEntries = Object.entries(lessonLocations).filter(([id]) =>
@@ -171,18 +176,45 @@ describe("visual module step arrays are not shorter than the module's step count
   for (const [id, location] of visualModuleEntries) {
     if (!location.steps) continue; // no per-step overrides → chip stays hidden; fine.
 
-    it(`lessonLocations["${id}"].steps covers all ${VISUAL_MODULE_MAX_STEP} reachable steps`, () => {
+    const expectedSteps = visualModuleSteps[id];
+
+    it(`lessonLocations["${id}"].steps covers all ${expectedSteps ?? "?"} reachable steps`, () => {
+      expect(
+        expectedSteps,
+        `Module "${id}" is not listed in src/content/visual-module-steps.ts. ` +
+          `Export TOTAL_STEPS from the module file and add an entry to the registry ` +
+          `so the map-coverage test knows the correct step cap.`,
+      ).toBeDefined();
+
       expect(
         location.steps!.length,
         `lessonLocations["${id}"].steps has only ${location.steps!.length} ` +
-          `entr${location.steps!.length === 1 ? "y" : "ies"}, but visual modules ` +
-          `fire onStepChange() up to step ${VISUAL_MODULE_MAX_STEP}. ` +
-          `The chip would show "Step ${location.steps!.length} of ${location.steps!.length}" on a ` +
-          `${VISUAL_MODULE_MAX_STEP}-step module — a wrong total. ` +
+          `entr${location.steps!.length === 1 ? "y" : "ies"}, but module "${id}" ` +
+          `fires onStepChange() up to step ${expectedSteps}. ` +
+          `The chip would show "Step ${location.steps!.length} of ${location.steps!.length}" ` +
+          `on a ${expectedSteps}-step module — a wrong total. ` +
           `Add back the missing step entries in src/content/map/index.ts.`,
-      ).toBeGreaterThanOrEqual(VISUAL_MODULE_MAX_STEP);
+      ).toBeGreaterThanOrEqual(expectedSteps!);
     });
   }
+});
+
+// ---------------------------------------------------------------------------
+// Registry must record the correct cap for modules with non-default step counts
+// ---------------------------------------------------------------------------
+
+describe("visualModuleSteps registry records the correct cap for non-standard modules", () => {
+  // Regression test: module "2.4" has 3 interactive steps, not 5.
+  // If someone edits the registry to 5 (the majority default) this test
+  // catches it before the map chip starts showing "Step 3 of 5".
+  it('visualModuleSteps["2.4"] is 3 (not the default 5)', () => {
+    expect(
+      visualModuleSteps["2.4"],
+      'visualModuleSteps["2.4"] should be 3 — module 2.4 only has 3 interactive ' +
+        "steps. If you changed it, update src/content/visual-module-steps.ts and " +
+        "the Math.min clamp in src/content/tier2/module-2-4.tsx to match.",
+    ).toBe(3);
+  });
 });
 
 // ---------------------------------------------------------------------------

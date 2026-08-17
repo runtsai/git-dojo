@@ -1,6 +1,9 @@
 import { useState } from "react";
 import type { VisualModuleProps } from "@/types/visual-module";
 import { useCompleteModule, getGetProgressQueryKey } from "@workspace/api-client-react";
+
+import { visualModuleSteps as _steps } from "../visual-module-steps";
+export const TOTAL_STEPS = _steps["2.2"];
 import { useQueryClient, type QueryClient } from "@tanstack/react-query";
 
 /**
@@ -46,7 +49,7 @@ export function Module2_2({ onStepChange }: VisualModuleProps = {}) {
   const foundSecret = commentedOn(dangerLines.secret);
   const foundBehavior = commentedOn(dangerLines.behavior);
 
-  const handleNext = () => { const next = Math.min(step + 1, 5); setStep(next); onStepChange?.(next); window.scrollTo(0, 0); };
+  const handleNext = () => { const next = Math.min(step + 1, TOTAL_STEPS); setStep(next); onStepChange?.(next); window.scrollTo(0, 0); };
   const handlePrev = () => { const prev = Math.max(step - 1, 1); setStep(prev); onStepChange?.(prev); window.scrollTo(0, 0); };
 
   const handleAddComment = (file: string, lineIndex: number, body: string) => {
@@ -85,9 +88,9 @@ export function Module2_2({ onStepChange }: VisualModuleProps = {}) {
       nextModuleHref="/learn/2-3"
       nextModuleLabel="Next: The Verdict"
       onPrev={step > 1 ? handlePrev : undefined}
-      onNext={step < 5 ? handleNext : undefined}
+      onNext={step < TOTAL_STEPS ? handleNext : undefined}
       nextLabel={step === 4 ? "Begin the Review Task" : "Continue"}
-      onSubmit={step === 5 ? handleSubmit : undefined}
+      onSubmit={step === TOTAL_STEPS ? handleSubmit : undefined}
       submitLabel="Submit Findings"
       isPending={completeModule.isPending}
       error={showError}

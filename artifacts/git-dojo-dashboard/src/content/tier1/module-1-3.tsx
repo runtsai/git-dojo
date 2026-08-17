@@ -1,6 +1,9 @@
 import { useState, type ReactNode } from "react";
 import type { VisualModuleProps } from "@/types/visual-module";
 import { useCompleteModule, getGetProgressQueryKey } from "@workspace/api-client-react";
+
+import { visualModuleSteps as _steps } from "../visual-module-steps";
+export const TOTAL_STEPS = _steps["1.3"];
 import { useQueryClient } from "@tanstack/react-query";
 import { History, FileDiff } from "lucide-react";
 import { SimRepoContainer } from "@/components/sim/sim-repo";
@@ -16,7 +19,7 @@ export function Module1_3({ onStepChange }: VisualModuleProps = {}) {
   const [quizAnswer, setQuizAnswer] = useState<string | null>(null);
   const [showError, setShowError] = useState<string | null>(null);
 
-  const handleNext = () => { const next = Math.min(step + 1, 5); setStep(next); onStepChange?.(next); window.scrollTo(0, 0); };
+  const handleNext = () => { const next = Math.min(step + 1, TOTAL_STEPS); setStep(next); onStepChange?.(next); window.scrollTo(0, 0); };
   const handlePrev = () => { const prev = Math.max(step - 1, 1); setStep(prev); onStepChange?.(prev); window.scrollTo(0, 0); };
 
   const handleQuizSubmit = () => {
@@ -136,9 +139,9 @@ export function Module1_3({ onStepChange }: VisualModuleProps = {}) {
       nextModuleHref="/learn/1-4"
       nextModuleLabel="Next: Repo Settings →"
       onPrev={step > 1 ? handlePrev : undefined}
-      onNext={step < 5 ? handleNext : undefined}
+      onNext={step < TOTAL_STEPS ? handleNext : undefined}
       nextLabel={step === 4 ? "Begin Hands-On Task" : "Continue"}
-      onSubmit={step === 5 ? handleQuizSubmit : undefined}
+      onSubmit={step === TOTAL_STEPS ? handleQuizSubmit : undefined}
       submitLabel="Submit Answer"
       isPending={completeModule.isPending}
       error={showError}
