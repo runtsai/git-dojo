@@ -210,6 +210,66 @@ function navigateToCrisis02(rerender: (ui: React.ReactElement) => void) {
 // Tests
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Additional helpers for the handleSetup tests
+// ---------------------------------------------------------------------------
+
+function clickResetButton() {
+  // The button text is "Reset the Disaster" when repo is live, or
+  // "Trigger the Disaster" when it is not.  The mock returns an initialized
+  // repo so the live branch renders; the button therefore reads "Reset the
+  // Disaster".  Either label identifies the same onClick={handleSetup} handler.
+  const btn =
+    screen.queryByText("Reset the Disaster") ??
+    screen.getByText("Trigger the Disaster");
+  fireEvent.click(btn!);
+}
+
+// ---------------------------------------------------------------------------
+// handleSetup path: diff viewer must close when the user resets the disaster
+// ---------------------------------------------------------------------------
+
+describe("diff viewer closes when the user clicks Reset / Trigger the Disaster", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockUseParams.mockReturnValue({ crisisId: "crisis-01" });
+  });
+
+  afterEach(() => {
+    cleanup();
+  });
+
+  it("closes a file-diff panel when Reset the Disaster is clicked", () => {
+    render(<CrisisView />);
+
+    // Open the file diff panel
+    fireEvent.click(screen.getByTestId("trigger-file-diff"));
+    expect(screen.getByTestId("diff-viewer")).toBeTruthy();
+
+    // Click the reset button — handleSetup calls setDiffSelection(null)
+    act(() => {
+      clickResetButton();
+    });
+
+    expect(screen.queryByTestId("diff-viewer")).toBeNull();
+  });
+
+  it("closes a commit-diff panel when Reset the Disaster is clicked", () => {
+    render(<CrisisView />);
+
+    // Open the commit diff panel
+    fireEvent.click(screen.getByTestId("trigger-commit-diff"));
+    expect(screen.getByTestId("diff-viewer")).toBeTruthy();
+
+    // Click the reset button — handleSetup calls setDiffSelection(null)
+    act(() => {
+      clickResetButton();
+    });
+
+    expect(screen.queryByTestId("diff-viewer")).toBeNull();
+  });
+});
+
 describe("diff viewer closes when navigating to a different crisis URL", () => {
   beforeEach(() => {
     vi.clearAllMocks();
