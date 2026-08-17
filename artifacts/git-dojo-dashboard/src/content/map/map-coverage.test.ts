@@ -203,6 +203,30 @@ describe("journey ids are unique", () => {
 });
 
 // ---------------------------------------------------------------------------
+// mapPlaces must have no duplicate ids
+// ---------------------------------------------------------------------------
+
+describe("mapPlaces has no duplicate ids", () => {
+  it("every place id is unique", () => {
+    const ids = mapPlaces.map((p) => p.id);
+    const seen = new Set<string>();
+    const duplicates: string[] = [];
+    for (const id of ids) {
+      if (seen.has(id)) {
+        duplicates.push(id);
+      } else {
+        seen.add(id);
+      }
+    }
+    expect(
+      duplicates,
+      `mapPlaces contains duplicate id(s): ${duplicates.map((id) => `"${id}"`).join(", ")}. ` +
+        `Each place must have a unique id in src/content/map/index.ts.`,
+    ).toHaveLength(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // mapFlows must have no duplicate ids
 // ---------------------------------------------------------------------------
 
