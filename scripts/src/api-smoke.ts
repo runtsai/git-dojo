@@ -13,7 +13,7 @@
  */
 import { execFile, execSync } from "node:child_process";
 import { promisify } from "node:util";
-import { mkdtemp, writeFile, rm } from "node:fs/promises";
+import { mkdtemp, writeFile, rm, rename } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import nodePath from "node:path";
 
@@ -60,7 +60,7 @@ const PromoMetaResponse = z.object({
 // ---------------------------------------------------------------------------
 
 const PORT = process.env["PORT"] ?? "5000";
-const BASE = (process.env["API_URL"] ?? `http://localhost:${PORT}`).replace(/\/$/, "");
+let BASE = (process.env["API_URL"] ?? `http://localhost:${PORT}`).replace(/\/$/, "");
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -582,270 +582,367 @@ async function smokeDurationMismatch(): Promise<void> {
   }
 }
 
-// ---------------------------------------------------------------------------
-// Main
-// ---------------------------------------------------------------------------
-
+/**
+ * Atomically write the smoke result JSON file that /api/healthz reads.
+ * Uses a .tmp → rename two-step so the server never reads a partial file.
+ *
+ * Exported for testing.
+ */
+export async function writeSmokeResult(
+  passedResult: boolean,
+  filePath: string,
+): Promise<void> {
+  const checkedAt = new Date().toISOString();
+  const tmp = `${filePath}.tmp`;
+  await writeFile(
+    tmp,
+    JSON.stringify({ passed: passedResult, checkedAt }) + "\n",
+    "utf8",
+  );
+  await rename(tmp, filePath);
+}
 async function main(): Promise<void> {
   console.log(`\nAPI smoke test  →  ${BASE}\n`);
 
-  // 1. Health
-  await smoke("/api/healthz", HealthCheckResponse);
+  const resultFile =
+    process.env["SMOKE_RESULT_FILE"] ?? "/tmp/api-smoke-result.json";
 
-  // 2. Dojo overview
-  await smoke("/api/dojo/overview", GetDojoOverviewResponse);
+  const failCount = await run({ base: BASE, resultFile });
 
-  // 3. Lessons list — also extracts a lessonId for the parameterised route
-  const lessons = await smoke("/api/dojo/lessons", ListLessonsResponse);
-  const firstLesson = Array.isArray(lessons) ? (lessons as Array<{ id: string }>)[0] : undefined;
-
-  // 4. Lesson repo state (parameterised) — skip if no lessons exist yet
-  let firstCommitHash: string | undefined;
-  let firstChangedFilePath: string | undefined;
-  if (firstLesson) {
-    const state = await smoke(`/api/dojo/lessons/${firstLesson.id}/state`, GetRepoStateResponse);
-    if (state && typeof state === "object") {
-      const s = state as { commits?: Array<{ hash: string }>; files?: Array<{ path: string; status: string }> };
-      firstCommitHash = s.commits?.[0]?.hash;
-      firstChangedFilePath = s.files?.find(
-        (f) => f.status !== "conflicted",
-      )?.path;
-    }
-  } else {
-    console.log(`  -  GET /api/dojo/lessons/:id/state  (skipped — no lessons found)`);
-  }
-
-  // 4a. Commit diff — skip if the lesson has no commits yet
-  if (firstLesson && firstCommitHash) {
-    await smoke(
-      `/api/dojo/lessons/${firstLesson.id}/commits/${firstCommitHash}/diff`,
-      GetCommitDiffResponse,
-    );
-  } else {
-    console.log(
-      `  -  GET /api/dojo/lessons/:id/commits/:hash/diff  (skipped — no commits in first lesson)`,
-    );
-  }
-
-  // 4b. File diff — skip if the lesson has no changed files right now
-  if (firstLesson && firstChangedFilePath) {
-    await smoke(
-      `/api/dojo/lessons/${firstLesson.id}/file-diff?filePath=${encodeURIComponent(firstChangedFilePath)}`,
-      GetWorkingFileDiffResponse,
-    );
-  } else {
-    console.log(
-      `  -  GET /api/dojo/lessons/:id/file-diff  (skipped — no changed files in first lesson)`,
-    );
-  }
-
-  // 4c. Lesson check — skip if no lessons exist yet
-  if (firstLesson) {
-    await smokePost(
-      `/api/dojo/lessons/${firstLesson.id}/check`,
-      {},
-      RunLessonCheckResponse,
-    );
-  } else {
-    console.log(`  -  POST /api/dojo/lessons/:id/check  (skipped — no lessons found)`);
-  }
-
-  // 4d. Lesson bot — skip if no lessons exist yet
-  if (firstLesson) {
-    await smokePost(
-      `/api/dojo/lessons/${firstLesson.id}/bot`,
-      {},
-      RunBotActionResponse,
-    );
-  } else {
-    console.log(`  -  POST /api/dojo/lessons/:id/bot  (skipped — no lessons found)`);
-  }
-
-  // 5. Crisis scenarios list — also extracts a crisisId
-  const scenarios = await smoke("/api/crisis/scenarios", ListCrisisScenariosResponse);
-  const firstScenario = Array.isArray(scenarios)
-    ? (scenarios as Array<{ id: string }>)[0]
-    : undefined;
-
-  // 6. Crisis scenario state (parameterised) — skip if none exist yet.
-  //    Note: this reads state for the first *learner* scenario only; the grader
-  //    smoke steps below always use the dedicated "crisis-smoke" sentinel
-  //    scenario instead (see steps 6a/6b).
-  if (firstScenario) {
-    await smoke(`/api/crisis/scenarios/${firstScenario.id}/state`, GetCrisisRepoStateResponse);
-  } else {
-    console.log(`  -  GET /api/crisis/scenarios/:id/state  (skipped — no scenarios found)`);
-  }
-
-  // 6a. Crisis setup — always targets the "crisis-smoke" sentinel scenario
-  //     regardless of commit state.  This sentinel is never shown in the
-  //     learner-facing scenarios list, so resetting it can never wipe a
-  //     learner's in-progress session.  Running setup unconditionally ensures
-  //     a stale playground from a previous run can never silently suppress this
-  //     step.
-  await smokePost(
-    `/api/crisis/scenarios/crisis-smoke/setup`,
-    {},
-    SetupCrisisScenarioResponse,
-  );
-
-  // 6b. Crisis check — always targets "crisis-smoke" immediately after setup.
-  //     The sentinel scenario's checks are trivially satisfied right after a
-  //     fresh setup, so the grader path is exercised on every smoke run without
-  //     depending on learner activity or playground cleanup.
-  await smokePost(
-    `/api/crisis/scenarios/crisis-smoke/check`,
-    {},
-    RunCrisisCheckResponse,
-  );
-
-  // 7. Capstone status
-  await smoke("/api/capstone/status", GetCapstoneStatusResponse);
-
-  // 7a–7c. Capstone write endpoints — POST /capstone/repo creates a real public
-  //     GitHub repository and DELETE requires delete_repo scope that tokens
-  //     typically lack, so these are opt-in only.  Set SMOKE_CAPSTONE_WRITES=1
-  //     to run them in a controlled environment with a dedicated test account.
-  //     Without the flag the response schemas (CreateCapstoneRepoResponse,
-  //     VerifyCapstoneMissionResponse, DeleteCapstoneRepoResponse) are not
-  //     exercised here; they remain validated by the server's own .parse() call
-  //     on every real request.
-  if (process.env["SMOKE_CAPSTONE_WRITES"] === "1") {
-    const capstoneState = await smokeWriteOrSkip409(
-      "POST",
-      "/api/capstone/repo",
-      CreateCapstoneRepoResponse,
-    );
-    const firstMissionId = "push-commit";
-    await smokeWriteOrSkip409(
-      "POST",
-      `/api/capstone/verify/${firstMissionId}`,
-      VerifyCapstoneMissionResponse,
-    );
-    // Deletion must succeed (not 409) after a successful create; a lingering
-    // orphaned repo means cleanup failed and the run should be treated as a
-    // partial success at best.
-    void capstoneState;
-    await smokeWriteOrSkip409(
-      "DELETE",
-      "/api/capstone/repo",
-      DeleteCapstoneRepoResponse,
-    );
-  } else {
-    console.log(
-      `  -  POST /api/capstone/repo  (skipped — set SMOKE_CAPSTONE_WRITES=1 to enable)`,
-    );
-    console.log(
-      `  -  POST /api/capstone/verify/:missionId  (skipped — set SMOKE_CAPSTONE_WRITES=1 to enable)`,
-    );
-    console.log(
-      `  -  DELETE /api/capstone/repo  (skipped — set SMOKE_CAPSTONE_WRITES=1 to enable)`,
-    );
-  }
-
-  // 8. Progress
-  await smoke("/api/progress", GetProgressResponse);
-
-  // 8a. Complete a visual module — uses a known-valid visual module id so the
-  //     endpoint accepts the body.  The operation is idempotent: re-running the
-  //     smoke test won't create duplicate entries.
-  await smokePost(
-    "/api/progress/complete",
-    { moduleId: "1.1", track: "visual" },
-    CompleteModuleResponse,
-  );
-
-  // 8b. Malformed progress-complete bodies must be rejected with HTTP 400.
-  //     These checks guard the Zod validation in progress.ts against silent
-  //     breakage during future refactors.
-  await smokeExpect400(
-    "/api/progress/complete",
-    { track: "visual" },
-    "POST /api/progress/complete (missing moduleId → 400)",
-  );
-  await smokeExpect400(
-    "/api/progress/complete",
-    { moduleId: "1.1", track: 42 },
-    "POST /api/progress/complete (track is number, not enum string → 400)",
-  );
-
-  // 9. Drills due — POST because the candidate set is client-owned, but it is
-  //    a pure query with no persistence.  A non-empty candidates array ensures
-  //    the per-item schema fields are exercised.
-  await smokePost(
-    "/api/drills/due",
-    { candidates: [{ id: "smoke-probe", sourceId: null }] },
-    GetDueDrillsResponse,
-  );
-
-  // 9a. Malformed drills-due bodies must be rejected with HTTP 400.
-  //     These checks guard the Zod validation in drills.ts against silent
-  //     breakage during future refactors.
-  await smokeExpect400(
-    "/api/drills/due",
-    {},
-    "POST /api/drills/due (missing candidates → 400)",
-  );
-  await smokeExpect400(
-    "/api/drills/due",
-    { candidates: "all" },
-    "POST /api/drills/due (candidates is string, not array → 400)",
-  );
-
-  // 9b. Record a drill attempt — persists an answer and reschedules the item.
-  //     Uses a synthetic itemId so it never collides with real learner data.
-  //     The operation is idempotent in practice (re-running just updates the
-  //     existing scheduling record for "smoke-probe").
-  await smokePost(
-    "/api/drills/attempt",
-    { itemId: "smoke-probe", correct: true, sourceId: null },
-    RecordDrillAttemptResponse,
-  );
-
-  // 9b. Malformed drill-attempt bodies must be rejected with HTTP 400.
-  //     These checks guard the Zod validation in drills.ts against silent
-  //     breakage during future refactors.
-  await smokeExpect400(
-    "/api/drills/attempt",
-    { correct: true, sourceId: null },
-    "POST /api/drills/attempt (missing itemId → 400)",
-  );
-  await smokeExpect400(
-    "/api/drills/attempt",
-    { itemId: "smoke-probe", correct: "yes", sourceId: null },
-    "POST /api/drills/attempt (correct is string, not boolean → 400)",
-  );
-
-  // 10. Promo metadata — fast, no rendering, verifies the shared scene-duration
-  //     constant reaches the API.  totalDurationSec must be a positive number.
-  await smoke("/api/export/promo-meta", PromoMetaResponse);
-
-  // 10a. Duration-mismatch check — loads the promo page in export mode using a
-  //      headless browser, reads window.__exportTotalMs, and compares it against
-  //      totalDurationMs from /api/export/promo-meta.  Fails immediately if the
-  //      two disagree so the mismatch is caught before any render is attempted.
-  //      Not gated on SKIP_EXPORT_SMOKE because no video is recorded; skipped
-  //      only when SKIP_DURATION_CHECK=1 or the promo page is unreachable.
-  await smokeDurationMismatch();
-
-  // 11. Promo-video export — renders the full video and verifies the resulting
-  //     MP4 has h264 video + aac audio at the expected duration from promo-meta.
-  //     Skipped when SKIP_EXPORT_SMOKE=1 (e.g. CI without a display server).
-  await smokePromoExport();
-
-  // ---------------------------------------------------------------------------
-  // Summary
-  // ---------------------------------------------------------------------------
   const total = passed + failed;
   console.log(`\n${passed}/${total} checks passed\n`);
 
-  if (failed > 0) {
-    console.error(`${failed} check(s) FAILED — see errors above`);
+  if (failCount > 0) {
+    console.error(`${failCount} check(s) FAILED — see errors above`);
     process.exit(1);
   }
 }
 
-main().catch((err) => {
-  console.error("Unexpected error:", err);
-  process.exit(1);
-});
+// Only execute when run directly (not when imported by tests).
+if (import.meta.url === new URL(process.argv[1]!, "file:").href) {
+  main().catch((err: unknown) => {
+    console.error("Unexpected error:", err);
+    process.exit(1);
+  });
+}
+
+/**
+ * Run every smoke check against `baseUrl` and return the pass/fail counts.
+ * Does NOT write the result file or call process.exit — use `run()` for the
+ * full integrated flow.
+ *
+ * Exported for testing: callers can stub `global.fetch` and call this without
+ * spinning up a real server.
+ */
+export async function runChecks(
+  baseUrl: string,
+): Promise<{ passed: number; failed: number }> {
+  // Temporarily redirect the module-level helpers (smoke/request/get) to the
+  // requested base URL, then restore it on the way out.
+  const savedBase = BASE;
+  BASE = baseUrl;
+  passed = 0;
+  failed = 0;
+
+  try {
+    // 1. Health
+    await smoke("/api/healthz", HealthCheckResponse);
+
+    // 2. Dojo overview
+    await smoke("/api/dojo/overview", GetDojoOverviewResponse);
+
+    // 3. Lessons list — also extracts a lessonId for the parameterised route
+    const lessons = await smoke("/api/dojo/lessons", ListLessonsResponse);
+    const firstLesson = Array.isArray(lessons)
+      ? (lessons as Array<{ id: string }>)[0]
+      : undefined;
+
+    // 4. Lesson repo state (parameterised) — skip if no lessons exist yet
+    let firstCommitHash: string | undefined;
+    let firstChangedFilePath: string | undefined;
+    if (firstLesson) {
+      const state = await smoke(
+        `/api/dojo/lessons/${firstLesson.id}/state`,
+        GetRepoStateResponse,
+      );
+      if (state && typeof state === "object") {
+        const s = state as {
+          commits?: Array<{ hash: string }>;
+          files?: Array<{ path: string; status: string }>;
+        };
+        firstCommitHash = s.commits?.[0]?.hash;
+        firstChangedFilePath = s.files?.find(
+          (f) => f.status !== "conflicted",
+        )?.path;
+      }
+    } else {
+      console.log(
+        `  -  GET /api/dojo/lessons/:id/state  (skipped — no lessons found)`,
+      );
+    }
+
+    // 4a. Commit diff — skip if the lesson has no commits yet
+    if (firstLesson && firstCommitHash) {
+      await smoke(
+        `/api/dojo/lessons/${firstLesson.id}/commits/${firstCommitHash}/diff`,
+        GetCommitDiffResponse,
+      );
+    } else {
+      console.log(
+        `  -  GET /api/dojo/lessons/:id/commits/:hash/diff  (skipped — no commits in first lesson)`,
+      );
+    }
+
+    // 4b. File diff — skip if the lesson has no changed files right now
+    if (firstLesson && firstChangedFilePath) {
+      await smoke(
+        `/api/dojo/lessons/${firstLesson.id}/file-diff?filePath=${encodeURIComponent(firstChangedFilePath)}`,
+        GetWorkingFileDiffResponse,
+      );
+    } else {
+      console.log(
+        `  -  GET /api/dojo/lessons/:id/file-diff  (skipped — no changed files in first lesson)`,
+      );
+    }
+
+    // 4c. Lesson check — skip if no lessons exist yet
+    if (firstLesson) {
+      await smokePost(
+        `/api/dojo/lessons/${firstLesson.id}/check`,
+        {},
+        RunLessonCheckResponse,
+      );
+    } else {
+      console.log(
+        `  -  POST /api/dojo/lessons/:id/check  (skipped — no lessons found)`,
+      );
+    }
+
+    // 4d. Lesson bot — skip if no lessons exist yet
+    if (firstLesson) {
+      await smokePost(
+        `/api/dojo/lessons/${firstLesson.id}/bot`,
+        {},
+        RunBotActionResponse,
+      );
+    } else {
+      console.log(
+        `  -  POST /api/dojo/lessons/:id/bot  (skipped — no lessons found)`,
+      );
+    }
+
+    // 5. Crisis scenarios list — also extracts a crisisId
+    const scenarios = await smoke(
+      "/api/crisis/scenarios",
+      ListCrisisScenariosResponse,
+    );
+    const firstScenario = Array.isArray(scenarios)
+      ? (scenarios as Array<{ id: string }>)[0]
+      : undefined;
+
+    // 6. Crisis scenario state (parameterised) — skip if none exist yet.
+    //    Note: this reads state for the first *learner* scenario only; the grader
+    //    smoke steps below always use the dedicated "crisis-smoke" sentinel
+    //    scenario instead (see steps 6a/6b).
+    if (firstScenario) {
+      await smoke(
+        `/api/crisis/scenarios/${firstScenario.id}/state`,
+        GetCrisisRepoStateResponse,
+      );
+    } else {
+      console.log(
+        `  -  GET /api/crisis/scenarios/:id/state  (skipped — no scenarios found)`,
+      );
+    }
+
+    // 6a. Crisis setup — always targets the "crisis-smoke" sentinel scenario
+    //     regardless of commit state.  This sentinel is never shown in the
+    //     learner-facing scenarios list, so resetting it can never wipe a
+    //     learner's in-progress session.  Running setup unconditionally ensures
+    //     a stale playground from a previous run can never silently suppress this
+    //     step.
+    await smokePost(
+      `/api/crisis/scenarios/crisis-smoke/setup`,
+      {},
+      SetupCrisisScenarioResponse,
+    );
+
+    // 6b. Crisis check — always targets "crisis-smoke" immediately after setup.
+    //     The sentinel scenario's checks are trivially satisfied right after a
+    //     fresh setup, so the grader path is exercised on every smoke run without
+    //     depending on learner activity or playground cleanup.
+    await smokePost(
+      `/api/crisis/scenarios/crisis-smoke/check`,
+      {},
+      RunCrisisCheckResponse,
+    );
+
+    // 7. Capstone status
+    await smoke("/api/capstone/status", GetCapstoneStatusResponse);
+
+    // 7a–7c. Capstone write endpoints — POST /capstone/repo creates a real public
+    //     GitHub repository and DELETE requires delete_repo scope that tokens
+    //     typically lack, so these are opt-in only.  Set SMOKE_CAPSTONE_WRITES=1
+    //     to run them in a controlled environment with a dedicated test account.
+    //     Without the flag the response schemas (CreateCapstoneRepoResponse,
+    //     VerifyCapstoneMissionResponse, DeleteCapstoneRepoResponse) are not
+    //     exercised here; they remain validated by the server's own .parse() call
+    //     on every real request.
+    if (process.env["SMOKE_CAPSTONE_WRITES"] === "1") {
+      const capstoneState = await smokeWriteOrSkip409(
+        "POST",
+        "/api/capstone/repo",
+        CreateCapstoneRepoResponse,
+      );
+      const firstMissionId = "push-commit";
+      await smokeWriteOrSkip409(
+        "POST",
+        `/api/capstone/verify/${firstMissionId}`,
+        VerifyCapstoneMissionResponse,
+      );
+      // Deletion must succeed (not 409) after a successful create; a lingering
+      // orphaned repo means cleanup failed and the run should be treated as a
+      // partial success at best.
+      void capstoneState;
+      await smokeWriteOrSkip409(
+        "DELETE",
+        "/api/capstone/repo",
+        DeleteCapstoneRepoResponse,
+      );
+    } else {
+      console.log(
+        `  -  POST /api/capstone/repo  (skipped — set SMOKE_CAPSTONE_WRITES=1 to enable)`,
+      );
+      console.log(
+        `  -  POST /api/capstone/verify/:missionId  (skipped — set SMOKE_CAPSTONE_WRITES=1 to enable)`,
+      );
+      console.log(
+        `  -  DELETE /api/capstone/repo  (skipped — set SMOKE_CAPSTONE_WRITES=1 to enable)`,
+      );
+    }
+
+    // 8. Progress
+    await smoke("/api/progress", GetProgressResponse);
+
+    // 8a. Complete a visual module — uses a known-valid visual module id so the
+    //     endpoint accepts the body.  The operation is idempotent: re-running the
+    //     smoke test won't create duplicate entries.
+    await smokePost(
+      "/api/progress/complete",
+      { moduleId: "1.1", track: "visual" },
+      CompleteModuleResponse,
+    );
+
+    // 8b. Malformed progress-complete bodies must be rejected with HTTP 400.
+    //     These checks guard the Zod validation in progress.ts against silent
+    //     breakage during future refactors.
+    await smokeExpect400(
+      "/api/progress/complete",
+      { track: "visual" },
+      "POST /api/progress/complete (missing moduleId → 400)",
+    );
+    await smokeExpect400(
+      "/api/progress/complete",
+      { moduleId: "1.1", track: 42 },
+      "POST /api/progress/complete (track is number, not enum string → 400)",
+    );
+
+    // 9. Drills due — POST because the candidate set is client-owned, but it is
+    //    a pure query with no persistence.  A non-empty candidates array ensures
+    //    the per-item schema fields are exercised.
+    await smokePost(
+      "/api/drills/due",
+      { candidates: [{ id: "smoke-probe", sourceId: null }] },
+      GetDueDrillsResponse,
+    );
+
+    // 9a. Malformed drills-due bodies must be rejected with HTTP 400.
+    //     These checks guard the Zod validation in drills.ts against silent
+    //     breakage during future refactors.
+    await smokeExpect400(
+      "/api/drills/due",
+      {},
+      "POST /api/drills/due (missing candidates → 400)",
+    );
+    await smokeExpect400(
+      "/api/drills/due",
+      { candidates: "all" },
+      "POST /api/drills/due (candidates is string, not array → 400)",
+    );
+
+    // 9b. Record a drill attempt — persists an answer and reschedules the item.
+    //     Uses a synthetic itemId so it never collides with real learner data.
+    //     The operation is idempotent in practice (re-running just updates the
+    //     existing scheduling record for "smoke-probe").
+    await smokePost(
+      "/api/drills/attempt",
+      { itemId: "smoke-probe", correct: true, sourceId: null },
+      RecordDrillAttemptResponse,
+    );
+
+    // 9c. Malformed drill-attempt bodies must be rejected with HTTP 400.
+    //     These checks guard the Zod validation in drills.ts against silent
+    //     breakage during future refactors.
+    await smokeExpect400(
+      "/api/drills/attempt",
+      { correct: true, sourceId: null },
+      "POST /api/drills/attempt (missing itemId → 400)",
+    );
+    await smokeExpect400(
+      "/api/drills/attempt",
+      { itemId: "smoke-probe", correct: "yes", sourceId: null },
+      "POST /api/drills/attempt (correct is string, not boolean → 400)",
+    );
+
+    // 10. Promo metadata — fast, no rendering, verifies the shared scene-duration
+    //     constant reaches the API.  totalDurationSec must be a positive number.
+    await smoke("/api/export/promo-meta", PromoMetaResponse);
+
+    // 10a. Duration-mismatch check — loads the promo page in export mode using a
+    //      headless browser, reads window.__exportTotalMs, and compares it against
+    //      totalDurationMs from /api/export/promo-meta.  Fails immediately if the
+    //      two disagree so the mismatch is caught before any render is attempted.
+    //      Not gated on SKIP_EXPORT_SMOKE because no video is recorded; skipped
+    //      only when SKIP_DURATION_CHECK=1 or the promo page is unreachable.
+    await smokeDurationMismatch();
+
+    // 11. Promo-video export — renders the full video and verifies the resulting
+    //     MP4 has h264 video + aac audio at the expected duration from promo-meta.
+    //     Skipped when SKIP_EXPORT_SMOKE=1 (e.g. CI without a display server).
+    await smokePromoExport();
+
+    return { passed, failed };
+  } finally {
+    BASE = savedBase;
+  }
+}
+
+/**
+ * Full integrated run: executes all smoke checks against `base`, writes the
+ * result file at `resultFile`, and returns the number of failed checks.
+ *
+ * The file is written in a `finally` block so it is ALWAYS written — even
+ * if an unexpected error escapes `runChecks`.  The caller (main) decides
+ * whether to exit based on the returned failure count.
+ *
+ * Exported so tests can invoke the full write-path without calling
+ * process.exit().
+ */
+export async function run(opts: {
+  base: string;
+  resultFile: string;
+}): Promise<number> {
+  // Pessimistic default: if runChecks throws before returning, treat as failed
+  // so the finally block writes passed:false rather than leaving the file stale.
+  let result = { passed: 0, failed: 1 };
+  try {
+    result = await runChecks(opts.base);
+  } finally {
+    await writeSmokeResult(result.failed === 0, opts.resultFile).catch(
+      (err: unknown) => {
+        console.error("Failed to write smoke result file:", err);
+      },
+    );
+  }
+  return result.failed;
+}
