@@ -350,6 +350,37 @@ export const mapFlows: MapFlow[] = [
   }
 ];
 
+// ---------------------------------------------------------------------------
+// Runtime duplicate-id guards — throw at module load in all environments so
+// a typo is never silently swallowed.
+// ---------------------------------------------------------------------------
+
+(function assertNoDuplicatePlaceIds() {
+  const seen = new Set<string>();
+  for (const place of mapPlaces) {
+    if (seen.has(place.id)) {
+      throw new Error(
+        `[map] Duplicate place id detected: "${place.id}". ` +
+          `Each entry in mapPlaces must have a unique id.`,
+      );
+    }
+    seen.add(place.id);
+  }
+})();
+
+(function assertNoDuplicateFlowIds() {
+  const seen = new Set<string>();
+  for (const flow of mapFlows) {
+    if (seen.has(flow.id)) {
+      throw new Error(
+        `[map] Duplicate flow id detected: "${flow.id}". ` +
+          `Each entry in mapFlows must have a unique id.`,
+      );
+    }
+    seen.add(flow.id);
+  }
+})();
+
 /**
  * lessonId -> map location. Keys cover:
  * - Test Center CLI lessons ("lesson-01"...)
