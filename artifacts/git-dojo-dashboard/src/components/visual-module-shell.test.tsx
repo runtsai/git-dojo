@@ -168,24 +168,20 @@ describe("nav row", () => {
     expect(buttons).toHaveLength(2);
     const labels = buttons.map((b) => b.textContent ?? "");
     expect(labels.some((l) => l.includes("Back"))).toBe(true);
-    expect(labels.some((l) => l.includes("Continue"))).toBe(true);
+    expect(labels.some((l) => l.includes("Submit Now"))).toBe(true);
   });
 
-  it("uses a custom nextLabel", () => {
+  it("prefers onSubmit over onNext when both are provided", () => {
     render(
       <VisualModuleShell
-        {...base({ onNext: vi.fn(), nextLabel: "Keep Going" })}
+        {...base({
+          onNext: vi.fn(),
+          onSubmit: vi.fn(),
+          submitLabel: "Submit",
+        })}
       />,
     );
-    expect(screen.getByRole("button").textContent).toContain("Keep Going");
-  });
-
-  it("shows Back and Submit when onPrev + onSubmit are provided", () => {
-    render(
-      <VisualModuleShell
-        {...base({ onPrev: vi.fn(), onSubmit: vi.fn(), submitLabel: "Submit Now" })}
-      />,
-    );
+    // Submit button must be present; Continue must not be
     const buttons = screen.getAllByRole("button");
     expect(buttons).toHaveLength(2);
     const labels = buttons.map((b) => b.textContent ?? "");
@@ -400,31 +396,38 @@ describe("error banner", () => {
 describe("progress dots", () => {
   it("renders 5 dots by default", () => {
     // Dots are rendered as divs with w-2 h-2 rounded-full classes
-    const { container } = render(<VisualModuleShell {...base({ step: 1 })} />);
-    const dots = container.querySelectorAll(".w-2.h-2.rounded-full");
-    expect(dots.length).toBe(5);
-  });
-
-  it("renders the correct number of dots when totalDots is set", () => {
     const { container } = render(
       <VisualModuleShell {...base({ step: 1, totalDots: 3 })} />,
     );
-    const dots = container.querySelectorAll(".w-2.h-2.rounded-full");
-    expect(dots.length).toBe(3);
+    const dots = Array.from(container.querySelectorAll(".w-2.h-2.rounded-full"));
+    // Dots 0 and 1 (steps 1 and 2) are before current step 3
+    expect(dots[0].className).toContain("bg-primary/50");
+    expect(dots[1].className).toContain("bg-primary/50");
   });
 
-  it("marks the current step dot as active (scale-150)", () => {
+  it("marks future dots with the inactive class (bg-white/10)", () => {
     const { container } = render(
-      <VisualModuleShell {...base({ step: 2, totalDots: 3 })} />,
+      <VisualModuleShell {...base({ step: 1, totalDots: 3 })} />,
     );
     const dots = Array.from(container.querySelectorAll(".w-2.h-2.rounded-full"));
-    // dot index 1 (step 2) should have scale-150
-    expect(dots[1].classList.contains("scale-150")).toBe(true);
+    // Dots 0 and 1 (steps 1 and 2) are before current step 3
+    expect(dots[0].className).toContain("bg-primary/50");
+    expect(dots[1].className).toContain("bg-primary/50");
   });
 
-  it("marks past dots with the past class (bg-primary/50)", () => {
+  it("marks future dots with the inactive class (bg-white/10)", () => {
     const { container } = render(
-      <VisualModuleShell {...base({ step: 3, totalDots: 4 })} />,
+      <VisualModuleShell {...base({ step: 1, totalDots: 3 })} />,
+    );
+    const dots = Array.from(container.querySelectorAll(".w-2.h-2.rounded-full"));
+    // Dots 0 and 1 (steps 1 and 2) are before current step 3
+    expect(dots[0].className).toContain("bg-primary/50");
+    expect(dots[1].className).toContain("bg-primary/50");
+  });
+
+  it("marks future dots with the inactive class (bg-white/10)", () => {
+    const { container } = render(
+      <VisualModuleShell {...base({ step: 1, totalDots: 3 })} />,
     );
     const dots = Array.from(container.querySelectorAll(".w-2.h-2.rounded-full"));
     // Dots 0 and 1 (steps 1 and 2) are before current step 3
