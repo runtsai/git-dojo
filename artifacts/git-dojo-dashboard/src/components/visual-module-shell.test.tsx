@@ -331,6 +331,23 @@ describe("error banner", () => {
     );
     expect(screen.getByText("Network timeout. Please retry.")).toBeTruthy();
   });
+
+  it("has role='alert' on the error banner so screen readers announce it", () => {
+    render(<VisualModuleShell {...base({ error: "Something went wrong" })} />);
+    const banner = screen.getByRole("alert");
+    expect(banner).toBeTruthy();
+    expect(banner.textContent).toContain("Something went wrong");
+  });
+
+  it("does not render a role='alert' element when error is null", () => {
+    render(<VisualModuleShell {...base({ error: null })} />);
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
+  it("does not render a role='alert' element when error is undefined", () => {
+    render(<VisualModuleShell {...base()} />);
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
 });
 
 // ---------------------------------------------------------------------------

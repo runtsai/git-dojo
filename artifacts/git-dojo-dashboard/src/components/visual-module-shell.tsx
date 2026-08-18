@@ -200,7 +200,7 @@ export function VisualModuleShell({
             {children}
 
             {error && (
-              <div className="mt-6 p-4 bg-destructive/10 border border-destructive/20 text-destructive rounded-lg flex items-start gap-3 enter-fade">
+              <div role="alert" className="mt-6 p-4 bg-destructive/10 border border-destructive/20 text-destructive rounded-lg flex items-start gap-3 enter-fade">
                 <AlertCircle className="w-5 h-5 shrink-0 mt-0.5" />
                 <p className="font-medium text-sm">{error}</p>
               </div>
