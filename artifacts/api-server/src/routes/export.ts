@@ -166,8 +166,11 @@ async function sweepStaleCacheFiles(keepHash: string): Promise<void> {
   try {
     const entries = await readdir(getCacheDir());
     for (const entry of entries) {
-      if (!entry.endsWith(".mp4")) continue;
-      if (entry === `${keepHash}.mp4`) continue; // keep the current one
+      const isMp4 = entry.endsWith(".mp4");
+      const isTmp = entry.endsWith(".tmp");
+      if (!isMp4 && !isTmp) continue;
+      if (isMp4 && entry === `${keepHash}.mp4`) continue; // keep the current one
+      // All .tmp files are orphaned from a crashed mid-rename write; remove them all.
       const stalePath = path.join(getCacheDir(), entry);
       try {
         await rm(stalePath);

@@ -842,6 +842,33 @@ describe("loadDiskCache – cache sweep", () => {
     );
     expect(oldDirRmCalls).toHaveLength(0);
   });
+
+  it("removes a leftover .tmp file present at startup (orphaned from a crash mid-rename)", async () => {
+    // Scenario: the server was killed after writeFile completed but before
+    // rename() ran, leaving a sibling `.tmp` file in the cache directory.
+    // sweepStaleCacheFiles (called by loadDiskCache) must remove it so that
+    // .tmp orphans don't accumulate across restarts.
+    const currentHash = await computePromoSourceHash();
+    const orphanTmpFile = `${currentHash}.mp4.xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx.tmp`;
+
+    readdirMock.mockImplementation(async (dir: unknown) => {
+      if (String(dir) === FAKE_CACHE_DIR) {
+        return [orphanTmpFile] as unknown as Awaited<ReturnType<typeof import("node:fs/promises").readdir>>;
+      }
+      return [] as unknown as Awaited<ReturnType<typeof import("node:fs/promises").readdir>>;
+    });
+
+    await loadDiskCache();
+
+    // The .tmp orphan must have been removed.
+    expect(rmMock).toHaveBeenCalledWith(
+      path.join(FAKE_CACHE_DIR, orphanTmpFile),
+    );
+    expect(rmMock).toHaveBeenCalledTimes(1);
+
+    // No valid cache file was present, so renderCache stays null.
+    expect(getRenderCacheForTest()).toBeNull();
+  });
 });
 
 // ---------------------------------------------------------------------------
