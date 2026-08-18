@@ -1426,3 +1426,134 @@ describe("export render crash — both concurrent callers get a 500", () => {
     expect(getRenderCacheForTest()).not.toBeNull();
   });
 });
+
+// ---------------------------------------------------------------------------
+// computePromoSourceHash — hash-sensitivity unit tests
+//
+// Verifies that `computePromoSourceHash` (and the `hashDir` helper it uses)
+// behaves correctly when the source tree changes:
+//
+//   1. Stability       — identical content produces the same digest on every call.
+//   2. File added      — adding a file changes the digest.
+//   3. File removed    — removing a file changes the digest.
+//   4. Content changed — editing a file's content changes the digest.
+//                        This is the key property that causes a scene-duration
+//                        change in promo-config to bust the render cache.
+//
+// `computePromoSourceHash` is driven entirely by `readdir` (to enumerate source
+// files) and `readFile` (to read their contents).  Both are already mocked at
+// the module level; each test controls them to simulate a specific file-tree
+// state.
+// ---------------------------------------------------------------------------
+
+describe("computePromoSourceHash – hash sensitivity", () => {
+  // Helper: create a minimal Dirent-like object that satisfies the interface
+  // `hashDir` relies on (`name` and `isDirectory()`).
+  function makeDirent(name: string, isDir = false) {
+    return {
+      name,
+      isDirectory: () => isDir,
+      isFile: () => !isDir,
+    };
+  }
+
+  let readdirMock: ReturnType<typeof vi.fn>;
+  let readFileMock: ReturnType<typeof vi.fn>;
+
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    resetRenderCacheForTest();
+
+    const fsp = await import("node:fs/promises");
+    readdirMock = vi.mocked(fsp.readdir);
+    readFileMock = vi.mocked(fsp.readFile);
+
+    // Default: source dirs return [] → deterministic empty-tree hash.
+    readdirMock.mockResolvedValue(
+      [] as unknown as Awaited<ReturnType<typeof import("node:fs/promises").readdir>>,
+    );
+    readFileMock.mockResolvedValue(
+      Buffer.from("") as unknown as Awaited<ReturnType<typeof import("node:fs/promises").readFile>>,
+    );
+  });
+
+  afterEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("returns the same hash when called twice with identical file content (stability)", async () => {
+    readdirMock.mockResolvedValue(
+      [makeDirent("index.ts")] as unknown as Awaited<ReturnType<typeof import("node:fs/promises").readdir>>,
+    );
+    readFileMock.mockResolvedValue(
+      Buffer.from("const x = 1;") as unknown as Awaited<ReturnType<typeof import("node:fs/promises").readFile>>,
+    );
+
+    const hash1 = await computePromoSourceHash();
+    const hash2 = await computePromoSourceHash();
+
+    expect(typeof hash1).toBe("string");
+    expect(hash1.length).toBeGreaterThan(0);
+    expect(hash1).toBe(hash2);
+  });
+
+  it("produces a different hash when a file is added to the source tree", async () => {
+    // Baseline: one source file.
+    readdirMock.mockResolvedValue(
+      [makeDirent("index.ts")] as unknown as Awaited<ReturnType<typeof import("node:fs/promises").readdir>>,
+    );
+    readFileMock.mockResolvedValue(
+      Buffer.from("const x = 1;") as unknown as Awaited<ReturnType<typeof import("node:fs/promises").readFile>>,
+    );
+    const hashBefore = await computePromoSourceHash();
+
+    // After: a second file appears in the tree.
+    readdirMock.mockResolvedValue(
+      [makeDirent("index.ts"), makeDirent("config.json")] as unknown as Awaited<ReturnType<typeof import("node:fs/promises").readdir>>,
+    );
+    const hashAfter = await computePromoSourceHash();
+
+    expect(hashBefore).not.toBe(hashAfter);
+  });
+
+  it("produces a different hash when a file is removed from the source tree", async () => {
+    // Baseline: two source files.
+    readdirMock.mockResolvedValue(
+      [makeDirent("index.ts"), makeDirent("styles.css")] as unknown as Awaited<ReturnType<typeof import("node:fs/promises").readdir>>,
+    );
+    readFileMock.mockResolvedValue(
+      Buffer.from("body { margin: 0; }") as unknown as Awaited<ReturnType<typeof import("node:fs/promises").readFile>>,
+    );
+    const hashBefore = await computePromoSourceHash();
+
+    // After: one file is removed.
+    readdirMock.mockResolvedValue(
+      [makeDirent("index.ts")] as unknown as Awaited<ReturnType<typeof import("node:fs/promises").readdir>>,
+    );
+    const hashAfter = await computePromoSourceHash();
+
+    expect(hashBefore).not.toBe(hashAfter);
+  });
+
+  it("produces a different hash when file content changes (scene-duration change busts the cache)", async () => {
+    // Both calls enumerate the same single file; only its content differs,
+    // which simulates an author editing SCENE_DURATIONS in promo-config.
+    readdirMock.mockResolvedValue(
+      [makeDirent("index.ts")] as unknown as Awaited<ReturnType<typeof import("node:fs/promises").readdir>>,
+    );
+
+    // Original scene duration.
+    readFileMock.mockResolvedValue(
+      Buffer.from("export const SCENE_DURATION = 5000;") as unknown as Awaited<ReturnType<typeof import("node:fs/promises").readFile>>,
+    );
+    const hashBefore = await computePromoSourceHash();
+
+    // Updated scene duration — the cache must be busted.
+    readFileMock.mockResolvedValue(
+      Buffer.from("export const SCENE_DURATION = 8000;") as unknown as Awaited<ReturnType<typeof import("node:fs/promises").readFile>>,
+    );
+    const hashAfter = await computePromoSourceHash();
+
+    expect(hashBefore).not.toBe(hashAfter);
+  });
+});
