@@ -54,9 +54,15 @@ router.post("/progress/complete", (req, res) => {
       (e) => e.moduleId === prereq && e.track === "visual",
     );
     if (!prereqDone) {
-      res.status(400).json({
-        error: `Module ${moduleId} requires ${prereq} to be completed first.`,
-      });
+      // Give a more specific message when the prereq was completed on the CLI
+      // track instead — the learner did the work but on the wrong track.
+      const doneOnWrongTrack = entries.some(
+        (e) => e.moduleId === prereq && e.track !== "visual",
+      );
+      const error = doneOnWrongTrack
+        ? `Module ${moduleId} requires ${prereq} to be completed on the visual track first (CLI-track completion does not count).`
+        : `Module ${moduleId} requires ${prereq} to be completed first.`;
+      res.status(400).json({ error });
       return;
     }
   }

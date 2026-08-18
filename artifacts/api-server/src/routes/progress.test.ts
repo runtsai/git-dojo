@@ -133,6 +133,9 @@ describe("POST /api/progress/complete — prerequisite gate", () => {
     expect(body).toMatchObject({
       error: expect.stringContaining("2.3"),
     });
+    // The error should specifically call out that the CLI-track completion does
+    // not count — so the learner understands why the gate is still closed.
+    expect(body.error).toMatch(/CLI.track completion does not count/i);
   });
 
   it("is idempotent — replaying the same completion after prereq returns 200", async () => {
