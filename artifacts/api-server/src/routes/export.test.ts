@@ -1504,6 +1504,39 @@ describe("export render crash — both concurrent callers get a 500", () => {
     // Cache must be populated by the successful retry.
     expect(getRenderCacheForTest()).not.toBeNull();
   });
+
+  it("four concurrent requests all receive status 500 and a non-empty error body when renderMp4 crashes", async () => {
+    // Use a longer delay so all four callers reach "await renderPromise"
+    // before the rejection lands.  The first caller starts the render and
+    // sets renderPromise; callers 2–4 arrive while it is still in flight and
+    // join via the queue path (step 2 of the route).  When the rejection
+    // fires, all four awaiters should receive it simultaneously.
+    const crashMessage = "puppeteer crashed — four callers";
+    vi.mocked(puppeteer.launch).mockImplementationOnce(() =>
+      delayedReject(new Error(crashMessage), 60),
+    );
+
+    const results = await Promise.all([
+      makeRequest(port, "/export/promo-video"),
+      makeRequest(port, "/export/promo-video"),
+      makeRequest(port, "/export/promo-video"),
+      makeRequest(port, "/export/promo-video"),
+    ]);
+
+    // Every caller must receive 500.
+    for (const r of results) {
+      expect(r.status).toBe(500);
+    }
+
+    // Every error body must be non-empty and name the crash reason.
+    for (const r of results) {
+      const body = JSON.parse(r.body.toString()) as { error: string };
+      expect(body.error).toContain(crashMessage);
+    }
+
+    // No successful render occurred — cache must remain null.
+    expect(getRenderCacheForTest()).toBeNull();
+  });
 });
 
 // ---------------------------------------------------------------------------
