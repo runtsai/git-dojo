@@ -147,6 +147,23 @@ if [ "${#MISSING_AFTER_COPY[@]}" -gt 0 ]; then
   exit 1
 fi
 
+# Post-copy root-file check: every required root file must have arrived.
+# These are copied individually above; a missing source file may cause cp to
+# exit 0 on some systems, so we check explicitly after the copy block.
+REQUIRED_ROOT_FILES=(setup.sh setup.ps1 reset.sh README.md)
+MISSING_ROOT_FILES=()
+for _f in "${REQUIRED_ROOT_FILES[@]}"; do
+  if [ ! -f "$_f" ]; then
+    MISSING_ROOT_FILES+=("$_f")
+  fi
+done
+if [ "${#MISSING_ROOT_FILES[@]}" -gt 0 ]; then
+  echo "ERROR: the following required root files were not copied to the sync directory:"
+  printf '  - %s\n' "${MISSING_ROOT_FILES[@]}"
+  echo "  Verify $COURSE_DIR and re-run."
+  exit 1
+fi
+
 git add -A
 
 if git diff --cached --quiet; then
