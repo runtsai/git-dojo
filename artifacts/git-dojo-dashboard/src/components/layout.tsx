@@ -3,6 +3,7 @@ import { useHealthCheck, getHealthCheckQueryKey } from "@workspace/api-client-re
 import { Activity, ShieldCheck, ShieldAlert, AlertTriangle, Terminal, Lightbulb, Rocket, Siren, Dumbbell, Map as MapIcon, Menu, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { useDrillStatus } from "@/hooks/use-drills";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 export function Layout({ children }: { children: React.ReactNode }) {
   const { data: health, isError } = useHealthCheck({ query: { queryKey: getHealthCheckQueryKey(), refetchInterval: 10000 } });
@@ -109,23 +110,36 @@ export function Layout({ children }: { children: React.ReactNode }) {
               )}
             </Link>
 
-            <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-medium ml-2 shadow-inner ${
-              isError
-                ? 'bg-destructive/10 border-destructive/30'
-                : health?.status === 'degraded'
-                ? 'bg-amber-500/10 border-amber-500/30'
-                : 'bg-secondary/50 border-white/5'
-            }`}>
-              {isError ? (
-                <><ShieldAlert className="w-3.5 h-3.5 text-destructive" /> <span className="text-muted-foreground">Offline</span></>
-              ) : health?.status === 'degraded' ? (
-                <><AlertTriangle className="w-3.5 h-3.5 text-amber-500" /> <span className="text-amber-500">Degraded</span></>
-              ) : health?.status === 'ok' ? (
-                <><ShieldCheck className="w-3.5 h-3.5 text-emerald-500" /> <span className="text-muted-foreground">Active</span></>
-              ) : (
-                <><Activity className="w-3.5 h-3.5 text-primary animate-pulse" /> <span className="text-muted-foreground">Connecting</span></>
-              )}
-            </div>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-medium ml-2 shadow-inner ${
+                    isError
+                      ? 'bg-destructive/10 border-destructive/30'
+                      : health?.status === 'degraded'
+                      ? 'bg-amber-500/10 border-amber-500/30'
+                      : 'bg-secondary/50 border-white/5'
+                  }`}>
+                    {isError ? (
+                      <><ShieldAlert className="w-3.5 h-3.5 text-destructive" /> <span className="text-muted-foreground">Offline</span></>
+                    ) : health?.status === 'degraded' ? (
+                      <><AlertTriangle className="w-3.5 h-3.5 text-amber-500" /> <span className="text-amber-500">Degraded</span></>
+                    ) : health?.status === 'ok' ? (
+                      <><ShieldCheck className="w-3.5 h-3.5 text-emerald-500" /> <span className="text-muted-foreground">Active</span></>
+                    ) : (
+                      <><Activity className="w-3.5 h-3.5 text-primary animate-pulse" /> <span className="text-muted-foreground">Connecting</span></>
+                    )}
+                  </div>
+                </TooltipTrigger>
+                {health?.status === 'degraded' && (
+                  <TooltipContent side="bottom">
+                    {health.smokeCheckedAt
+                      ? `Checked at ${new Date(health.smokeCheckedAt).toLocaleTimeString()}`
+                      : 'Startup smoke check failed'}
+                  </TooltipContent>
+                )}
+              </Tooltip>
+            </TooltipProvider>
           </nav>
 
           {/* Mobile Navigation Controls */}
