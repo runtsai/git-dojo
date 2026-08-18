@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import type { VisualModuleProps } from "@/types/visual-module";
 import { useCompleteModule, getGetProgressQueryKey } from "@workspace/api-client-react";
 
@@ -56,6 +56,41 @@ export function Module1_5({ onStepChange }: VisualModuleProps = {}) {
     <div className="absolute -left-2 -top-2 w-6 h-6 bg-primary text-primary-foreground font-bold rounded-full flex items-center justify-center text-xs shadow-[0_0_10px_rgba(255,107,0,0.5)] z-10 pointer-events-none">{num}</div>
   );
 
+  const stepHints: Record<number, ReactNode> = {
+    1: (
+      <span>
+        <strong className="text-foreground">Concept:</strong> The global nav is always on screen — this step establishes what it's for before you look at its pieces.
+      </span>
+    ),
+    2: (
+      <span>
+        <strong className="text-foreground">Interface location →</strong>{" "}
+        <span className="inline-flex items-center gap-1 font-mono text-xs bg-primary/10 border border-primary/20 text-primary px-2 py-0.5 rounded">top navigation bar</span>
+        {" "}— visible on every GitHub page. Callouts 1–4 identify the menu, breadcrumbs, search, and notification bell.
+      </span>
+    ),
+    3: (
+      <span>
+        <strong className="text-foreground">Concept:</strong> Search and notifications — why the top bar replaces email for file-level collaboration.
+      </span>
+    ),
+    4: (
+      <span>
+        <strong className="text-foreground">Concept:</strong> The decision rule — reach for the top nav when you're lost, when you need a file fast, or when the blue dot appears.
+      </span>
+    ),
+    5: (
+      <span>
+        <strong className="text-foreground">Hands-on location →</strong>{" "}
+        <span className="inline-flex items-center gap-1 font-mono text-xs bg-white/5 border border-white/10 px-2 py-0.5 rounded">🔍 Search box</span>
+        {" "}to find <span className="font-mono text-xs bg-white/5 border border-white/10 px-1 rounded">onboarding.md</span>
+        {", and "}
+        <span className="inline-flex items-center gap-1 font-mono text-xs bg-white/5 border border-white/10 px-2 py-0.5 rounded">🔔 Bell</span>
+        {" "}to read the unread notification.
+      </span>
+    ),
+  };
+
   return (
     <VisualModuleShell
       title="The global nav"
@@ -70,6 +105,7 @@ export function Module1_5({ onStepChange }: VisualModuleProps = {}) {
       isPending={completeModule.isPending}
       isSubmitDisabled={step === 5 ? (!foundFile || !checkedNotification) : false}
       error={showError}
+      stepHints={stepHints}
     >
       {step === 1 && (
         <>

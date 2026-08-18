@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import type { VisualModuleProps } from "@/types/visual-module";
 import { useCompleteModule, getGetProgressQueryKey } from "@workspace/api-client-react";
 
@@ -62,6 +62,44 @@ export function Module1_4({ onStepChange }: VisualModuleProps = {}) {
     <div className="absolute -left-3 -top-3 w-6 h-6 bg-primary text-primary-foreground font-bold rounded-full flex items-center justify-center text-xs shadow-[0_0_10px_rgba(255,107,0,0.5)] z-10">{num}</div>
   );
 
+  const stepHints: Record<number, ReactNode> = {
+    1: (
+      <span>
+        <strong className="text-foreground">Concept:</strong> Repositories default to open — this step covers why you should lock them down before anything else goes in.
+      </span>
+    ),
+    2: (
+      <span>
+        <strong className="text-foreground">Interface location →</strong>{" "}
+        <span className="inline-flex items-center gap-1 font-mono text-xs bg-white/5 border border-white/10 px-2 py-0.5 rounded">repo home</span>
+        {" → "}
+        <span className="inline-flex items-center gap-1 font-mono text-xs bg-white/5 border border-white/10 px-2 py-0.5 rounded">Settings</span>
+        {" → "}
+        <span className="inline-flex items-center gap-1 font-mono text-xs bg-primary/10 border border-primary/20 text-primary px-2 py-0.5 rounded">General tab</span>
+        {" "}— callouts 1–4 map every major zone on the settings page.
+      </span>
+    ),
+    3: (
+      <span>
+        <strong className="text-foreground">Concept:</strong> Two principles — default to private, and treat the Danger Zone as real — explain why settings exist at all.
+      </span>
+    ),
+    4: (
+      <span>
+        <strong className="text-foreground">Concept:</strong> The decision rule — settings are for day-one lockdown and end-of-life archival, not routine work.
+      </span>
+    ),
+    5: (
+      <span>
+        <strong className="text-foreground">Hands-on location →</strong>{" "}
+        <span className="inline-flex items-center gap-1 font-mono text-xs bg-white/5 border border-white/10 px-2 py-0.5 rounded">Settings</span>
+        {" → "}
+        <span className="inline-flex items-center gap-1 font-mono text-xs bg-primary/10 border border-primary/20 text-primary px-2 py-0.5 rounded">General</span>
+        {" "}— set a description, keep the default branch as <span className="font-mono text-xs bg-white/5 border border-white/10 px-1 rounded">main</span>, and switch visibility to Private.
+      </span>
+    ),
+  };
+
   return (
     <VisualModuleShell
       title="Repo settings basics"
@@ -77,6 +115,7 @@ export function Module1_4({ onStepChange }: VisualModuleProps = {}) {
       submitLabel="Submit Answers"
       isPending={completeModule.isPending}
       error={showError}
+      stepHints={stepHints}
     >
       {step === 1 && (
         <>
