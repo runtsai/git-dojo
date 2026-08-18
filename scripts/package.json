@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@workspace/api-zod": "workspace:*",
+    "puppeteer-core": "^25.7.0",
     "zod": "catalog:"
   },
   "devDependencies": {

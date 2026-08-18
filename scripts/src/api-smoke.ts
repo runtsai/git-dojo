@@ -11,7 +11,7 @@
  * Set SKIP_EXPORT_SMOKE=1 to skip the slow promo-video export check (e.g. in
  * environments where Chromium or a display server is unavailable).
  */
-import { execFile } from "node:child_process";
+import { execFile, execSync } from "node:child_process";
 import { promisify } from "node:util";
 import { mkdtemp, writeFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -414,6 +414,168 @@ async function smokePromoExport(): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
+// Duration-mismatch check — fast, no video recording
+// ---------------------------------------------------------------------------
+
+/**
+ * The URL the promo app listens at in the Replit workspace. Mirrors the URL
+ * the export renderer itself uses so both paths exercise the same page.
+ * Override with PROMO_URL if the dev proxy is at a different address.
+ */
+const PROMO_EXPORT_PAGE_URL =
+  (process.env["PROMO_URL"] ?? "http://localhost:80/git-dojo-promo") +
+  "/?export=1";
+
+function findChromiumPath(): string {
+  const fromEnv = process.env["CHROMIUM_PATH"];
+  if (fromEnv) return fromEnv;
+  try {
+    return execSync("which chromium", { encoding: "utf8" }).trim();
+  } catch {
+    throw new Error(
+      "Chromium not found — install the 'chromium' system dependency or set CHROMIUM_PATH.",
+    );
+  }
+}
+
+/**
+ * Loads the promo page in export mode using a headless browser, reads the
+ * `window.__exportTotalMs` value that the React app sets from
+ * `@workspace/promo-config`, and compares it against the `totalDurationMs`
+ * returned by `/api/export/promo-meta` (which reads the same constant).
+ *
+ * If the two values disagree it means someone edited VideoWithControls without
+ * updating SCENE_DURATIONS (or vice-versa), and the export renderer would abort
+ * with an error when it tried to render.  This check surfaces that mismatch
+ * early — before any render is attempted — so CI catches it in seconds rather
+ * than after a multi-minute render attempt.
+ *
+ * Skipped when SKIP_DURATION_CHECK=1.  Not gated on SKIP_EXPORT_SMOKE because
+ * this step does no video recording and completes in a few seconds.
+ */
+async function smokeDurationMismatch(): Promise<void> {
+  const label = "duration-mismatch: promo-page vs promo-meta";
+
+  if (process.env["SKIP_DURATION_CHECK"] === "1") {
+    console.log(`  -  ${label}  (skipped — SKIP_DURATION_CHECK=1)`);
+    return;
+  }
+
+  // ── 1. Fetch expected duration from the meta endpoint ─────────────────────
+  let apiTotalMs: number;
+  try {
+    const metaRes = await fetch(`${BASE}/api/export/promo-meta`);
+    if (!metaRes.ok) {
+      fail(label, `Could not fetch /api/export/promo-meta — HTTP ${metaRes.status}`);
+      return;
+    }
+    const meta = (await metaRes.json()) as { totalDurationMs?: number };
+    if (typeof meta.totalDurationMs !== "number" || meta.totalDurationMs <= 0) {
+      fail(
+        label,
+        `promo-meta returned invalid totalDurationMs: ${JSON.stringify(meta.totalDurationMs)}`,
+      );
+      return;
+    }
+    apiTotalMs = meta.totalDurationMs;
+  } catch (err) {
+    fail(label, `Failed to fetch /api/export/promo-meta: ${String(err)}`);
+    return;
+  }
+
+  // ── 2. Launch the promo page and read window.__exportTotalMs ──────────────
+  let chromiumPath: string;
+  try {
+    chromiumPath = findChromiumPath();
+  } catch (err) {
+    console.log(`  -  ${label}  (skipped — ${String(err)})`);
+    return;
+  }
+
+  let browser: import("puppeteer-core").Browser | null = null;
+  try {
+    const puppeteer = (await import("puppeteer-core")).default;
+    browser = await puppeteer.launch({
+      executablePath: chromiumPath,
+      headless: true,
+      args: [
+        "--no-sandbox",
+        "--disable-dev-shm-usage",
+        "--disable-gpu",
+        "--hide-scrollbars",
+      ],
+    });
+
+    const page = await browser.newPage();
+
+    let navError: Error | null = null;
+    try {
+      await page.goto(PROMO_EXPORT_PAGE_URL, {
+        waitUntil: "networkidle2",
+        timeout: 30_000,
+      });
+    } catch (err) {
+      navError = err instanceof Error ? err : new Error(String(err));
+    }
+
+    if (navError) {
+      // Promo app not running in this environment — skip gracefully.
+      console.log(
+        `  -  ${label}  (skipped — promo page unreachable: ${navError.message})`,
+      );
+      return;
+    }
+
+    // Wait for the React app to signal export readiness (sets __exportReady).
+    try {
+      await page.waitForFunction("window.__exportReady === true", {
+        timeout: 15_000,
+      });
+    } catch {
+      fail(
+        label,
+        `Promo page did not set window.__exportReady within 15 s — ` +
+          `is the promo app running at ${PROMO_EXPORT_PAGE_URL}?`,
+      );
+      return;
+    }
+
+    const pageTotalMs = await page.evaluate("window.__exportTotalMs");
+
+    if (typeof pageTotalMs !== "number" || pageTotalMs <= 0) {
+      fail(
+        label,
+        `window.__exportTotalMs is not a positive number (got ${JSON.stringify(pageTotalMs)})`,
+      );
+      return;
+    }
+
+    // ── 3. Compare ────────────────────────────────────────────────────────────
+    if (pageTotalMs !== apiTotalMs) {
+      fail(
+        label,
+        `Duration mismatch — window.__exportTotalMs=${pageTotalMs} ms ` +
+          `but /api/export/promo-meta totalDurationMs=${apiTotalMs} ms ` +
+          `(diff: ${pageTotalMs - apiTotalMs} ms). ` +
+          `Update SCENE_DURATIONS in lib/promo-config/src/index.ts or ` +
+          `VideoWithControls so both sides agree before re-exporting.`,
+      );
+      return;
+    }
+
+    ok(`${label}  [both agree: ${pageTotalMs} ms]`);
+  } catch (err) {
+    fail(label, `Unexpected error: ${String(err)}`);
+  } finally {
+    try {
+      await browser?.close();
+    } catch {
+      /* already closed */
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
 
@@ -650,6 +812,14 @@ async function main(): Promise<void> {
   // 10. Promo metadata — fast, no rendering, verifies the shared scene-duration
   //     constant reaches the API.  totalDurationSec must be a positive number.
   await smoke("/api/export/promo-meta", PromoMetaResponse);
+
+  // 10a. Duration-mismatch check — loads the promo page in export mode using a
+  //      headless browser, reads window.__exportTotalMs, and compares it against
+  //      totalDurationMs from /api/export/promo-meta.  Fails immediately if the
+  //      two disagree so the mismatch is caught before any render is attempted.
+  //      Not gated on SKIP_EXPORT_SMOKE because no video is recorded; skipped
+  //      only when SKIP_DURATION_CHECK=1 or the promo page is unreachable.
+  await smokeDurationMismatch();
 
   // 11. Promo-video export — renders the full video and verifies the resulting
   //     MP4 has h264 video + aac audio at the expected duration from promo-meta.
