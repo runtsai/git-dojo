@@ -236,6 +236,13 @@ assert_fail         "git not on PATH" "$OUT"
 assert_contains     "git not on PATH install guidance" "Git is not installed" "$OUT"
 assert_contains     "git not on PATH Windows hint"     "git-scm.com/download/win" "$OUT"
 assert_not_contains "git not on PATH no identity fix"  "git config --global" "$OUT"
+if echo "$OUT" | grep -qE "^1 issue\(s\) found"; then
+  ok "git not on PATH summary is exactly 1 issue"
+else
+  fail "git not on PATH summary is exactly 1 issue — expected line starting with '1 issue(s) found'"
+  echo "    output was:"
+  echo "$OUT" | sed 's/^/    /'
+fi
 rm -rf "$T" "$H"
 
 # ═════════════════════════════════════════════════════════════════════════════
