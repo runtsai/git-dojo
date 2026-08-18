@@ -126,19 +126,21 @@ function setQueryState({
   failureCount,
   data = MOCK_REPO,
   isLoading = false,
+  isError = false,
   dataUpdatedAt = Date.now(),
 }: {
   isFetching: boolean;
   failureCount: number;
   data?: typeof MOCK_REPO | undefined;
   isLoading?: boolean;
+  isError?: boolean;
   dataUpdatedAt?: number;
 }) {
   vi.mocked(useGetRepoState).mockReturnValue({
     data,
     isLoading,
     isFetching,
-    isError: false,
+    isError,
     failureCount,
     dataUpdatedAt,
   } as ReturnType<typeof useGetRepoState>);
@@ -219,5 +221,31 @@ describe("LessonContent reconnecting banner", () => {
     const banner = screen.getByRole("status");
     expect(banner).toBeTruthy();
     expect(banner.textContent).toContain("reconnecting");
+  });
+
+  it("clears the banner when all retries are exhausted (isFetching=false, isError=true)", () => {
+    // Step 1: banner is visible while React Query is retrying
+    setQueryState({ isFetching: true, failureCount: 2 });
+    const { rerender } = render(<LessonView />);
+    expect(screen.getByText(BANNER_TEXT)).toBeTruthy();
+
+    // Step 2: React Query exhausts all retries — isFetching drops to false,
+    // isError becomes true, failureCount is at its maximum (3 by default).
+    // The banner formula is `isFetching && failureCount >= 1`, so with
+    // isFetching=false the condition is false and the banner must not render.
+    act(() => {
+      setQueryState({ isFetching: false, isError: true, failureCount: 3 });
+      rerender(<LessonView />);
+    });
+
+    expect(screen.queryByText(BANNER_TEXT)).toBeNull();
+  });
+
+  it("does not show the banner when isError=true even before any retries (failureCount=0)", () => {
+    // Edge case: isError with failureCount=0 (shouldn't normally occur, but
+    // the banner formula must still evaluate to false).
+    setQueryState({ isFetching: false, isError: true, failureCount: 0 });
+    render(<LessonView />);
+    expect(screen.queryByText(BANNER_TEXT)).toBeNull();
   });
 });
