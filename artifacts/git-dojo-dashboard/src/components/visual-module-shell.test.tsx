@@ -376,16 +376,25 @@ describe("error banner", () => {
 // ---------------------------------------------------------------------------
 
 describe("progress dots", () => {
-  it("renders one dot per step for totalDots", () => {
-    // Dots are rendered as divs with w-2 h-2 rounded-full classes
+  it("renders the correct number of dots", () => {
     const { container } = render(
-      <VisualModuleShell {...base({ step: 1, totalDots: 3 })} />,
+      <VisualModuleShell {...base({ step: 3, totalDots: 3 })} />,
     );
     const dots = Array.from(container.querySelectorAll(".w-2.h-2.rounded-full"));
     expect(dots).toHaveLength(3);
   });
 
-  it("marks the current dot active and past dots with bg-primary/50", () => {
+  it("marks the current dot with the active class (bg-primary)", () => {
+    const { container } = render(
+      <VisualModuleShell {...base({ step: 3, totalDots: 3 })} />,
+    );
+    const dots = Array.from(container.querySelectorAll(".w-2.h-2.rounded-full"));
+    // Dot 2 (index 2, step 3) is the current step
+    expect(dots[2].className).toContain("bg-primary");
+    expect(dots[2].className).toContain("scale-150");
+  });
+
+  it("marks past dots with the past class (bg-primary/50)", () => {
     const { container } = render(
       <VisualModuleShell {...base({ step: 3, totalDots: 3 })} />,
     );
@@ -393,7 +402,16 @@ describe("progress dots", () => {
     // Dots 0 and 1 (steps 1 and 2) are before current step 3
     expect(dots[0].className).toContain("bg-primary/50");
     expect(dots[1].className).toContain("bg-primary/50");
-    expect(dots[2].className).toContain("bg-primary ");
+  });
+
+  it("marks past dots with bg-primary/50 when on the last step", () => {
+    const { container } = render(
+      <VisualModuleShell {...base({ step: 3, totalDots: 3 })} />,
+    );
+    const dots = Array.from(container.querySelectorAll(".w-2.h-2.rounded-full"));
+    // Dots 0 and 1 are before step 3
+    expect(dots[0].className).toContain("bg-primary/50");
+    expect(dots[1].className).toContain("bg-primary/50");
   });
 
   it("marks future dots with the inactive class (bg-white/10)", () => {

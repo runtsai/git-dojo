@@ -379,6 +379,40 @@ fi
 
 rm -rf "$TRAP_ROOT"
 
+# ─────────────────────────────────────────────────────────────────────────────
+# ERR trap — bare-hub layout (lesson-06) also fires doctor.sh hint
+# Strategy: shadow git with a failing binary. Lesson-06 calls `git init --bare`
+# immediately, reliably triggering the ERR trap in the bare-hub layout.
+# ─────────────────────────────────────────────────────────────────────────────
+printf "\n\033[1;34m» ERR trap — doctor.sh hint on setup failure (bare-hub layout, lesson-06)\033[0m\n"
+
+TRAP_ROOT06="$(mktemp -d)"
+cp -r "$LESSONS_DIR/lesson-06-fake-github" "$TRAP_ROOT06/"
+
+FAKE_BIN06="$TRAP_ROOT06/bin"
+mkdir -p "$FAKE_BIN06"
+printf '#!/usr/bin/env bash\nexit 1\n' > "$FAKE_BIN06/git"
+chmod +x "$FAKE_BIN06/git"
+
+TRAP_OUT06="$(PATH="$FAKE_BIN06:$PATH" bash "$TRAP_ROOT06/lesson-06-fake-github/setup.sh" 2>&1 || true)"
+
+if echo "$TRAP_OUT06" | grep -q "doctor.sh"; then
+  ok "ERR trap (bare-hub): doctor.sh hint printed when lesson-06 setup fails midway"
+else
+  fail "ERR trap (bare-hub): doctor.sh hint NOT found — output was: $TRAP_OUT06"
+fi
+
+TRAP_STATUS06=0
+PATH="$FAKE_BIN06:$PATH" bash "$TRAP_ROOT06/lesson-06-fake-github/setup.sh" >/dev/null 2>&1 \
+  || TRAP_STATUS06=$?
+if [ "$TRAP_STATUS06" -ne 0 ]; then
+  ok "ERR trap (bare-hub): lesson-06 setup.sh exits non-zero when git fails"
+else
+  fail "ERR trap (bare-hub): lesson-06 setup.sh exited 0 despite git failing — trap may be suppressing the exit"
+fi
+
+rm -rf "$TRAP_ROOT06"
+
 # ── Cleanup ───────────────────────────────────────────────────────────────────
 rm -rf "$SELFTEST_HOME"
 
