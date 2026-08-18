@@ -203,7 +203,7 @@ function ExportPlayback() {
 
 type ExportModalState = 'idle' | 'rendering' | 'done' | 'error';
 
-function ExportModal({
+export function ExportModal({
   state,
   errorMessage,
   onStart,
