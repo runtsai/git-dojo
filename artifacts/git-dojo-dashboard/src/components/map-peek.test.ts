@@ -2,6 +2,16 @@ import { describe, it, expect } from "vitest";
 import { shouldDismissOnSwipe, SWIPE_DISMISS_THRESHOLD } from "./map-peek-gesture";
 
 // ---------------------------------------------------------------------------
+// SWIPE_DISMISS_THRESHOLD — pin the default pixel value
+// ---------------------------------------------------------------------------
+
+describe("SWIPE_DISMISS_THRESHOLD — default pixel value", () => {
+  it("is exactly 80 px so a design-token change is caught immediately", () => {
+    expect(SWIPE_DISMISS_THRESHOLD).toBe(80);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // shouldDismissOnSwipe
 // ---------------------------------------------------------------------------
 
