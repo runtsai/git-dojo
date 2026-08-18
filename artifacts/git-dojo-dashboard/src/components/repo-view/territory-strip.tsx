@@ -281,7 +281,7 @@ function Chip({ label, fresh, tone, onClick, testId }: { label: string; fresh: b
     );
   }
   return (
-    <span className={cls} title={label}>
+    <span className={cls} title={label} data-testid={testId}>
       {label}
     </span>
   );
@@ -457,7 +457,7 @@ export function TerritoryStrip({
                   label={`${f.path}${f.status === "conflicted" ? " ⚠" : ""}`}
                   fresh={fresh.has(f.path) && (latest?.to === "workbench")}
                   tone="workbench"
-                  onClick={onFileClick ? () => onFileClick(f.path) : undefined}
+                  onClick={onFileClick && !dimmed ? () => onFileClick(f.path) : undefined}
                   testId={`strip-workbench-${f.path}`}
                 />
               ))}
@@ -485,7 +485,7 @@ export function TerritoryStrip({
                   label={f.path}
                   fresh={fresh.has(f.path) && latest?.to === "dock"}
                   tone="dock"
-                  onClick={onFileClick ? () => onFileClick(f.path) : undefined}
+                  onClick={onFileClick && !dimmed ? () => onFileClick(f.path) : undefined}
                   testId={`strip-dock-${f.path}`}
                 />
               ))}
@@ -513,7 +513,7 @@ export function TerritoryStrip({
                   label={`${c.shortHash} ${c.subject}`}
                   fresh={fresh.has(c.hash)}
                   tone="sealed"
-                  onClick={onCommitClick ? () => onCommitClick(c.hash, c.shortHash) : undefined}
+                  onClick={onCommitClick && !dimmed ? () => onCommitClick(c.hash, c.shortHash) : undefined}
                   testId={`strip-sealed-${c.shortHash}`}
                 />
               ))}

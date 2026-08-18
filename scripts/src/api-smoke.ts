@@ -538,10 +538,12 @@ async function smokeDurationMismatch(): Promise<void> {
         timeout: 15_000,
       });
     } catch {
+      // Navigation succeeded (page is reachable) but __exportReady was never
+      // set within the timeout — the React bundle failed to initialise.
+      // This is a real failure: a reachable but broken promo app must not pass.
       fail(
         label,
-        `Promo page did not set window.__exportReady within 15 s — ` +
-          `is the promo app running at ${PROMO_EXPORT_PAGE_URL}?`,
+        `Promo page loaded at ${PROMO_EXPORT_PAGE_URL} but window.__exportReady was not set within 15 s — React bundle did not initialise.`,
       );
       return;
     }

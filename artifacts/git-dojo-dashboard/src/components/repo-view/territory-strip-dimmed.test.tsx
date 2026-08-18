@@ -8,10 +8,13 @@
  *   2. The `opacity-50` class is present while dimmed.
  *   3. The "last known state" label is visible while dimmed.
  *   4. Both the opacity and the label clear once the API recovers.
+ *   5. The wrapping element carries `pointer-events-none` while dimmed.
+ *   6. Clicking a file chip does NOT invoke `onFileClick` while dimmed.
  */
 
 import React from "react";
 import { render, screen, cleanup } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { TerritoryStrip } from "./territory-strip";
 import type { RepoState } from "@workspace/api-client-react";
@@ -157,5 +160,78 @@ describe("TerritoryStrip — dimmed state (API unreachable)", () => {
     expect(strip.className).toContain("opacity-50");
     // File chip still present inside the dimmed strip.
     expect(screen.getByText("README.md")).toBeTruthy();
+  });
+
+  it("applies pointer-events-none to the wrapping element when dimmed", () => {
+    const repo = makeRepo({
+      files: [{ path: "index.ts", status: "modified" }],
+    });
+    render(<TerritoryStrip repo={repo} lastFetchedAt={1000} dimmed={true} />);
+    const strip = screen.getByTestId("territory-strip");
+    expect(strip.className).toContain("pointer-events-none");
+  });
+
+  it("does NOT apply pointer-events-none when not dimmed", () => {
+    const repo = makeRepo({
+      files: [{ path: "index.ts", status: "modified" }],
+    });
+    render(<TerritoryStrip repo={repo} lastFetchedAt={1000} dimmed={false} />);
+    const strip = screen.getByTestId("territory-strip");
+    expect(strip.className).not.toContain("pointer-events-none");
+  });
+
+  it("clicking a file chip does not invoke onFileClick while dimmed", async () => {
+    // When dimmed, TerritoryStrip suppresses the onClick prop passed to each
+    // Chip so the chip renders as a <span> instead of a <button>.
+    // A <span> has no click handler and is not keyboard-focusable, so neither
+    // pointer nor keyboard activation can fire the callback.
+    const user = userEvent.setup();
+    const onFileClick = vi.fn();
+    const repo = makeRepo({
+      files: [{ path: "src/main.ts", status: "modified" }],
+    });
+
+    render(
+      <TerritoryStrip
+        repo={repo}
+        lastFetchedAt={1000}
+        dimmed={true}
+        onFileClick={onFileClick}
+      />,
+    );
+
+    // CSS guard: the wrapper carries pointer-events-none for browsers.
+    const strip = screen.getByTestId("territory-strip");
+    expect(strip.className).toContain("pointer-events-none");
+
+    // JS guard: chip is a <span> with no handler; clicking it is a no-op.
+    const chip = screen.getByTestId("strip-workbench-src/main.ts");
+    expect(chip.tagName).toBe("SPAN");  // not a button — not keyboard-focusable either
+    await user.click(chip);
+    expect(onFileClick).not.toHaveBeenCalled();
+  });
+
+  it("clicking a file chip DOES invoke onFileClick when not dimmed", async () => {
+    // Confirm the gate is not accidentally over-broad: the handler must fire
+    // normally when the strip is live.
+    const user = userEvent.setup();
+    const onFileClick = vi.fn();
+    const repo = makeRepo({
+      files: [{ path: "src/main.ts", status: "modified" }],
+    });
+
+    render(
+      <TerritoryStrip
+        repo={repo}
+        lastFetchedAt={1000}
+        dimmed={false}
+        onFileClick={onFileClick}
+      />,
+    );
+
+    const chip = screen.getByTestId("strip-workbench-src/main.ts");
+    expect(chip.tagName).toBe("BUTTON");  // interactive when not dimmed
+    await user.click(chip);
+    expect(onFileClick).toHaveBeenCalledWith("src/main.ts");
   });
 });
