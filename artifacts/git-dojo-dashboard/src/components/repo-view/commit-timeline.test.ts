@@ -931,6 +931,90 @@ describe("cascading merge (merge commit re-merged into a third branch)", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Two merge commits share the same non-first (extra) parent
+// ---------------------------------------------------------------------------
+
+describe("two merge commits share the same non-first parent", () => {
+  // Topology (newest first in array):
+  //
+  //   M1    M2          ← two independent merge commits              (rows 0, 1)
+  //   | \  / |
+  //   A   S   B         ← A is M1's first parent, B is M2's first   (rows 2, 3, 4)
+  //   |   |   |           parent, S is the shared EXTRA parent of
+  //   root               both M1 and M2                              (row 5)
+  //
+  // M1 = merge([A, S])   — S is M1's second parent
+  // M2 = merge([B, S])   — S is M2's second parent
+  //
+  // This topology can cause the lane-tracking logic to assign the same column
+  // to two simultaneously-live lanes (both M1 and M2 open a lane pointing to S
+  // while S has not yet been processed), or leave -1 sentinels unresolved when
+  // both lanes collapse onto S.
+
+  let root: ReturnType<typeof makeCommit>;
+  let a: ReturnType<typeof makeCommit>;
+  let b: ReturnType<typeof makeCommit>;
+  let s: ReturnType<typeof makeCommit>; // shared extra parent
+  let m1: ReturnType<typeof makeCommit>;
+  let m2: ReturnType<typeof makeCommit>;
+
+  beforeEach(() => {
+    root = makeCommit("Root");
+    a    = makeCommit("Branch-A", [root.hash]);
+    b    = makeCommit("Branch-B", [root.hash]);
+    s    = makeCommit("Shared-Extra", [root.hash]);
+    m1   = makeCommit("Merge-A+S",   [a.hash, s.hash]);
+    m2   = makeCommit("Merge-B+S",   [b.hash, s.hash]);
+  });
+
+  it("every edge endpoint lands on its parent's actual column", () => {
+    // Both M1 and M2 are tips; present newest first.
+    const { rows, edges } = layoutGraph([m1, m2, a, b, s, root]);
+    const colByHash = new Map(rows.map((r) => [r.commit.hash, r.col]));
+    for (const e of edges) {
+      const parentCommit = rows[e.toRow]!.commit;
+      expect(e.toCol).toBe(
+        colByHash.get(parentCommit.hash),
+        `edge to "${parentCommit.subject}" should land on col ${colByHash.get(parentCommit.hash)}, got ${e.toCol}`,
+      );
+    }
+  });
+
+  it("no -1 sentinel survives when two merges share a non-first parent", () => {
+    const { edges } = layoutGraph([m1, m2, a, b, s, root]);
+    for (const e of edges) {
+      expect(e.toCol).not.toBe(-1);
+      expect(e.fromCol).not.toBe(-1);
+    }
+  });
+
+  it("M1 and M2 sit on distinct columns", () => {
+    const { rows } = layoutGraph([m1, m2, a, b, s, root]);
+    const colByHash = new Map(rows.map((r) => [r.commit.hash, r.col]));
+    expect(colByHash.get(m1.hash)).not.toBe(colByHash.get(m2.hash));
+  });
+
+  it("the shared extra parent S lands on a valid non-negative column", () => {
+    const { rows } = layoutGraph([m1, m2, a, b, s, root]);
+    const sRow = rows.find((r) => r.commit.hash === s.hash)!;
+    expect(sRow.col).toBeGreaterThanOrEqual(0);
+  });
+
+  it("the shared extra parent S lands on the correct column (edge endpoints match)", () => {
+    // Re-assert the column alignment specifically for S to make debugging easy
+    // if the shared-parent collapse logic regresses.
+    const { rows, edges } = layoutGraph([m1, m2, a, b, s, root]);
+    const sRow = rows.find((r) => r.commit.hash === s.hash)!;
+    const sRowIndex = rows.indexOf(sRow);
+    // Every edge that targets S must arrive at S's actual column.
+    const edgesToS = edges.filter((e) => e.toRow === sRowIndex);
+    for (const e of edgesToS) {
+      expect(e.toCol).toBe(sRow.col);
+    }
+  });
+});
+
+// ---------------------------------------------------------------------------
 // 3-column window color uniqueness — 8+ simultaneous branches
 // ---------------------------------------------------------------------------
 
