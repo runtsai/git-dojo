@@ -757,4 +757,73 @@ describe("queryDue recovery filter — end-to-end via recordGraderResult", () =>
     // recentFailures must be positive so re-entry is confirmed at the data level.
     expect(reentry.recentFailures).toBeGreaterThan(0);
   });
+
+  it("correctly recovers when early failures are evicted from the rolling window as 30 passes push past FRICTION_WINDOW", () => {
+    // Record 1 failure then 30 consecutive passes = FRICTION_WINDOW+1 total runs.
+    // recordGraderResult trims to the last FRICTION_WINDOW (30) entries, evicting
+    // the single failure run. After trim:
+    //   - raw `failures` counter = 1  (preserved — never decremented)
+    //   - `runs` array = 30 passes only (failure evicted)
+    //   - newerHalf (last 5 of last 10) = [P,P,P,P,P] → recentFailures=0, recentPasses=5 → recovered
+    //
+    // Expected lifecycle:
+    //   - First queryDue:  entry appears with recovered:true, windowFailures=0
+    //   - Second queryDue: entry is omitted (one-shot badge, recoveredSince set)
+    const candidates = [{ id: "d1", sourceId: "source-window-eviction" }];
+
+    // 1 failure run
+    recordGraderResult("source-window-eviction", false);
+    // 30 pass runs — pushes total to 31, trimmed to last 30 (all passes)
+    for (let i = 0; i < 30; i++) recordGraderResult("source-window-eviction", true);
+
+    // First call: entry appears as recovered (failure evicted from window).
+    const { friction: badge } = queryDue(candidates);
+    expect(badge.some((f) => f.sourceId === "source-window-eviction")).toBe(true);
+    const entry = badge.find((f) => f.sourceId === "source-window-eviction")!;
+    expect(entry.recovered).toBe(true);
+    // The rolling window contains only passes now — windowFailures must be 0.
+    expect(entry.windowFailures).toBe(0);
+    expect(entry.recentFailures).toBe(0);
+    expect(entry.recentPasses).toBeGreaterThan(0);
+    // Raw failure counter is still 1 (it is never decremented).
+    expect(entry.failures).toBe(1);
+
+    // Second call: entry is hidden (one-shot badge lifecycle).
+    const { friction: after } = queryDue(candidates);
+    expect(after.some((f) => f.sourceId === "source-window-eviction")).toBe(false);
+  });
+
+  it("keeps the source visible when a failure remains in the last 5 of the 30-run window", () => {
+    // Build a 30-run window: first 25 passes, then 4 passes, then 1 failure last.
+    // The newerHalf is the last 5 of the last 10 runs = [P, P, P, P, F].
+    // recentFailures = 1 → NOT recovered → entry must stay in the friction list.
+    const now = Date.now();
+    const runs = [
+      // 25 earlier passes
+      ...Array.from({ length: 25 }, (_, i) => passAt((30 - i) * 1_000, now)),
+      // 4 more passes filling positions 26-29
+      passAt(4_000, now),
+      passAt(3_000, now),
+      passAt(2_500, now),
+      passAt(2_000, now),
+      // 1 failure as the 30th (last) entry — sits in the newer half
+      failureAt(1_000, now),
+    ];
+    setDrillData({
+      "source-late-failure": {
+        failures: 5,
+        passes: 25,
+        runs,
+      },
+    });
+
+    const candidates = [{ id: "d1", sourceId: "source-late-failure" }];
+    const { friction } = queryDue(candidates);
+
+    // Source must appear — the failure in the newer half prevents recovery.
+    expect(friction.some((f) => f.sourceId === "source-late-failure")).toBe(true);
+    const entry = friction.find((f) => f.sourceId === "source-late-failure")!;
+    expect(entry.recovered).toBe(false);
+    expect(entry.recentFailures).toBeGreaterThan(0);
+  });
 });

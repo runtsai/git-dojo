@@ -1213,8 +1213,7 @@ describe("two independent long-running branches both merged into main", () => {
     // branchA is merged into main first; branchB is still live at this point
     mergeA = makeCommit("Merge-branchA-into-main", [main1.hash, bA2.hash]);
     main2  = makeCommit("Main-2",    [mergeA.hash]);
-    bB3    = makeCommit("BranchB-3", [bB2.hash]);
-    // branchB is merged into main second
+    bB3    = makeCommit("BranchB-3", [bB2.hash]);    // branchB is merged into main second
     mergeB = makeCommit("Merge-branchB-into-main", [main2.hash, bB3.hash]);
   });
 

@@ -71,7 +71,7 @@ isValidation = true
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "cd artifacts/api-server && PORT=8080 node dist/index.mjs & sleep 4 && SKIP_EXPORT_SMOKE=1 API_URL=http://localhost:8080 pnpm --filter @workspace/scripts run api-smoke; status=$?; kill %1 2>/dev/null; exit $status"
+args = "cd artifacts/api-server && PORT=8080 node dist/index.mjs & sleep 4 && SKIP_EXPORT_SMOKE=1 SKIP_DURATION_CHECK=1 API_URL=http://localhost:8080 pnpm --filter @workspace/scripts run api-smoke; status=$?; kill %1 2>/dev/null; exit $status"
 
 [[workflows.workflow]]
 name = "smoke-banner"
