@@ -1004,6 +1004,77 @@ else
   fail "post-copy check: should have exited non-zero for absent lesson-02"
 fi
 
+# ═════════════════════════════════════════════════════════════════════════════
+# Test 11: Missing COURSE_DIR — sync-course-to-github.sh reports a clear error
+#
+#   The real production script (scripts/sync-course-to-github.sh) resolves
+#   COURSE_DIR as "$WORKSPACE_ROOT/git-dojo" where WORKSPACE_ROOT is the
+#   parent of SCRIPT_DIR (dirname of $0).  Placing a copy of the script inside
+#   a temp sub-directory whose parent has no "git-dojo" folder means COURSE_DIR
+#   resolves to a path that does not exist — triggering the guard at lines 47-50
+#   before any auth or git operation is attempted.
+#
+#   Expected outcomes:
+#     • exit code NON-ZERO (the guard calls "exit 1")
+#     • output contains "ERROR" — failure is explicit, not silent
+#     • output mentions "course directory" — error is actionable for the user
+#     • no git or auth operation runs (the script bails out in the sanity-check
+#       block at the very top)
+# ═════════════════════════════════════════════════════════════════════════════
+printf "\n» Test 11: sync-course-to-github.sh exits non-zero with clear error when COURSE_DIR is missing\n"
+
+COURSE_SYNC_SCRIPT="$_WORKSPACE_ROOT/scripts/sync-course-to-github.sh"
+
+if [ ! -f "$COURSE_SYNC_SCRIPT" ]; then
+  fail "missing COURSE_DIR: cannot locate scripts/sync-course-to-github.sh at $COURSE_SYNC_SCRIPT"
+else
+  # Build a temp directory tree that looks like:
+  #   $TMP/t11/            ← no "git-dojo" here → WORKSPACE_ROOT
+  #   $TMP/t11/scripts/    ← SCRIPT_DIR for the copied script
+  T11_ROOT="$TMP/t11"
+  T11_SCRIPTS="$T11_ROOT/scripts"
+  mkdir -p "$T11_SCRIPTS"
+
+  # Copy the script verbatim; do NOT create a git-dojo sibling directory.
+  cp "$COURSE_SYNC_SCRIPT" "$T11_SCRIPTS/sync-course-to-github.sh"
+  chmod +x "$T11_SCRIPTS/sync-course-to-github.sh"
+
+  # Confirm the COURSE_DIR the copy would resolve to does not exist.
+  EXPECTED_COURSE_DIR="$T11_ROOT/git-dojo"
+  if [ ! -d "$EXPECTED_COURSE_DIR" ]; then
+    pass "missing COURSE_DIR: test setup confirmed — $EXPECTED_COURSE_DIR does not exist"
+  else
+    fail "test setup error: $EXPECTED_COURSE_DIR already exists — test would not exercise the guard"
+  fi
+
+  # Run the copy.  The sanity check fires before any auth or network call, so
+  # no GitHub token or connector is required.  Capture stdout+stderr together
+  # so we can inspect the error message.
+  T11_EXIT=0
+  T11_OUTPUT=$(bash "$T11_SCRIPTS/sync-course-to-github.sh" 2>&1) || T11_EXIT=$?
+
+  # 11a — exit code must be non-zero
+  if [ "$T11_EXIT" != "0" ]; then
+    pass "missing COURSE_DIR: script exited non-zero ($T11_EXIT) — guard fired before git or auth"
+  else
+    fail "missing COURSE_DIR: script exited 0 — sanity check did not fire for a missing COURSE_DIR"
+  fi
+
+  # 11b — output must contain an explicit ERROR marker
+  if echo "$T11_OUTPUT" | grep -qi "ERROR"; then
+    pass "missing COURSE_DIR: 'ERROR' found in output — failure is explicit, not silent"
+  else
+    fail "missing COURSE_DIR: no ERROR line in output — failure may be cryptic: $T11_OUTPUT"
+  fi
+
+  # 11c — error must mention "course directory" so the user knows what to fix
+  if echo "$T11_OUTPUT" | grep -qi "course directory"; then
+    pass "missing COURSE_DIR: output mentions 'course directory' — error is actionable"
+  else
+    fail "missing COURSE_DIR: output does not say 'course directory' — error lacks context: $T11_OUTPUT"
+  fi
+fi
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Summary
 # ─────────────────────────────────────────────────────────────────────────────
