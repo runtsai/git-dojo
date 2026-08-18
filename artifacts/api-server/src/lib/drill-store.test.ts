@@ -696,4 +696,65 @@ describe("queryDue recovery filter — end-to-end via recordGraderResult", () =>
     const { friction: final } = queryDue(candidates);
     expect(final.some((f) => f.sourceId === "source-long")).toBe(false);
   });
+
+  it("re-enters the weak-spots list when new failures arrive after a completed recovery cycle", () => {
+    // Sequence:
+    //   Phase 1 — build up failures: 3 failures → active weak spot.
+    //   Phase 2 — recover: 5 passes so newerHalf = [P×5] → recovered.
+    //             queryDue (call A) → badge shows (recovered:true, recoveredSince stamped).
+    //             queryDue (call B) → entry hidden (recoveredSince non-null, still recovered).
+    //   Phase 3 — regression: record 3 new failures → recoveredSince cleared,
+    //             failures land in recent window.
+    //             queryDue (call C) → source re-appears as an active weak spot
+    //             with recovered:false and recentFailures > 0.
+    //
+    // RECENT_WINDOW = 10, half = 5.
+    // After phase 2, runs = [F, F, F, P, P, P, P, P].
+    // After 3 more failures in phase 3, runs = [F, F, F, P, P, P, P, P, F, F, F]
+    // → trimmed to last 10 → [F, F, P, P, P, P, P, F, F, F]
+    // newerHalf (last 5) = [P, F, F, F] — but wait, we need to count carefully.
+    // Let's be explicit: runs window is the last 30 (FRICTION_WINDOW), but
+    // RECENT_WINDOW slices the last 10, then splits at half (5).
+    // After 3F + 5P + 3F = 11 total runs, last 10 = [F,F,P,P,P,P,P,F,F,F].
+    // newerHalf = last 5 = [P,P,F,F,F] → recentFailures = 3 → NOT recovered.
+
+    const candidates = [{ id: "d1", sourceId: "source-reentry" }];
+
+    // ── Phase 1: build failures ──────────────────────────────────────────────
+    recordGraderResult("source-reentry", false);
+    recordGraderResult("source-reentry", false);
+    recordGraderResult("source-reentry", false);
+
+    const { friction: phase1 } = queryDue(candidates);
+    expect(phase1.some((f) => f.sourceId === "source-reentry")).toBe(true);
+    expect(phase1.find((f) => f.sourceId === "source-reentry")!.recovered).toBe(false);
+
+    // ── Phase 2: recover ─────────────────────────────────────────────────────
+    for (let i = 0; i < 5; i++) recordGraderResult("source-reentry", true);
+
+    // Call A: badge appears once with recovered:true.
+    const { friction: callA } = queryDue(candidates);
+    expect(callA.some((f) => f.sourceId === "source-reentry")).toBe(true);
+    expect(callA.find((f) => f.sourceId === "source-reentry")!.recovered).toBe(true);
+
+    // Call B: entry is hidden (one-refresh lifecycle complete).
+    const { friction: callB } = queryDue(candidates);
+    expect(callB.some((f) => f.sourceId === "source-reentry")).toBe(false);
+
+    // ── Phase 3: new failures → regression ──────────────────────────────────
+    recordGraderResult("source-reentry", false);
+    recordGraderResult("source-reentry", false);
+    recordGraderResult("source-reentry", false);
+
+    // Call C: source must re-appear as an active weak spot.
+    const { friction: callC } = queryDue(candidates);
+    expect(callC.some((f) => f.sourceId === "source-reentry")).toBe(true);
+
+    const reentry = callC.find((f) => f.sourceId === "source-reentry")!;
+    expect(reentry).toBeDefined();
+    // Must NOT be flagged as recovered — it's an active weak spot again.
+    expect(reentry.recovered).toBe(false);
+    // recentFailures must be positive so re-entry is confirmed at the data level.
+    expect(reentry.recentFailures).toBeGreaterThan(0);
+  });
 });
