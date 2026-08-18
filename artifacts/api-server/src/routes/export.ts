@@ -8,6 +8,7 @@ import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { logger } from "../lib/logger";
+import { rateLimit } from "../middlewares/rate-limit";
 import { TOTAL_RUNTIME_MS } from "@workspace/promo-config";
 
 const execFileAsync = promisify(execFile);
@@ -519,7 +520,7 @@ function sendMp4(res: import("express").Response, buffer: Buffer): void {
   res.end(buffer);
 }
 
-router.get("/export/promo-video", async (req, res) => {
+router.get("/export/promo-video", rateLimit("promo-export", 10, 60_000), async (req, res) => {
   if (!existsSync(BG_MUSIC_PATH)) {
     res.status(500).json({
       error: `Background music not found at ${BG_MUSIC_PATH}`,

@@ -13,6 +13,8 @@ import {
   GetCommitDiffResponse,
   GetWorkingFileDiffResponse,
 } from "@workspace/api-zod";
+import { requireOwner } from "../middlewares/require-owner";
+import { rateLimit } from "../middlewares/rate-limit";
 import { recordCompletion } from "../lib/progress-store";
 import { recordGraderResult } from "../lib/drill-store";
 import {
@@ -71,6 +73,12 @@ function listLessonDirs(root: string): LessonDir[] {
 }
 
 function playgroundDir(root: string, lessonId: string): string {
+  // Defense in depth: lesson ids always come from the on-disk allowlist
+  // (listLessonDirs), but never let a path separator or dot-dot reach
+  // path.join even if a future caller passes raw input by mistake.
+  if (!/^[a-z0-9][a-z0-9-]*$/.test(lessonId)) {
+    throw new Error(`Refusing unsafe lesson id: ${JSON.stringify(lessonId)}`);
+  }
   return path.join(root, "playground", lessonId);
 }
 
@@ -216,7 +224,7 @@ router.get("/dojo/lessons/:lessonId/file-diff", async (req, res) => {
   res.json(GetWorkingFileDiffResponse.parse(diff));
 });
 
-router.post("/dojo/lessons/:lessonId/check", async (req, res) => {
+router.post("/dojo/lessons/:lessonId/check", requireOwner, rateLimit("dojo-grader", 30, 60_000), async (req, res) => {
   const root = dojoRoot();
   const lessonId = req.params.lessonId ?? "";
   const lesson = root ? listLessonDirs(root).find((l) => l.id === lessonId) : undefined;
@@ -266,7 +274,7 @@ router.post("/dojo/lessons/:lessonId/check", async (req, res) => {
  * the lesson's bare remote (never the learner's working copy), so the learner
  * genuinely must fetch/merge before their next push succeeds.
  */
-router.post("/dojo/lessons/:lessonId/bot", async (req, res) => {
+router.post("/dojo/lessons/:lessonId/bot", requireOwner, rateLimit("dojo-grader", 30, 60_000), async (req, res) => {
   const root = dojoRoot();
   const lessonId = req.params.lessonId ?? "";
   const lesson = root ? listLessonDirs(root).find((l) => l.id === lessonId) : undefined;

@@ -480,6 +480,16 @@ export async function readWorkingFileDiff(
       /* unreadable file: fall through with no diff */
     }
   } else {
+    // Same symlink discipline for tracked paths: if the working-tree entry is
+    // currently a symlink, refuse to diff it. git itself only diffs the link
+    // target *string* (never the pointed-to file's contents), but rejecting
+    // links outright keeps the guarantee independent of git's behavior.
+    try {
+      const { lstatSync } = await import("node:fs");
+      if (lstatSync(path.resolve(dir, filePath)).isSymbolicLink()) return null;
+    } catch {
+      /* deleted file: nothing in the working tree to stat — diff is safe */
+    }
     const [stagedOut, unstagedOut] = await Promise.all([
       git(dir, ["diff", "--no-color", "--cached", "--", filePath]),
       git(dir, ["diff", "--no-color", "--", filePath]),

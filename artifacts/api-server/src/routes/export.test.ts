@@ -11,6 +11,12 @@
  */
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { resetRateLimits } from "../middlewares/rate-limit";
+
+// The promo-export endpoint is rate limited in production; tests fire far
+// more requests per minute than any real client, so clear the bucket
+// before every test.
+beforeEach(() => resetRateLimits());
 import express from "express";
 import http from "node:http";
 import path from "node:path";
