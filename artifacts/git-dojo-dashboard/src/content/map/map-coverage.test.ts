@@ -1,4 +1,7 @@
 import { describe, it, expect } from "vitest";
+import { readFileSync } from "fs";
+import { resolve, dirname } from "path";
+import { fileURLToPath } from "url";
 import { lessonLocations, mapPlaces, mapFlows, mapJourneys } from "./index";
 import { breakthroughs } from "../breakthroughs/index";
 import { tiers } from "../tiers";
@@ -298,4 +301,58 @@ describe("journey steps only reference valid mapFlow ids", () => {
       });
     }
   }
+});
+
+// ---------------------------------------------------------------------------
+// lessonLocations must have no duplicate keys
+// ---------------------------------------------------------------------------
+//
+// JavaScript silently overwrites a duplicate object key at parse time, so the
+// exported lessonLocations value never shows the duplication — the second entry
+// just wins.  The coverage tests above would still pass because the key exists,
+// but the discarded entry's placeIds/flowIds are silently dropped.
+//
+// This test reads the raw source file and extracts every top-level quoted key
+// inside the lessonLocations literal, then checks for repeats.  Top-level
+// entries always appear as exactly two leading spaces followed by a quoted
+// key and a colon-brace (e.g. `  "lesson-01": {`).
+
+describe("lessonLocations has no duplicate keys", () => {
+  it("no two lessonLocations entries share the same key", () => {
+    const __filename = fileURLToPath(import.meta.url);
+    const __dirname = dirname(__filename);
+    const source = readFileSync(resolve(__dirname, "index.ts"), "utf-8");
+
+    // Isolate the lessonLocations block (everything from its declaration to the
+    // closing `};` that terminates it, before mapJourneys starts).
+    const blockStart = source.indexOf("export const lessonLocations");
+    const blockEnd = source.indexOf("\nexport const mapJourneys", blockStart);
+    const block = blockStart === -1 ? source : source.slice(blockStart, blockEnd === -1 ? undefined : blockEnd);
+
+    // Match lines of the form:  "some-key": {
+    // (exactly two leading spaces — the indentation of a top-level entry)
+    const keyPattern = /^  "([^"]+)":\s*\{/gm;
+    const keys: string[] = [];
+    let match: RegExpExecArray | null;
+    while ((match = keyPattern.exec(block)) !== null) {
+      keys.push(match[1]);
+    }
+
+    const seen = new Set<string>();
+    const duplicates: string[] = [];
+    for (const key of keys) {
+      if (seen.has(key)) {
+        duplicates.push(key);
+      } else {
+        seen.add(key);
+      }
+    }
+
+    expect(
+      duplicates,
+      `lessonLocations has duplicate key(s): ${duplicates.map((k) => `"${k}"`).join(", ")}. ` +
+        `JavaScript silently discards the earlier entry — only the last one survives at runtime. ` +
+        `Remove or rename the duplicate in src/content/map/index.ts.`,
+    ).toHaveLength(0);
+  });
 });
