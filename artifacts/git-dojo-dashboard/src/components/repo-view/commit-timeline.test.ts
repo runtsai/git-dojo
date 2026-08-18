@@ -755,6 +755,42 @@ describe("adjacency avoidance corrects hash collisions", () => {
     expect(mergeParentEdge!.color).toBe(epRow.color);
   });
 
+  it("cols 0 and 2 with the same hash-preferred color get different assigned colors (3-column window)", () => {
+    // Build three tips that all diverge from a shared root so they land on
+    // cols 0, 1, and 2 respectively (order of appearance drives column assignment).
+    // We need cols 0 and 2 to hash-prefer the same palette entry so the
+    // 3-column avoidance window must fire and assign col 2 a distinct color.
+    //
+    // findCollidingPair returns two commits that share the same hash-preferred
+    // color. We use them as the col-0 and col-2 tips; the middle tip (col 1)
+    // is a fresh commit whose preferred color may be anything — it just serves
+    // as the separator that makes the distance between the colliders equal 2.
+    const root = makeCommit("Root");
+    const [col0tip, col2tip] = findCollidingPair(root);
+    const col1tip = makeCommit("Middle", [root.hash]);
+
+    // Confirm that the two outer tips genuinely prefer the same palette color.
+    expect(colorForHash(col0tip.hash)).toBe(colorForHash(col2tip.hash));
+
+    // Layout: tips appear in column-assignment order (col0tip first → col 0,
+    // col1tip second → col 1, col2tip third → col 2).
+    const { rows } = layoutGraph([col0tip, col1tip, col2tip, root]);
+
+    const r0 = rows.find((r) => r.commit.hash === col0tip.hash)!;
+    const r1 = rows.find((r) => r.commit.hash === col1tip.hash)!;
+    const r2 = rows.find((r) => r.commit.hash === col2tip.hash)!;
+
+    // Structural sanity: the three tips must sit on columns 0, 1, and 2.
+    expect(r0.col).toBe(0);
+    expect(r1.col).toBe(1);
+    expect(r2.col).toBe(2);
+
+    // The 3-column window covers col-0 and col-2 (distance 2).
+    // Despite the shared hash-preferred color, col 2 must receive a different
+    // color than col 0.
+    expect(r2.color).not.toBe(r0.color);
+  });
+
   it("second merge reusing an already-active extra-parent lane: edge and node colors agree", () => {
     // Topology (newest first):
     //   X       — has extraParent as its first parent (opens the ep lane)
