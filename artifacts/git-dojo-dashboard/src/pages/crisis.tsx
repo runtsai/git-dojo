@@ -63,7 +63,9 @@ export function CrisisView() {
     }
   };
 
-  const { data: scenarios } = useListCrisisScenarios();
+  const { data: scenarios } = useListCrisisScenarios({
+    query: { enabled: !!crisis, queryKey: getListCrisisScenariosQueryKey() },
+  });
   const setup = useSetupCrisisScenario();
 
   const { data: repo, isFetching, isError, failureCount } = useGetCrisisRepoState(crisisId || "", {
