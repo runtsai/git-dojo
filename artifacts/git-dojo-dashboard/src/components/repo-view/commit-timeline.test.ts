@@ -1097,3 +1097,78 @@ describe("3-column window color uniqueness with 8+ simultaneous branches", () =>
     }
   });
 });
+
+// ---------------------------------------------------------------------------
+// Octopus merge: single commit with 3 parents
+// ---------------------------------------------------------------------------
+
+describe("octopus merge (3 parents)", () => {
+  // Topology (newest first in array):
+  //
+  //        octopus        ← merge commit with parents [branchA, branchB, branchC]  (row 0)
+  //       / |  \
+  //   bA  bB   bC         ← three branches, all children of root                   (rows 1–3)
+  //    \   |   /
+  //       root             ← shared root                                            (row 4)
+  //
+  // An octopus merge has 3+ parents.  layoutGraph's extra-parents loop runs
+  // twice for the same commit (parents[1] and parents[2]).  Without a fixture
+  // this code path is untested and could emit column overlaps or -1 sentinel leaks.
+
+  let root: ReturnType<typeof makeCommit>;
+  let branchA: ReturnType<typeof makeCommit>;
+  let branchB: ReturnType<typeof makeCommit>;
+  let branchC: ReturnType<typeof makeCommit>;
+  let octopus: ReturnType<typeof makeCommit>;
+
+  beforeEach(() => {
+    root    = makeCommit("Root");
+    branchA = makeCommit("Branch-A", [root.hash]);
+    branchB = makeCommit("Branch-B", [root.hash]);
+    branchC = makeCommit("Branch-C", [root.hash]);
+    // 3-parent octopus: first parent is branchA, extras are branchB and branchC.
+    octopus = makeCommit("Octopus merge A+B+C", [branchA.hash, branchB.hash, branchC.hash]);
+  });
+
+  it("every edge endpoint lands on its parent's actual column", () => {
+    const { rows, edges } = layoutGraph([octopus, branchA, branchB, branchC, root]);
+    const colByHash = new Map(rows.map((r) => [r.commit.hash, r.col]));
+    for (const e of edges) {
+      const parentCommit = rows[e.toRow]!.commit;
+      expect(e.toCol).toBe(
+        colByHash.get(parentCommit.hash),
+        `edge to "${parentCommit.subject}" should land on col ${colByHash.get(parentCommit.hash)}, got ${e.toCol}`,
+      );
+    }
+  });
+
+  it("no -1 sentinel survives in an octopus merge graph", () => {
+    const { edges } = layoutGraph([octopus, branchA, branchB, branchC, root]);
+    for (const e of edges) {
+      expect(e.toCol).not.toBe(-1);
+      expect(e.fromCol).not.toBe(-1);
+    }
+  });
+
+  it("each of the three parents is placed on a distinct column", () => {
+    const { rows } = layoutGraph([octopus, branchA, branchB, branchC, root]);
+    const colByHash = new Map(rows.map((r) => [r.commit.hash, r.col]));
+    const colA = colByHash.get(branchA.hash)!;
+    const colB = colByHash.get(branchB.hash)!;
+    const colC = colByHash.get(branchC.hash)!;
+    expect(colA).not.toBe(colB);
+    expect(colA).not.toBe(colC);
+    expect(colB).not.toBe(colC);
+  });
+
+  it("the octopus commit itself is placed on a valid non-negative column", () => {
+    const { rows } = layoutGraph([octopus, branchA, branchB, branchC, root]);
+    const octRow = rows.find((r) => r.commit.hash === octopus.hash)!;
+    expect(octRow.col).toBeGreaterThanOrEqual(0);
+  });
+
+  it("maxCol is at least 2 (three branch lanes are simultaneously open)", () => {
+    const { maxCol } = layoutGraph([octopus, branchA, branchB, branchC, root]);
+    expect(maxCol).toBeGreaterThanOrEqual(2);
+  });
+});
