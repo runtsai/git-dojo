@@ -351,6 +351,16 @@ export async function loadDiskCache(): Promise<void> {
         { path: cachePath, bytes: buffer.length },
         "export: disk cache skipped — file is empty or not a valid MP4 (likely an incomplete prior write)",
       );
+      // Delete the corrupt file so the slot is free for the next successful
+      // write.  Without this, sweepStaleCacheFiles keeps the file (its name
+      // matches the current hash) and every restart re-reads it, re-validates
+      // it, and re-logs the warning instead of triggering a single fresh render.
+      try {
+        await rm(cachePath);
+        logger.info({ path: cachePath }, "export: removed corrupt disk-cache file");
+      } catch (rmErr) {
+        logger.warn({ err: rmErr, path: cachePath }, "export: failed to remove corrupt cache file (non-fatal)");
+      }
       return;
     }
 

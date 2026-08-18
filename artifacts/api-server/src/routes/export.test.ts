@@ -655,6 +655,85 @@ describe("loadDiskCache – cache sweep", () => {
     expect(getRenderCacheForTest()).toBeNull();
   });
 
+  it("deletes the corrupt file via rm() so the slot is free for the next successful write", async () => {
+    // Core regression guard for the re-validation-on-every-restart bug:
+    // loadDiskCache must call rm() on a corrupt cache file (whose name matches
+    // the current hash) so that sweepStaleCacheFiles doesn't keep it alive
+    // and the next successful render can write a good file in its place.
+    const currentHash = await computePromoSourceHash();
+    const currentFile = `${currentHash}.mp4`;
+    const cachePath = path.join(FAKE_CACHE_DIR, currentFile);
+
+    readdirMock.mockImplementation(async (dir: unknown) => {
+      if (String(dir) === FAKE_CACHE_DIR) {
+        return [currentFile] as unknown as Awaited<ReturnType<typeof import("node:fs/promises").readdir>>;
+      }
+      return [] as unknown as Awaited<ReturnType<typeof import("node:fs/promises").readdir>>;
+    });
+
+    // The cache file exists but contains garbage (failed validation).
+    const garbageBuffer = Buffer.from("NOT-AN-MP4");
+    existsSyncMock.mockImplementation((p: unknown) => {
+      const s = String(p);
+      if (s.endsWith(".mp3")) return true;
+      if (s === cachePath) return true;
+      return false;
+    });
+    readFileMock.mockImplementation(async (p: unknown) => {
+      if (String(p) === cachePath) {
+        return garbageBuffer as unknown as Awaited<ReturnType<typeof import("node:fs/promises").readFile>>;
+      }
+      return Buffer.from("") as unknown as Awaited<ReturnType<typeof import("node:fs/promises").readFile>>;
+    });
+
+    await loadDiskCache();
+
+    // The corrupt file must have been deleted so the slot is free.
+    expect(rmMock).toHaveBeenCalledWith(cachePath);
+
+    // renderCache must still be null — a garbage file is never a valid cache hit.
+    expect(getRenderCacheForTest()).toBeNull();
+  });
+
+  it("continues and leaves renderCache null when rm() fails on the corrupt file (non-fatal)", async () => {
+    // Even if deleting the corrupt file fails (e.g. read-only filesystem),
+    // loadDiskCache must not throw — the failure is logged but non-fatal.
+    const currentHash = await computePromoSourceHash();
+    const currentFile = `${currentHash}.mp4`;
+    const cachePath = path.join(FAKE_CACHE_DIR, currentFile);
+
+    readdirMock.mockImplementation(async (dir: unknown) => {
+      if (String(dir) === FAKE_CACHE_DIR) {
+        return [currentFile] as unknown as Awaited<ReturnType<typeof import("node:fs/promises").readdir>>;
+      }
+      return [] as unknown as Awaited<ReturnType<typeof import("node:fs/promises").readdir>>;
+    });
+
+    existsSyncMock.mockImplementation((p: unknown) => {
+      const s = String(p);
+      if (s.endsWith(".mp3")) return true;
+      if (s === cachePath) return true;
+      return false;
+    });
+    readFileMock.mockImplementation(async (p: unknown) => {
+      if (String(p) === cachePath) {
+        return Buffer.from("NOT-AN-MP4") as unknown as Awaited<ReturnType<typeof import("node:fs/promises").readFile>>;
+      }
+      return Buffer.from("") as unknown as Awaited<ReturnType<typeof import("node:fs/promises").readFile>>;
+    });
+
+    // rm() throws a permission error when trying to delete the corrupt file.
+    rmMock.mockRejectedValueOnce(
+      Object.assign(new Error("EACCES: permission denied"), { code: "EACCES" }),
+    );
+
+    // Must resolve (not throw) despite the rm() failure.
+    await expect(loadDiskCache()).resolves.toBeUndefined();
+
+    // renderCache stays null — the corrupt file content was never accepted.
+    expect(getRenderCacheForTest()).toBeNull();
+  });
+
   it("skips the cache and leaves renderCache null when PROMO_EXPORT_CACHE_DIR changes between restarts", async () => {
     // Two-phase test that mirrors a real env-var change between server restarts.
     //
