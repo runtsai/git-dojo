@@ -296,4 +296,67 @@ describe("VideoTemplate – loopFading guard against accidental overlay", () => 
     // — not 'in' (opacity 1). The overlay is present but transparent (clearing).
     expect(overlayOpacity(container)).toBe(0);
   });
+
+  it("re-entering s5 via _r1 suffix cancels the first fade-in timer and fires only one at the correct 900 ms mark", async () => {
+    // Scenario: s5 → s5_r1 (replay pass).
+    // Phase 1 fires on s5 entry and schedules a timer at 900 ms
+    // (durations.s5=1500 - LOOP_FADE_LEAD_MS=600).
+    // When the scene key changes to s5_r1, baseKey is still 's5', so Phase 1
+    // fires again.  The FIRST timer must be cancelled by the effect cleanup
+    // before the SECOND timer is registered — otherwise two setTimeouts exist
+    // and the overlay can turn opaque prematurely or flash twice.
+    vi.useFakeTimers();
+    try {
+      // Step 1: mount at s5
+      vi.mocked(useVideoPlayer).mockImplementation(() => ({
+        ...mockVideoPlayerState,
+        currentSceneKey: "s5",
+        currentScene: 5,
+        isNaturalLoopRef: mockIsNaturalLoopRef,
+      }));
+
+      const { container, rerender } = render(<VideoTemplate muted />);
+      // Overlay must start transparent immediately on s5 entry
+      expect(overlayOpacity(container)).toBe(0);
+
+      // Step 2: advance 400 ms — timer 1 is still pending (fires at 900 ms)
+      await act(async () => {
+        vi.advanceTimersByTime(400);
+      });
+      expect(overlayOpacity(container)).toBe(0);
+
+      // Step 3: transition to s5_r1 — effect cleanup cancels timer 1, effect
+      // re-runs and schedules timer 2 (fires 900 ms from now, i.e., 1300 ms
+      // from the original mount).
+      vi.mocked(useVideoPlayer).mockImplementation(() => ({
+        ...mockVideoPlayerState,
+        currentSceneKey: "s5_r1",
+        currentScene: 5,
+        isNaturalLoopRef: mockIsNaturalLoopRef,
+      }));
+
+      await act(async () => {
+        rerender(<VideoTemplate muted />);
+      });
+
+      // Step 4: advance 899 ms from the s5_r1 entry (one ms short of timer 2
+      // firing).  Wall-clock total is now 400 + 899 = 1299 ms.
+      // If timer 1 had NOT been cancelled, it would have fired 499 ms ago
+      // (at the 900 ms wall-clock mark) — so this window catches that leak.
+      await act(async () => {
+        vi.advanceTimersByTime(899);
+      });
+      // Overlay must still be transparent — no premature fade-in from a leaked timer 1
+      expect(overlayOpacity(container)).toBe(0);
+
+      // Step 5: advance one more ms — timer 2 fires exactly 900 ms after the
+      // s5_r1 re-render.  loopFading becomes 'in' → opacity 1.
+      await act(async () => {
+        vi.advanceTimersByTime(1);
+      });
+      expect(overlayOpacity(container)).toBe(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });
