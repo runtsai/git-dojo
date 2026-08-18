@@ -812,6 +812,94 @@ else
 fi
 
 # ═════════════════════════════════════════════════════════════════════════════
+# Test 9b: Empty remote + workspace with NO lesson-* folders
+#
+#   Verifies the edge case where the very first sync is run against a brand-new
+#   (empty) remote but the workspace has not yet been populated with any
+#   lesson-* directories (e.g. a partially bootstrapped course).
+#
+#   The production script (scripts/sync-course-to-github.sh) has a hard-coded
+#   EXPECTED_LESSONS manifest (9 lessons) and rejects the sync with a clear
+#   error before any cp or git add runs when any listed lesson is absent.
+#
+#   This test mirrors that manifest guard by setting SYNC_EXPECTED_LESSONS to a
+#   representative subset of the production list before calling
+#   simulate_course_sync.  The expected outcome is:
+#     • Exit code NON-ZERO — the manifest pre-copy check fires
+#     • A meaningful error appears on stderr
+#     • Nothing is pushed to the remote (abort happened before git commit)
+#
+#   This is EXPLICITLY REJECTED, not silently allowed: a lesson-free workspace
+#   is a misconfigured or partially bootstrapped course and must not produce a
+#   commit with only root files.
+# ═════════════════════════════════════════════════════════════════════════════
+printf "\n» Test 9b: empty remote + workspace with no lesson-* folders — explicitly rejected with clear error\n"
+
+REMOTE9B="$TMP/remote9b.git"
+git init --bare -q "$REMOTE9B"
+
+# Confirm the remote is truly empty before the test begins.
+EARLY9B=$(git ls-remote "$REMOTE9B" refs/heads/main | awk '{print $1}')
+if [ -z "$EARLY9B" ]; then
+  pass "no-lessons: remote is empty before the test run"
+else
+  fail "test setup error: remote9b already has a main ref ($EARLY9B)"
+fi
+
+# Workspace with root files only — deliberately NO lesson-* directories.
+# This simulates a partially bootstrapped course (setup.sh/README exist but
+# no lesson content has been created yet).
+WS9B="$TMP/ws9b"
+mkdir -p "$WS9B"
+echo "# Git Dojo Course"              > "$WS9B/README.md"
+echo "echo 'Setting up course...'"    > "$WS9B/setup.sh"
+echo "echo 'Resetting playground...'" > "$WS9B/reset.sh"
+
+# Confirm no lesson-* directory exists in the test workspace.
+LESSON_COUNT9B=$(find "$WS9B" -maxdepth 1 -type d -name "lesson-*" | wc -l | tr -d ' ')
+if [ "$LESSON_COUNT9B" = "0" ]; then
+  pass "no-lessons: workspace correctly has zero lesson-* directories"
+else
+  fail "test setup error: found $LESSON_COUNT9B lesson-* dir(s) — workspace should have none"
+fi
+
+# Run simulate_course_sync WITH a manifest that matches the production script's
+# expectation (a representative subset of the 9 real lesson names).  The
+# pre-copy manifest check must detect every missing entry and exit non-zero.
+SYNC9B_EXIT=0
+SYNC9B_OUTPUT=$(SYNC_EXPECTED_LESSONS="lesson-01-first-snapshot lesson-02-the-ledger lesson-03-undo-without-erasing" \
+  simulate_course_sync "$REMOTE9B" "$WS9B" 2>&1) || SYNC9B_EXIT=$?
+
+# The sync MUST exit non-zero — a lesson-free workspace is rejected.
+if [ "$SYNC9B_EXIT" != "0" ]; then
+  pass "no-lessons: course sync exited non-zero ($SYNC9B_EXIT) — lesson-free workspace is explicitly rejected"
+else
+  fail "no-lessons: course sync exited 0 — should have rejected a workspace with no lesson-* dirs"
+fi
+
+# A meaningful error message must appear in the output.
+if echo "$SYNC9B_OUTPUT" | grep -qi "ERROR"; then
+  pass "no-lessons: error message present in output — failure is explicit, not silent"
+else
+  fail "no-lessons: no ERROR line found in output — failure may be silent or cryptic"
+fi
+
+# The error should mention that lessons are missing.
+if echo "$SYNC9B_OUTPUT" | grep -qi "lesson"; then
+  pass "no-lessons: output names the missing lesson(s) — error is actionable for the user"
+else
+  fail "no-lessons: output does not mention missing lessons — error lacks actionable detail"
+fi
+
+# Nothing must be pushed to the remote — the abort happened before git commit.
+PUSHED9B=$(git ls-remote "$REMOTE9B" refs/heads/main 2>/dev/null | awk '{print $1}')
+if [ -z "$PUSHED9B" ]; then
+  pass "no-lessons: nothing pushed to remote — abort happened before any commit"
+else
+  fail "no-lessons: remote has a commit ($PUSHED9B) — sync should have aborted before committing"
+fi
+
+# ═════════════════════════════════════════════════════════════════════════════
 # Test 10: Manifest-based rename detection
 #
 #   10a — Rename to non-lesson-* name: lesson-02 is renamed to module-02 in the
