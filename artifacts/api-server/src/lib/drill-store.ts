@@ -1,5 +1,6 @@
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
+import { writeJsonAtomic } from "./json-file";
 
 /**
  * Single-user JSON persistence for the warm-up drill system, alongside
@@ -116,8 +117,7 @@ function load(): DrillData {
 }
 
 function save(data: DrillData): void {
-  mkdirSync(DATA_DIR, { recursive: true });
-  writeFileSync(DRILLS_FILE, JSON.stringify(data, null, 2));
+  writeJsonAtomic(DRILLS_FILE, data);
 }
 
 export interface DrillItemStats {
@@ -384,7 +384,10 @@ export function recordGraderResult(sourceId: string, passed: boolean): void {
     // Leave room for the new entry we are about to append.
     const seedCount = Math.min(total, FRICTION_WINDOW - 1);
     const seededFailures = Math.round((rec.failures / total) * seedCount);
-    const syntheticAt = new Date().toISOString();
+    // Spread synthetic timestamps back across one decay half-life so
+    // reconstructed history ages like real history instead of all counting
+    // as brand-new (which would inflate weak-spot priority for ~14 days).
+    const nowMs = Date.now();
     const syntheticRuns: FrictionEntry[] = [];
     let failuresEmitted = 0;
     for (let i = 0; i < seedCount; i++) {
@@ -392,7 +395,12 @@ export function recordGraderResult(sourceId: string, passed: boolean): void {
       const target = Math.round(((i + 1) / seedCount) * seededFailures);
       const entryPassed = target <= failuresEmitted;
       if (!entryPassed) failuresEmitted++;
-      syntheticRuns.push({ at: syntheticAt, passed: entryPassed });
+      // Oldest slot sits a full half-life back; newest just before now.
+      const ageMs = ((seedCount - i) / seedCount) * FRICTION_HALF_LIFE_MS;
+      syntheticRuns.push({
+        at: new Date(nowMs - ageMs).toISOString(),
+        passed: entryPassed,
+      });
     }
     rec.runs = syntheticRuns;
   }

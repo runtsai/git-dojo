@@ -168,25 +168,7 @@ describe("nav row", () => {
     expect(buttons).toHaveLength(2);
     const labels = buttons.map((b) => b.textContent ?? "");
     expect(labels.some((l) => l.includes("Back"))).toBe(true);
-    expect(labels.some((l) => l.includes("Submit Now"))).toBe(true);
-  });
-
-  it("prefers onSubmit over onNext when both are provided", () => {
-    render(
-      <VisualModuleShell
-        {...base({
-          onNext: vi.fn(),
-          onSubmit: vi.fn(),
-          submitLabel: "Submit",
-        })}
-      />,
-    );
-    // Submit button must be present; Continue must not be
-    const buttons = screen.getAllByRole("button");
-    expect(buttons).toHaveLength(2);
-    const labels = buttons.map((b) => b.textContent ?? "");
-    expect(labels.some((l) => l.includes("Back"))).toBe(true);
-    expect(labels.some((l) => l.includes("Submit Now"))).toBe(true);
+    expect(labels.some((l) => l.includes("Continue"))).toBe(true);
   });
 
   it("prefers onSubmit over onNext when both are provided", () => {
@@ -394,45 +376,24 @@ describe("error banner", () => {
 // ---------------------------------------------------------------------------
 
 describe("progress dots", () => {
-  it("renders 5 dots by default", () => {
+  it("renders one dot per step for totalDots", () => {
     // Dots are rendered as divs with w-2 h-2 rounded-full classes
     const { container } = render(
       <VisualModuleShell {...base({ step: 1, totalDots: 3 })} />,
     );
     const dots = Array.from(container.querySelectorAll(".w-2.h-2.rounded-full"));
-    // Dots 0 and 1 (steps 1 and 2) are before current step 3
-    expect(dots[0].className).toContain("bg-primary/50");
-    expect(dots[1].className).toContain("bg-primary/50");
+    expect(dots).toHaveLength(3);
   });
 
-  it("marks future dots with the inactive class (bg-white/10)", () => {
+  it("marks the current dot active and past dots with bg-primary/50", () => {
     const { container } = render(
-      <VisualModuleShell {...base({ step: 1, totalDots: 3 })} />,
+      <VisualModuleShell {...base({ step: 3, totalDots: 3 })} />,
     );
     const dots = Array.from(container.querySelectorAll(".w-2.h-2.rounded-full"));
     // Dots 0 and 1 (steps 1 and 2) are before current step 3
     expect(dots[0].className).toContain("bg-primary/50");
     expect(dots[1].className).toContain("bg-primary/50");
-  });
-
-  it("marks future dots with the inactive class (bg-white/10)", () => {
-    const { container } = render(
-      <VisualModuleShell {...base({ step: 1, totalDots: 3 })} />,
-    );
-    const dots = Array.from(container.querySelectorAll(".w-2.h-2.rounded-full"));
-    // Dots 0 and 1 (steps 1 and 2) are before current step 3
-    expect(dots[0].className).toContain("bg-primary/50");
-    expect(dots[1].className).toContain("bg-primary/50");
-  });
-
-  it("marks future dots with the inactive class (bg-white/10)", () => {
-    const { container } = render(
-      <VisualModuleShell {...base({ step: 1, totalDots: 3 })} />,
-    );
-    const dots = Array.from(container.querySelectorAll(".w-2.h-2.rounded-full"));
-    // Dots 0 and 1 (steps 1 and 2) are before current step 3
-    expect(dots[0].className).toContain("bg-primary/50");
-    expect(dots[1].className).toContain("bg-primary/50");
+    expect(dots[2].className).toContain("bg-primary ");
   });
 
   it("marks future dots with the inactive class (bg-white/10)", () => {

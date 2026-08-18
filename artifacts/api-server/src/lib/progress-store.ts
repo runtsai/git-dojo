@@ -1,5 +1,6 @@
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
+import { writeJsonAtomic } from "./json-file";
 
 /**
  * Single-user v1 persistence: a JSON file inside the workspace (survives
@@ -34,8 +35,7 @@ export function recordCompletion(
   const entries = loadEntries();
   if (!entries.some((e) => e.moduleId === moduleId && e.track === track)) {
     entries.push({ moduleId, track, completedAt: new Date().toISOString() });
-    mkdirSync(DATA_DIR, { recursive: true });
-    writeFileSync(PROGRESS_FILE, JSON.stringify({ entries }, null, 2));
+    writeJsonAtomic(PROGRESS_FILE, { entries });
   }
   return entries;
 }

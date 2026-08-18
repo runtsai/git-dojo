@@ -1,5 +1,6 @@
-import { existsSync, readFileSync, writeFileSync, mkdirSync, rmSync } from "node:fs";
+import { existsSync, readFileSync, rmSync } from "node:fs";
 import path from "node:path";
+import { writeJsonAtomic } from "./json-file";
 
 /**
  * Single-user capstone state, persisted alongside progress.json. Records the
@@ -49,8 +50,7 @@ export function loadCapstone(): CapstoneState | null {
 }
 
 export function saveCapstone(state: CapstoneState): void {
-  mkdirSync(DATA_DIR, { recursive: true });
-  writeFileSync(CAPSTONE_FILE, JSON.stringify(state, null, 2));
+  writeJsonAtomic(CAPSTONE_FILE, state);
 }
 
 export function clearCapstone(): void {

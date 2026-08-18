@@ -14,6 +14,8 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 // ---------------------------------------------------------------------------
 
 const mockFileContents: { value: string | null } = { value: null };
+// Staged-but-not-yet-renamed temp writes, keyed by path.
+const mockTempFiles = new Map<string, string>();
 
 vi.mock("node:fs", async (importOriginal) => {
   const actual = await importOriginal<typeof import("node:fs")>();
@@ -26,18 +28,32 @@ vi.mock("node:fs", async (importOriginal) => {
     }),
     // Capture writes so that a second load() call within the same test sees
     // the updated state (e.g. recoveredSince stamped by the first queryDue).
-    writeFileSync: vi.fn((_path: unknown, content: unknown) => {
-      if (typeof content === "string") mockFileContents.value = content;
+    // Path-aware write model: writeFileSync only stages content in a temp
+    // map; the store's data becomes visible to load() only after renameSync
+    // publishes it into mockFileContents. This verifies the store really
+    // uses the temp-file-then-rename pattern rather than a direct write.
+    writeFileSync: vi.fn((p: unknown, content: unknown) => {
+      if (typeof content === "string") mockTempFiles.set(String(p), content);
     }),
     mkdirSync: vi.fn(),
+    renameSync: vi.fn((from: unknown, _to: unknown) => {
+      const staged = mockTempFiles.get(String(from));
+      if (staged === undefined) {
+        throw new Error(
+          `ENOENT (mock): rename of '${String(from)}' before writeFileSync staged it`,
+        );
+      }
+      mockTempFiles.delete(String(from));
+      mockFileContents.value = staged;
+    }),
   };
 });
 
 // Import AFTER mocks are registered.
 const { queryDue, recordGraderResult } = await import("./drill-store.js");
 
-// Grab the mocked writeFileSync so stateful tests can make it persist.
-const { writeFileSync } = await import("node:fs");
+// Grab the mocked fs functions so tests can assert on the write pattern.
+const { writeFileSync, renameSync } = await import("node:fs");
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -471,11 +487,7 @@ describe("queryDue recovery filter — end-to-end via recordGraderResult", () =>
   beforeEach(() => {
     vi.restoreAllMocks();
     mockFileContents.value = null;
-    // Wire writeFileSync to persist into mockFileContents so that
-    // recordGraderResult → save() → load() → queryDue() all share state.
-    vi.mocked(writeFileSync).mockImplementation((_path, content) => {
-      mockFileContents.value = content as string;
-    });
+    mockTempFiles.clear();
   });
 
   it("shows recovered badge once then hides a source after enough passes fill the recent half-window", () => {
@@ -565,12 +577,6 @@ describe("queryDue recovery filter — end-to-end via recordGraderResult", () =>
       },
     });
 
-    // Wire writeFileSync to persist so the second load() inside queryDue sees
-    // the state written by recordGraderResult.
-    vi.mocked(writeFileSync).mockImplementation((_path, content) => {
-      mockFileContents.value = content as string;
-    });
-
     const candidates = [{ id: "d1", sourceId: "source-legacy" }];
 
     // Record exactly one new grader result on the legacy source.
@@ -586,6 +592,53 @@ describe("queryDue recovery filter — end-to-end via recordGraderResult", () =>
 
     // The raw aggregate totals must be updated for the new run.
     expect(entry!.failures).toBeGreaterThan(0);
+  });
+
+  it("persists via temp-file write then rename (atomic pattern)", () => {
+    recordGraderResult("source-atomic", false);
+    // save() must have staged with writeFileSync then published via rename.
+    expect(vi.mocked(writeFileSync)).toHaveBeenCalled();
+    expect(vi.mocked(renameSync)).toHaveBeenCalled();
+    const [from, to] = vi.mocked(renameSync).mock.calls.at(-1)! as [
+      string,
+      string,
+    ];
+    expect(String(from)).toContain(".tmp");
+    expect(String(to)).toContain("drills.json");
+  });
+
+  it("spreads legacy synthetic run timestamps back across the decay half-life instead of stamping them all as now", () => {
+    const HALF_LIFE = 14 * 24 * 60 * 60 * 1000;
+    const fakeNow = new Date("2026-08-18T12:00:00.000Z").getTime();
+    vi.useFakeTimers();
+    vi.setSystemTime(fakeNow);
+    try {
+      setDrillData({
+        "source-legacy-spread": { failures: 5, passes: 5, runs: [] },
+      });
+      recordGraderResult("source-legacy-spread", false);
+
+      const persisted = JSON.parse(mockFileContents.value!);
+      const runs: Array<{ at: string }> =
+        persisted.friction["source-legacy-spread"].runs;
+      // 10 synthetic seeded runs + 1 real run appended by this call.
+      expect(runs.length).toBe(11);
+
+      const ages = runs.map((r) => fakeNow - new Date(r.at).getTime());
+      const syntheticAges = ages.slice(0, -1);
+      // The real run appended last is "now".
+      expect(ages.at(-1)).toBe(0);
+      // Oldest synthetic run must sit a full half-life back.
+      expect(Math.max(...syntheticAges)).toBe(HALF_LIFE);
+      // Ages must strictly decrease toward now — spread, not clustered.
+      for (let i = 1; i < syntheticAges.length; i++) {
+        expect(syntheticAges[i]).toBeLessThan(syntheticAges[i - 1]);
+      }
+      // No synthetic run may be stamped as brand-new.
+      expect(Math.min(...syntheticAges)).toBeGreaterThan(0);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("legacy friction record (empty runs, non-zero failures) appears in friction list with all rolling-window fields at zero and is not skipped", () => {
