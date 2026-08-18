@@ -16,7 +16,7 @@ import React from "react";
 import { render, screen, cleanup } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { TerritoryStrip } from "./territory-strip";
+import { TerritoryStrip, STALE_GAP_MS } from "./territory-strip";
 import type { RepoState } from "@workspace/api-client-react";
 
 // ---------------------------------------------------------------------------
@@ -234,4 +234,59 @@ describe("TerritoryStrip — dimmed state (API unreachable)", () => {
     await user.click(chip);
     expect(onFileClick).toHaveBeenCalledWith("src/main.ts");
   });
+
+  // ---------------------------------------------------------------------------
+  // Stale-gap narration suppression after API outage
+  // ---------------------------------------------------------------------------
+
+  it("suppresses movement narration when the API returns after a stale gap (>STALE_GAP_MS)", () => {
+    // Initial fetch: repo has a file on the workbench (modified).
+    const repoInit = makeRepo({
+      files: [{ path: "README.md", status: "modified" }],
+    });
+
+    const { rerender } = render(
+      <TerritoryStrip repo={repoInit} lastFetchedAt={1000} dimmed={false} />,
+    );
+
+    // API was down for more than STALE_GAP_MS. The first recovered fetch
+    // arrives with a staged file — a diff that looks like staging occurred.
+    const repoRecovered = makeRepo({
+      files: [{ path: "README.md", status: "staged" }],
+    });
+    const recoveredAt = 1000 + STALE_GAP_MS + 1;
+
+    rerender(
+      <TerritoryStrip repo={repoRecovered} lastFetchedAt={recoveredAt} dimmed={false} />,
+    );
+
+    // The gap must be detected: no movement narration event text should appear.
+    // The staging narration text uniquely contains "staged, but not yet sealed".
+    expect(screen.queryByText(/staged, but not yet sealed/i)).toBeNull();
+  });
+
+  it("emits movement narration normally when the time delta is within the stale threshold", () => {
+    // Initial fetch: repo has a file on the workbench.
+    const repoInit = makeRepo({
+      files: [{ path: "README.md", status: "modified" }],
+    });
+
+    const { rerender } = render(
+      <TerritoryStrip repo={repoInit} lastFetchedAt={1000} dimmed={false} />,
+    );
+
+    // Short gap (well under STALE_GAP_MS) — this is a normal poll.
+    const repoStaged = makeRepo({
+      files: [{ path: "README.md", status: "staged" }],
+    });
+    const smallDeltaAt = 1000 + 5000; // 5 s — under the 20 s threshold
+
+    rerender(
+      <TerritoryStrip repo={repoStaged} lastFetchedAt={smallDeltaAt} dimmed={false} />,
+    );
+
+    // Narration IS expected: the staging event text uniquely contains "staged, but not yet sealed".
+    expect(screen.getByText(/staged, but not yet sealed/i)).toBeTruthy();
+  });
+
 });
