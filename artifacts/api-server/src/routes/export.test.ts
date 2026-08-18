@@ -842,6 +842,235 @@ describe("writeDiskCache – atomic write", () => {
 });
 
 // ---------------------------------------------------------------------------
+// writeDiskCache – post-write cache sweep
+//
+// Verifies that writeDiskCache calls sweepStaleCacheFiles after a successful
+// rename so that stale .mp4 files from previous renders are removed while the
+// newly written file (keyed by the current source hash) is preserved.
+//
+// writeDiskCache is intentionally unexported, so these tests drive it via a
+// successful render request (same pattern as the atomic-write suite above).
+//
+// Scenarios covered:
+//   1. Stale .mp4 files are removed; the current-hash file is not touched.
+//   2. Non-.mp4 entries in the cache directory are never passed to rm().
+//   3. A failed rm() for a stale file (EACCES) does not propagate — the route
+//      still returns 200 and the render result is still served to the caller.
+//   4. When the cache directory is empty after the write, rm() is never called.
+// ---------------------------------------------------------------------------
+
+describe("writeDiskCache – post-write cache sweep", () => {
+  const FAKE_CACHE_DIR = "/tmp/test-sweep-after-write-cache";
+
+  let readdirMock: ReturnType<typeof vi.fn>;
+  let rmMock: ReturnType<typeof vi.fn>;
+
+  let server: http.Server;
+  let port: number;
+
+  beforeEach(async () => {
+    vi.clearAllMocks();
+    process.env["PROMO_EXPORT_CACHE_DIR"] = FAKE_CACHE_DIR;
+    renderCallCount = 0;
+    evaluateImpl = (expr) => {
+      if (typeof expr === "string" && expr.includes("__exportTotalMs")) {
+        return Promise.resolve(MOCK_TOTAL_RUNTIME_MS);
+      }
+      return Promise.resolve(undefined);
+    };
+    resetRenderCacheForTest();
+
+    const fsp = await import("node:fs/promises");
+    const fs = await import("node:fs");
+
+    readdirMock = vi.mocked(fsp.readdir);
+    rmMock = vi.mocked(fsp.rm);
+
+    // Default: readFile returns a fake MP4 buffer; source dirs return [].
+    vi.mocked(fsp.readFile).mockResolvedValue(
+      Buffer.from("fake-mp4-content") as unknown as Awaited<ReturnType<typeof fsp.readFile>>,
+    );
+    vi.mocked(fsp.writeFile).mockResolvedValue(undefined);
+    vi.mocked(fsp.rename).mockResolvedValue(undefined);
+    vi.mocked(fsp.mkdir).mockResolvedValue(undefined);
+    rmMock.mockResolvedValue(undefined);
+
+    // Default readdir: source dirs → [], cache dir → empty (no stale files).
+    readdirMock.mockResolvedValue([]);
+
+    // existsSync: BG music present, disk cache absent so no pre-warm.
+    vi.mocked(fs.existsSync).mockImplementation((p: unknown) => {
+      const s = String(p);
+      if (s.endsWith(".mp3")) return true;
+      return false;
+    });
+
+    const app = express();
+    app.use((req, _res, next) => {
+      (req as unknown as Record<string, unknown>)["log"] = {
+        info: () => {},
+        warn: () => {},
+        error: () => {},
+      };
+      next();
+    });
+    app.use("/", exportRouter);
+
+    server = http.createServer(app);
+    await new Promise<void>((resolve) =>
+      server.listen(0, "127.0.0.1", resolve),
+    );
+    port = (server.address() as AddressInfo).port;
+  });
+
+  afterEach(async () => {
+    delete process.env["PROMO_EXPORT_CACHE_DIR"];
+    vi.clearAllMocks();
+    await new Promise<void>((resolve, reject) =>
+      server.close((err) => (err ? reject(err) : resolve())),
+    );
+  });
+
+  it("removes stale .mp4 files and preserves the newly written current-hash file", async () => {
+    const currentHash = await computePromoSourceHash();
+    const currentFile = `${currentHash}.mp4`;
+    const staleFiles = ["aabbcc112233.mp4", "deadbeef.mp4"];
+
+    // readdir returns stale files plus the current file for the cache dir;
+    // source dirs return [] to keep the hash deterministic.
+    readdirMock.mockImplementation(async (dir: unknown) => {
+      if (String(dir) === FAKE_CACHE_DIR) {
+        return [...staleFiles, currentFile] as unknown as Awaited<
+          ReturnType<typeof import("node:fs/promises").readdir>
+        >;
+      }
+      return [] as unknown as Awaited<
+        ReturnType<typeof import("node:fs/promises").readdir>
+      >;
+    });
+
+    const result = await makeRequest(port, "/export/promo-video");
+    expect(result.status).toBe(200);
+
+    // rm() must have been called for each stale file.
+    for (const stale of staleFiles) {
+      expect(rmMock).toHaveBeenCalledWith(path.join(FAKE_CACHE_DIR, stale));
+    }
+
+    // rm() must NOT have been called for the current-hash file.
+    expect(rmMock).not.toHaveBeenCalledWith(
+      path.join(FAKE_CACHE_DIR, currentFile),
+    );
+
+    // Exactly two rm() calls — one per stale file (the tmp-cleanup rm call
+    // for a successful rename does not fire because rename succeeds).
+    const cacheRmCalls = (rmMock.mock.calls as unknown[][]).filter(
+      (args) =>
+        typeof args[0] === "string" &&
+        (args[0] as string).startsWith(FAKE_CACHE_DIR) &&
+        (args[0] as string).endsWith(".mp4"),
+    );
+    expect(cacheRmCalls).toHaveLength(staleFiles.length);
+  });
+
+  it("does not call rm() for non-.mp4 entries in the cache directory", async () => {
+    const currentHash = await computePromoSourceHash();
+
+    // Cache dir contains non-mp4 files and one stale mp4.
+    readdirMock.mockImplementation(async (dir: unknown) => {
+      if (String(dir) === FAKE_CACHE_DIR) {
+        return ["README.txt", ".gitkeep", "stale-render.mp4"] as unknown as Awaited<
+          ReturnType<typeof import("node:fs/promises").readdir>
+        >;
+      }
+      return [] as unknown as Awaited<
+        ReturnType<typeof import("node:fs/promises").readdir>
+      >;
+    });
+
+    const result = await makeRequest(port, "/export/promo-video");
+    expect(result.status).toBe(200);
+
+    // Only the stale .mp4 should trigger rm().
+    expect(rmMock).toHaveBeenCalledWith(
+      path.join(FAKE_CACHE_DIR, "stale-render.mp4"),
+    );
+    expect(rmMock).not.toHaveBeenCalledWith(
+      path.join(FAKE_CACHE_DIR, "README.txt"),
+    );
+    expect(rmMock).not.toHaveBeenCalledWith(
+      path.join(FAKE_CACHE_DIR, ".gitkeep"),
+    );
+
+    // Exactly one mp4 rm() call.
+    const mp4RmCalls = (rmMock.mock.calls as unknown[][]).filter(
+      (args) =>
+        typeof args[0] === "string" &&
+        (args[0] as string).endsWith(".mp4"),
+    );
+    expect(mp4RmCalls).toHaveLength(1);
+  });
+
+  it("returns 200 and serves the render when rm() fails for a stale file (non-fatal)", async () => {
+    // Cache dir contains a stale file whose deletion will fail.
+    readdirMock.mockImplementation(async (dir: unknown) => {
+      if (String(dir) === FAKE_CACHE_DIR) {
+        return ["stale-readonly.mp4"] as unknown as Awaited<
+          ReturnType<typeof import("node:fs/promises").readdir>
+        >;
+      }
+      return [] as unknown as Awaited<
+        ReturnType<typeof import("node:fs/promises").readdir>
+      >;
+    });
+
+    // rm() rejects with a permission error for the stale file.
+    rmMock.mockRejectedValue(
+      Object.assign(new Error("EACCES: permission denied"), { code: "EACCES" }),
+    );
+
+    // The route must still return 200 — sweep failures are non-fatal.
+    const result = await makeRequest(port, "/export/promo-video");
+    expect(result.status).toBe(200);
+    expect(result.body.length).toBeGreaterThan(0);
+
+    // rm() was attempted (the error was swallowed, not skipped).
+    expect(rmMock).toHaveBeenCalledWith(
+      path.join(FAKE_CACHE_DIR, "stale-readonly.mp4"),
+    );
+  });
+
+  it("does not call rm() when the cache directory has no other .mp4 files after the write", async () => {
+    const currentHash = await computePromoSourceHash();
+    const currentFile = `${currentHash}.mp4`;
+
+    // Cache dir contains only the current-hash file — nothing to sweep.
+    readdirMock.mockImplementation(async (dir: unknown) => {
+      if (String(dir) === FAKE_CACHE_DIR) {
+        return [currentFile] as unknown as Awaited<
+          ReturnType<typeof import("node:fs/promises").readdir>
+        >;
+      }
+      return [] as unknown as Awaited<
+        ReturnType<typeof import("node:fs/promises").readdir>
+      >;
+    });
+
+    const result = await makeRequest(port, "/export/promo-video");
+    expect(result.status).toBe(200);
+
+    // No stale files — rm() must not be called at all (not even for the
+    // current file).
+    const mp4RmCalls = (rmMock.mock.calls as unknown[][]).filter(
+      (args) =>
+        typeof args[0] === "string" &&
+        (args[0] as string).endsWith(".mp4"),
+    );
+    expect(mp4RmCalls).toHaveLength(0);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // isValidMp4Buffer — unit tests
 //
 // Tests every structural case the validator must handle:
