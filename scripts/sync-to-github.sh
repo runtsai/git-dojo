@@ -113,7 +113,7 @@ echo "Fetching ${REMOTE}/${BRANCH} ..."
 GIT_FETCH
 
 LOCAL_SHA=$(git rev-parse "$BRANCH")
-REMOTE_SHA=$(git rev-parse "${REMOTE}/${BRANCH}" 2>/dev/null || echo "UNKNOWN")
+REMOTE_SHA=$(git rev-parse --verify "${REMOTE}/${BRANCH}" 2>/dev/null || echo "UNKNOWN")
 
 if [ "$REMOTE_SHA" = "UNKNOWN" ]; then
   echo "WARNING: could not resolve ${REMOTE}/${BRANCH}. Proceeding anyway."
