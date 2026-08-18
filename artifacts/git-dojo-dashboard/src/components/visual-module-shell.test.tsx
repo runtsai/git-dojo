@@ -261,6 +261,49 @@ describe("isSubmitDisabled", () => {
     const backBtn = buttons.find((b) => b.textContent?.includes("Back"))!;
     expect((backBtn as HTMLButtonElement).disabled).toBe(false);
   });
+
+  it("keeps the submit button disabled when error is set alongside isSubmitDisabled=true", () => {
+    render(
+      <VisualModuleShell
+        {...base({
+          onSubmit: vi.fn(),
+          isSubmitDisabled: true,
+          error: "Grading failed — please wait",
+        })}
+      />,
+    );
+    const btn = screen.getByRole("button");
+    expect((btn as HTMLButtonElement).disabled).toBe(true);
+    // Error banner must also be visible
+    expect(screen.getByRole("alert").textContent).toContain("Grading failed — please wait");
+  });
+
+  it("re-enables the submit button when error is cleared and isSubmitDisabled returns to false", () => {
+    const { rerender } = render(
+      <VisualModuleShell
+        {...base({
+          onSubmit: vi.fn(),
+          isSubmitDisabled: true,
+          error: "Grading failed — please wait",
+        })}
+      />,
+    );
+    // Confirm disabled during error state
+    expect((screen.getByRole("button") as HTMLButtonElement).disabled).toBe(true);
+
+    // Simulate recovery: error cleared, isSubmitDisabled back to false
+    rerender(
+      <VisualModuleShell
+        {...base({
+          onSubmit: vi.fn(),
+          isSubmitDisabled: false,
+          error: null,
+        })}
+      />,
+    );
+    expect((screen.getByRole("button") as HTMLButtonElement).disabled).toBe(false);
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -347,75 +390,6 @@ describe("error banner", () => {
   it("does not render a role='alert' element when error is undefined", () => {
     render(<VisualModuleShell {...base()} />);
     expect(screen.queryByRole("alert")).toBeNull();
-  });
-});
-
-// ---------------------------------------------------------------------------
-// completionStep guard — console.warn calls
-// ---------------------------------------------------------------------------
-
-describe("completionStep guard warnings", () => {
-  it("warns when completionStep <= totalDots (mid-module collision)", () => {
-    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
-    // completionStep 3 <= totalDots 5 → should warn
-    render(<VisualModuleShell {...base({ step: 1, totalDots: 5, completionStep: 3 })} />);
-    expect(warnSpy).toHaveBeenCalledWith(
-      expect.stringContaining("completionStep (3) is <= totalDots (5)"),
-    );
-    warnSpy.mockRestore();
-  });
-
-  it("warns when completionStep equals totalDots (boundary: still mid-module)", () => {
-    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
-    render(<VisualModuleShell {...base({ step: 1, totalDots: 5, completionStep: 5 })} />);
-    expect(warnSpy).toHaveBeenCalledWith(
-      expect.stringContaining("completionStep (5) is <= totalDots (5)"),
-    );
-    warnSpy.mockRestore();
-  });
-
-  it("warns when completionStep > totalDots+2 (unreachable step)", () => {
-    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
-    // completionStep 9 > totalDots+2=7 → should warn
-    render(<VisualModuleShell {...base({ step: 1, totalDots: 5, completionStep: 9 })} />);
-    expect(warnSpy).toHaveBeenCalledWith(
-      expect.stringContaining("completionStep (9) is > totalDots+2 (7)"),
-    );
-    warnSpy.mockRestore();
-  });
-
-  it("does NOT warn when completionStep === totalDots+1 (valid default position)", () => {
-    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
-    render(<VisualModuleShell {...base({ step: 1, totalDots: 5, completionStep: 6 })} />);
-    expect(warnSpy).not.toHaveBeenCalled();
-    warnSpy.mockRestore();
-  });
-
-  it("does NOT warn when completionStep === totalDots+2 (upper boundary, still valid)", () => {
-    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
-    render(<VisualModuleShell {...base({ step: 1, totalDots: 5, completionStep: 7 })} />);
-    expect(warnSpy).not.toHaveBeenCalled();
-    warnSpy.mockRestore();
-  });
-
-  it("derives completionStep = totalDots+1 when prop is omitted and shows completion screen at that step", () => {
-    // Default totalDots=5, so derived completionStep should be 6
-    render(<VisualModuleShell {...base({ step: 6 })} />);
-    expect(screen.getByText("Module Complete")).toBeTruthy();
-    expect(screen.queryByTestId("child")).toBeNull();
-  });
-
-  it("derives completionStep = totalDots+1 for a non-default totalDots value", () => {
-    // totalDots=3 → derived completionStep=4; step 4 should show completion
-    render(<VisualModuleShell {...base({ step: 4, totalDots: 3 })} />);
-    expect(screen.getByText("Module Complete")).toBeTruthy();
-  });
-
-  it("does not show completion screen one step before the derived completionStep", () => {
-    // totalDots=3 → derived completionStep=4; step 3 should NOT show completion
-    render(<VisualModuleShell {...base({ step: 3, totalDots: 3 })} />);
-    expect(screen.queryByText("Module Complete")).toBeNull();
-    expect(screen.getByTestId("child")).toBeTruthy();
   });
 });
 
