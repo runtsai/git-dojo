@@ -654,6 +654,115 @@ describe("loadDiskCache – cache sweep", () => {
     // rejected so the client never receives a partial/unplayable video.
     expect(getRenderCacheForTest()).toBeNull();
   });
+
+  it("skips the cache and leaves renderCache null when PROMO_EXPORT_CACHE_DIR changes between restarts", async () => {
+    // Two-phase test that mirrors a real env-var change between server restarts.
+    //
+    // PHASE 1 — old server instance: OLD_CACHE_DIR has a valid MP4; loadDiskCache
+    //   loads it into renderCache.  This proves the mock wiring is correct and
+    //   that the old dir was actually observed.
+    //
+    // PHASE 2 — new server instance: PROMO_EXPORT_CACHE_DIR is changed to
+    //   NEW_CACHE_DIR (empty).  loadDiskCache is called again after a state
+    //   reset.  It must use the new env-var value (lazy getCacheDir()), leave
+    //   renderCache null, and never touch files in OLD_CACHE_DIR.
+
+    const OLD_CACHE_DIR = "/tmp/test-old-cache-dir";
+    const NEW_CACHE_DIR = "/tmp/test-new-cache-dir";
+
+    const currentHash = await computePromoSourceHash();
+    const currentFile = `${currentHash}.mp4`;
+    const validMp4 = makeMinimalValidMp4();
+
+    // ------------------------------------------------------------------
+    // PHASE 1: load the old cache so we know it was valid and present.
+    // ------------------------------------------------------------------
+    process.env["PROMO_EXPORT_CACHE_DIR"] = OLD_CACHE_DIR;
+
+    readdirMock.mockImplementation(async (dir: unknown) => {
+      const d = String(dir);
+      if (d === OLD_CACHE_DIR) {
+        return [currentFile] as unknown as Awaited<ReturnType<typeof import("node:fs/promises").readdir>>;
+      }
+      return [] as unknown as Awaited<ReturnType<typeof import("node:fs/promises").readdir>>;
+    });
+
+    existsSyncMock.mockImplementation((p: unknown) => {
+      const s = String(p);
+      if (s.endsWith(".mp3")) return true;
+      if (s === path.join(OLD_CACHE_DIR, currentFile)) return true;
+      return false;
+    });
+
+    readFileMock.mockImplementation(async (p: unknown) => {
+      if (String(p) === path.join(OLD_CACHE_DIR, currentFile)) {
+        return validMp4 as unknown as Awaited<ReturnType<typeof import("node:fs/promises").readFile>>;
+      }
+      return Buffer.from("") as unknown as Awaited<ReturnType<typeof import("node:fs/promises").readFile>>;
+    });
+
+    await loadDiskCache();
+
+    // Phase 1 sanity-check: the old cache was loaded successfully.
+    const cacheAfterPhase1 = getRenderCacheForTest();
+    expect(cacheAfterPhase1).not.toBeNull();
+    expect(cacheAfterPhase1?.sourceHash).toBe(currentHash);
+
+    // ------------------------------------------------------------------
+    // PHASE 2: simulate a restart with a different PROMO_EXPORT_CACHE_DIR.
+    // ------------------------------------------------------------------
+
+    // Reset in-memory state as a server restart would.
+    resetRenderCacheForTest();
+
+    // Clear mock call history so assertions below refer only to Phase 2 calls.
+    vi.clearAllMocks();
+
+    // Switch to the new, empty directory.
+    process.env["PROMO_EXPORT_CACHE_DIR"] = NEW_CACHE_DIR;
+
+    // Phase 2 mocks: NEW_CACHE_DIR is empty; OLD_CACHE_DIR still has the file
+    // (it was never cleaned up by the new instance — that's the whole point).
+    readdirMock.mockImplementation(async (dir: unknown) => {
+      const d = String(dir);
+      if (d === NEW_CACHE_DIR) {
+        // New dir is empty — no stale files, no matching cache file.
+        return [] as unknown as Awaited<ReturnType<typeof import("node:fs/promises").readdir>>;
+      }
+      if (d === OLD_CACHE_DIR) {
+        // Old dir still has the file, but loadDiskCache must not touch it.
+        return [currentFile] as unknown as Awaited<ReturnType<typeof import("node:fs/promises").readdir>>;
+      }
+      return [] as unknown as Awaited<ReturnType<typeof import("node:fs/promises").readdir>>;
+    });
+
+    // existsSync: new cache path does not exist; old one does (but must not be read).
+    existsSyncMock.mockImplementation((p: unknown) => {
+      const s = String(p);
+      if (s.endsWith(".mp3")) return true;
+      if (s === path.join(OLD_CACHE_DIR, currentFile)) return true;
+      return false; // nothing under NEW_CACHE_DIR
+    });
+
+    await loadDiskCache();
+
+    // The new directory has no matching file → renderCache must be null.
+    expect(getRenderCacheForTest()).toBeNull();
+
+    // readdir must have been called with NEW_CACHE_DIR (not OLD_CACHE_DIR)
+    // during Phase 2, proving getCacheDir() re-evaluated the env var.
+    const readdirCalls = (readdirMock.mock.calls as unknown[][]).map(
+      (args) => String(args[0]),
+    );
+    expect(readdirCalls).toContain(NEW_CACHE_DIR);
+    expect(readdirCalls).not.toContain(OLD_CACHE_DIR);
+
+    // rm() must NOT have been called for any file in the old directory.
+    const oldDirRmCalls = (rmMock.mock.calls as unknown[][]).filter(
+      (args) => typeof args[0] === "string" && (args[0] as string).startsWith(OLD_CACHE_DIR),
+    );
+    expect(oldDirRmCalls).toHaveLength(0);
+  });
 });
 
 // ---------------------------------------------------------------------------
