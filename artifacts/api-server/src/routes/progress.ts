@@ -10,20 +10,24 @@ import { loadEntries, recordCompletion } from "../lib/progress-store";
 const router: IRouter = Router();
 
 /**
- * Only visual-course modules may be completed through this endpoint, and only
- * ones that actually exist. CLI (Track B) badges are recorded server-side by
- * the check route when the lesson's grader genuinely passes — never from the
- * client — so a badge always means the work was done.
+ * Build the set of completable visual-module IDs from the live `tiers` array.
  *
- * Derived from `tiers` in @workspace/course-content so it stays in sync
- * automatically when new modules are added — no manual update needed here.
+ * Evaluated on every request (not cached at module load time) so that a tier
+ * whose `status` is changed from "coming_soon" to "active" in the running
+ * process is recognised immediately — no server restart required.
+ *
+ * CLI (Track B) badges are recorded server-side by the check route when the
+ * lesson's grader genuinely passes — never from the client — so a badge always
+ * means the work was done.
  */
-const VISUAL_MODULE_IDS = new Set(
-  tiers
-    .filter((tier) => tier.status === "active")
-    .flatMap((tier) => tier.modules ?? [])
-    .map((m) => m.id),
-);
+function getVisualModuleIds(): Set<string> {
+  return new Set(
+    tiers
+      .filter((tier) => tier.status === "active")
+      .flatMap((tier) => tier.modules ?? [])
+      .map((m) => m.id),
+  );
+}
 
 
 router.get("/progress", (_req, res) => {
@@ -43,7 +47,7 @@ router.post("/progress/complete", (req, res) => {
     });
     return;
   }
-  if (!VISUAL_MODULE_IDS.has(moduleId)) {
+  if (!getVisualModuleIds().has(moduleId)) {
     res.status(400).json({ error: `Unknown module: ${moduleId}` });
     return;
   }
