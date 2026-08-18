@@ -23,7 +23,7 @@ import { BranchList } from "@/components/repo-view/branch-list";
 import { CrisisCheckRunner } from "@/components/repo-view/crisis-check-runner";
 import { DiffViewer, DiffSelection } from "@/components/repo-view/diff-viewer";
 import { useQueryClient } from "@tanstack/react-query";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { crises } from "@/content/crises";
 import NotFound from "@/pages/not-found";
 import { MapPeek } from "@/components/map-peek";
@@ -76,6 +76,19 @@ export function CrisisView() {
     },
   });
 
+  // Persist the last successfully-fetched repo so the UI stays visible
+  // (repo content panel) while the API is unreachable, instead of flipping
+  // back to the "disaster hasn't happened yet" placeholder.
+  // The ref is keyed by crisisId so that navigating to a different crisis
+  // never leaks stale data from the previous scenario.
+  const lastKnownRepoRef = useRef<{ id: string; repo: typeof repo } | undefined>(undefined);
+  if (repo?.initialized && crisisId) {
+    lastKnownRepoRef.current = { id: crisisId, repo };
+  }
+  const displayRepo =
+    repo ??
+    (lastKnownRepoRef.current?.id === crisisId ? lastKnownRepoRef.current?.repo : undefined);
+
   // Show a reconnecting banner as soon as the second poll cycle begins after a
   // failure: isFetching fires when the retry starts, failureCount >= 1 means at
   // least one attempt already failed.  Together they surface the banner within
@@ -105,7 +118,7 @@ export function CrisisView() {
     );
   };
 
-  const live = !!repo?.initialized;
+  const live = !!displayRepo?.initialized;
 
   return (
     <div className="space-y-8 pb-12 enter-slide-up max-w-7xl mx-auto w-full min-w-0">
@@ -181,7 +194,7 @@ export function CrisisView() {
             <p className="text-sm text-foreground leading-relaxed">{crisis.goal}</p>
           </div>
         </div>
-        {live && repo && (
+        {live && displayRepo && (
           <div className="mt-6 max-w-3xl">
             <div className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2">
               Work here in your terminal
@@ -208,19 +221,19 @@ export function CrisisView() {
       ) : (
         <>
           <SummaryPanel
-            summary={repo!.summary}
-            isDetached={repo!.detachedHead}
-            currentBranch={repo!.currentBranch}
+            summary={displayRepo!.summary}
+            isDetached={displayRepo!.detachedHead}
+            currentBranch={displayRepo!.currentBranch}
           />
 
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <div className="lg:col-span-2 space-y-8">
               <FileStatus
-                files={repo!.files}
+                files={displayRepo!.files}
                 onFileClick={(f) => setDiffSelection({ kind: "file", path: f.path })}
               />
               <CommitTimeline
-                commits={repo!.commits}
+                commits={displayRepo!.commits}
                 onCommitClick={(c) => setDiffSelection({ kind: "commit", hash: c.hash, shortHash: c.shortHash })}
               />
             </div>

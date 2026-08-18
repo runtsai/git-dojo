@@ -122,7 +122,7 @@ function setDrillStatus(friction: DrillFrictionEntry[]) {
     dueCount: 0,
     friction,
     refetchDue: vi.fn(),
-  } as ReturnType<typeof useDrillStatus>);
+  } as unknown as ReturnType<typeof useDrillStatus>);
 }
 
 // ---------------------------------------------------------------------------
