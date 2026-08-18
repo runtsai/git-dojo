@@ -1,0 +1,47 @@
+Perform a read-only audit of this repository. Do NOT modify any
+existing source, config, test, or content files. Do NOT refactor,
+reformat, or bump dependencies. Your only write is ONE new file:
+docs/audit/AUDIT-<today's-date>.md
+
+First, install deps, run the build, and run the full test suite.
+Report exact failures verbatim.
+
+Then audit for:
+1. Correctness bugs — logic errors, off-by-one, unhandled promise
+   rejections, race conditions, incorrect state updates, dead or
+   unreachable code.
+2. Error handling — silent catches, swallowed errors, missing
+   fallbacks, unvalidated user input, unsafe type assumptions.
+3. Security — XSS sinks (innerHTML, dangerouslySetInnerHTML),
+   injection, hardcoded secrets or tokens in source/history/CI,
+   overly broad workflow permissions, unpinned third-party actions,
+   exposed env vars in client bundles.
+4. Dependencies — known CVEs, unmaintained packages, version drift
+   between lockfile and manifest.
+5. Content accuracy — this app teaches Git/GitHub. Verify every Git
+   command, flag, and explanation in lesson/module content is
+   correct and not deprecated. Wrong instruction is a defect.
+6. Accessibility — missing labels, keyboard traps, focus management,
+   color contrast, heading order.
+7. Test coverage gaps — which critical paths have no test at all.
+8. Build/CI hygiene — failing or skipped jobs, missing caching,
+   flaky steps.
+
+Output format — for EVERY finding:
+- Severity: Critical / High / Medium / Low
+- File path and line number
+- Evidence: the actual code or content quoted
+- Why it's a defect (concrete failure mode, not a style opinion)
+- Proposed fix (describe only — do not implement)
+- Effort: S / M / L
+
+Rules:
+- Rank the full list by severity, highest first.
+- Separate CONFIRMED findings (you verified by running or reading
+  the code) from SUSPECTED findings (pattern-matched, unverified).
+  Label each.
+- If you cannot verify something, say so explicitly. Do not guess.
+- No praise, no summary of what the repo does well. Defects only.
+- If you find zero issues in a category, say "none found" and state
+  what you checked.
+End with: top 5 items I should fix first, and why those five.
