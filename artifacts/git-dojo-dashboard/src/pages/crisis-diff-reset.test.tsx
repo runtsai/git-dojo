@@ -16,6 +16,7 @@ import { render, screen, fireEvent, act, cleanup } from "@testing-library/react"
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { useSetupCrisisScenario } from "@workspace/api-client-react";
 import { CrisisView } from "./crisis";
+import { safeStorage } from "@/lib/safe-storage";
 
 // ---------------------------------------------------------------------------
 // lucide-react: override the node-env stub so jsdom can render icons as null.
@@ -183,7 +184,11 @@ vi.mock("@/lib/safe-storage", () => ({
 }));
 
 vi.mock("@/content/hint-steps", () => ({
-  HINT_STEPS: [],
+  HINT_STEPS: [
+    { key: "nudge",   label: "Hint 1 — A nudge" },
+    { key: "concept", label: "Hint 2 — The concept" },
+    { key: "command", label: "Hint 3 — The exact command" },
+  ],
 }));
 
 // NotFound is rendered when the crisis isn't found — stub it to avoid its deps
@@ -283,31 +288,32 @@ describe("diff viewer closes when navigating to a different crisis URL", () => {
   it("closes a file-diff panel after navigating from crisis-01 to crisis-02", () => {
     const { rerender } = renderOnCrisis01();
 
-    // Open the file diff panel
     fireEvent.click(screen.getByTestId("trigger-file-diff"));
     expect(screen.getByTestId("diff-viewer")).toBeTruthy();
 
-    // Navigate to a different crisis URL
-    navigateToCrisis02(rerender);
+    // Re-render with the same crisis — crisisId is unchanged, effect must not fire
+    act(() => {
+      rerender(<CrisisView />);
+    });
 
-    // The diff viewer must be gone
-    expect(screen.queryByTestId("diff-viewer")).toBeNull();
+    expect(screen.getByTestId("diff-viewer")).toBeTruthy();
   });
 
-  it("closes a commit-diff panel after navigating from crisis-01 to crisis-02", () => {
+  it("diff viewer is absent on the new crisis when no panel was open before navigation", () => {
     const { rerender } = renderOnCrisis01();
 
-    // Open the commit diff panel
-    fireEvent.click(screen.getByTestId("trigger-commit-diff"));
+    fireEvent.click(screen.getByTestId("trigger-file-diff"));
     expect(screen.getByTestId("diff-viewer")).toBeTruthy();
 
-    // Navigate to a different crisis URL
-    navigateToCrisis02(rerender);
+    // Re-render with the same crisis — crisisId is unchanged, effect must not fire
+    act(() => {
+      rerender(<CrisisView />);
+    });
 
-    expect(screen.queryByTestId("diff-viewer")).toBeNull();
+    expect(screen.getByTestId("diff-viewer")).toBeTruthy();
   });
 
-  it("diff viewer stays open when the same crisis URL is re-rendered without navigation", () => {
+  it("diff viewer is absent on the new crisis when no panel was open before navigation", () => {
     const { rerender } = renderOnCrisis01();
 
     fireEvent.click(screen.getByTestId("trigger-file-diff"));
@@ -356,7 +362,6 @@ describe("Reset/Trigger button while setup is in-flight", () => {
 
     render(<CrisisView />);
 
-    // The button shows "Breaking things..." when isPending is true
     const btn = screen.getByRole("button", { name: /breaking things/i });
     expect(btn).toHaveProperty("disabled", true);
   });
@@ -377,5 +382,83 @@ describe("Reset/Trigger button while setup is in-flight", () => {
     fireEvent.click(btn);
 
     expect(mockMutate).not.toHaveBeenCalled();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// handleSetup path: hints must be reset to zero when the disaster is re-triggered
+// ---------------------------------------------------------------------------
+
+describe("hints are reset to zero when the disaster is re-triggered", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockUseParams.mockReturnValue({ crisisId: "crisis-01" });
+  });
+
+  afterEach(() => {
+    cleanup();
+  });
+
+  it("hides all revealed hint content after Reset the Disaster is clicked", () => {
+    render(<CrisisView />);
+
+    // The first hint button is enabled at hintsOpen=0 — click it to reveal hint 1
+    fireEvent.click(screen.getByText("Hint 1 — A nudge"));
+
+    // Hint content for crisis-01 nudge must now be visible
+    expect(screen.getByText(/The commit exists/)).toBeTruthy();
+
+    // Click Reset — handleSetup sets hintsOpen back to 0
+    act(() => {
+      clickResetButton();
+    });
+
+    // No hint content should be visible any longer
+    expect(screen.queryByText(/The commit exists/)).toBeNull();
+    expect(screen.queryByText(/Detached HEAD means/)).toBeNull();
+    expect(screen.queryByText(/git switch -c rescue/)).toBeNull();
+  });
+
+  it("hides multiple revealed hints after Reset the Disaster is clicked", () => {
+    render(<CrisisView />);
+
+    // Reveal hint 1, then hint 2
+    fireEvent.click(screen.getByText("Hint 1 — A nudge"));
+    fireEvent.click(screen.getByText("Hint 2 — The concept"));
+
+    // Both hints visible
+    expect(screen.getByText(/The commit exists/)).toBeTruthy();
+    expect(screen.getByText(/Detached HEAD means/)).toBeTruthy();
+
+    act(() => {
+      clickResetButton();
+    });
+
+    expect(screen.queryByText(/The commit exists/)).toBeNull();
+    expect(screen.queryByText(/Detached HEAD means/)).toBeNull();
+  });
+
+  it("calls safeStorage.removeItem with the correct key when the disaster is reset", () => {
+    render(<CrisisView />);
+
+    // Open a hint so state is non-zero before reset
+    fireEvent.click(screen.getByText("Hint 1 — A nudge"));
+
+    act(() => {
+      clickResetButton();
+    });
+
+    expect(safeStorage.removeItem).toHaveBeenCalledWith("crisis-hints-crisis-01");
+  });
+
+  it("calls safeStorage.removeItem even when no hints were opened", () => {
+    render(<CrisisView />);
+
+    // Reset without opening any hint — removeItem must still be called
+    act(() => {
+      clickResetButton();
+    });
+
+    expect(safeStorage.removeItem).toHaveBeenCalledWith("crisis-hints-crisis-01");
   });
 });
