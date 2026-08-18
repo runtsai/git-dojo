@@ -46,7 +46,8 @@ router.get("/healthz", (_req, res) => {
     ...(smoke !== null ? { smokeCheckedAt: smoke.checkedAt } : {}),
   });
 
-  res.json(data);
+  const httpStatus = overallStatus === "degraded" ? 503 : 200;
+  res.status(httpStatus).json(data);
 });
 
 export default router;

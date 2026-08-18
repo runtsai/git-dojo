@@ -6,7 +6,16 @@ import { useDrillStatus } from "@/hooks/use-drills";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 export function Layout({ children }: { children: React.ReactNode }) {
-  const { data: health, isError } = useHealthCheck({ query: { queryKey: getHealthCheckQueryKey(), refetchInterval: 10000 } });
+  const { data: health, isError, error } = useHealthCheck({ query: { queryKey: getHealthCheckQueryKey(), refetchInterval: 10000 } });
+  // When healthz returns 503 the fetch layer throws, so `data` is undefined.
+  // Extract the response body from the ApiError so the UI can still show
+  // "Degraded" instead of "Offline" — the API is up, just reporting a problem.
+  const err503Data =
+    isError && (error as { status?: number; data?: unknown } | null)?.status === 503
+      ? ((error as { data?: { status?: string; smokeStatus?: string; smokeCheckedAt?: string } }).data ?? null)
+      : null;
+  const effectiveHealth = health ?? err503Data;
+  const isOffline = isError && err503Data == null;
   const [location] = useLocation();
   const { dueCount } = useDrillStatus();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -114,27 +123,27 @@ export function Layout({ children }: { children: React.ReactNode }) {
               <Tooltip>
                 <TooltipTrigger asChild>
                   <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-medium ml-2 shadow-inner ${
-                    isError
+                    isOffline
                       ? 'bg-destructive/10 border-destructive/30'
-                      : health?.status === 'degraded'
+                      : effectiveHealth?.status === 'degraded'
                       ? 'bg-amber-500/10 border-amber-500/30'
                       : 'bg-secondary/50 border-white/5'
                   }`}>
-                    {isError ? (
+                    {isOffline ? (
                       <><ShieldAlert className="w-3.5 h-3.5 text-destructive" /> <span className="text-muted-foreground">Offline</span></>
-                    ) : health?.status === 'degraded' ? (
+                    ) : effectiveHealth?.status === 'degraded' ? (
                       <><AlertTriangle className="w-3.5 h-3.5 text-amber-500" /> <span className="text-amber-500">Degraded</span></>
-                    ) : health?.status === 'ok' ? (
+                    ) : effectiveHealth?.status === 'ok' ? (
                       <><ShieldCheck className="w-3.5 h-3.5 text-emerald-500" /> <span className="text-muted-foreground">Active</span></>
                     ) : (
                       <><Activity className="w-3.5 h-3.5 text-primary animate-pulse" /> <span className="text-muted-foreground">Connecting</span></>
                     )}
                   </div>
                 </TooltipTrigger>
-                {health?.status === 'degraded' && (
+                {effectiveHealth?.status === 'degraded' && (
                   <TooltipContent side="bottom">
-                    {health.smokeCheckedAt
-                      ? `Checked at ${new Date(health.smokeCheckedAt).toLocaleTimeString()}`
+                    {effectiveHealth.smokeCheckedAt
+                      ? `Checked at ${new Date(effectiveHealth.smokeCheckedAt).toLocaleTimeString()}`
                       : 'Startup smoke check failed'}
                   </TooltipContent>
                 )}
@@ -258,11 +267,11 @@ export function Layout({ children }: { children: React.ReactNode }) {
 
             <div className="mt-4 pt-4 border-t border-white/5 flex items-center justify-between px-3 text-sm font-medium">
               <span className="text-muted-foreground">System Status</span>
-              {isError ? (
+              {isOffline ? (
                 <span className="flex items-center gap-2 text-destructive"><ShieldAlert className="w-4 h-4" /> Offline</span>
-              ) : health?.status === 'degraded' ? (
+              ) : effectiveHealth?.status === 'degraded' ? (
                 <span className="flex items-center gap-2 text-amber-500"><AlertTriangle className="w-4 h-4" /> Degraded</span>
-              ) : health?.status === 'ok' ? (
+              ) : effectiveHealth?.status === 'ok' ? (
                 <span className="flex items-center gap-2 text-emerald-500"><ShieldCheck className="w-4 h-4" /> Active</span>
               ) : (
                 <span className="flex items-center gap-2 text-primary animate-pulse"><Activity className="w-4 h-4" /> Connecting</span>
@@ -272,7 +281,7 @@ export function Layout({ children }: { children: React.ReactNode }) {
         )}
       </header>
 
-      {health?.status === 'degraded' && (
+      {effectiveHealth?.status === 'degraded' && (
         <div className="bg-amber-500/10 border-b border-amber-500/30 px-4 py-2.5">
           <div className="max-w-7xl mx-auto flex items-center gap-3 text-sm">
             <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" />
@@ -280,8 +289,8 @@ export function Layout({ children }: { children: React.ReactNode }) {
             <span className="text-amber-500/70">—</span>
             <span className="text-amber-500/80">
               Startup smoke check failed
-              {health.smokeCheckedAt
-                ? ` · checked ${new Date(health.smokeCheckedAt).toLocaleTimeString()}`
+              {effectiveHealth.smokeCheckedAt
+                ? ` · checked ${new Date(effectiveHealth.smokeCheckedAt).toLocaleTimeString()}`
                 : ''}
             </span>
           </div>
