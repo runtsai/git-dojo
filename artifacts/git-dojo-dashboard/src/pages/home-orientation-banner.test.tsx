@@ -181,3 +181,53 @@ describe("orientation banner — localStorage blocked before first read", () => 
     expect(screen.getByText("Start here")).toBeTruthy();
   });
 });
+
+// ---------------------------------------------------------------------------
+// Mobile-notice banner — private browsing (localStorage fully broken)
+// ---------------------------------------------------------------------------
+
+describe("mobile-notice banner — localStorage unavailable (private browsing)", () => {
+  /**
+   * When both banners are visible the DOM order is:
+   *   [0] mobile-notice dismiss  ← first in JSX
+   *   [1] orientation-panel dismiss
+   * Pick index 0 to target the mobile-notice button.
+   */
+  function getMobileNoticeDismissButton() {
+    const buttons = screen.getAllByLabelText("Dismiss");
+    return buttons[0];
+  }
+
+  it("renders the mobile-notice banner by default when localStorage is blocked", () => {
+    render(<Home />);
+    // The banner text is unique to the mobile-notice panel.
+    expect(
+      screen.getByText("A quick heads up:")
+    ).toBeTruthy();
+  });
+
+  it("hides the mobile-notice banner after its Dismiss button is clicked", () => {
+    render(<Home />);
+    fireEvent.click(getMobileNoticeDismissButton());
+    expect(screen.queryByText("A quick heads up:")).toBeNull();
+  });
+
+  it("writes the correct key to the in-memory fallback after dismiss", () => {
+    render(<Home />);
+    fireEvent.click(getMobileNoticeDismissButton());
+    // safeStorage must have stored "true" under the mobile-notice key even
+    // though localStorage threw on every access.
+    expect(safeStorage.getItem("dojo-mobile-notice-dismissed")).toBe("true");
+  });
+
+  it("does not throw when dismissing even though localStorage is broken", () => {
+    render(<Home />);
+    expect(() => fireEvent.click(getMobileNoticeDismissButton())).not.toThrow();
+  });
+
+  it("treats the banner as un-dismissed when getItem throws and memStore is empty", () => {
+    // memStore was reset in beforeEach, storage is broken — no prior write.
+    render(<Home />);
+    expect(screen.getByText("A quick heads up:")).toBeTruthy();
+  });
+});
