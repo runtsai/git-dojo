@@ -294,6 +294,51 @@ assert_contains "$LAPTOP/rates.txt" "180 per pallet" \
 rm -rf "$ROOT"
 
 # ═════════════════════════════════════════════════════════════════════════════
+# Git identity warning — partial identity edge cases
+# Verifies that lesson-01's HEADS UP block fires when only ONE of user.name /
+# user.email is absent (the condition uses OR, so either missing should trigger).
+# ═════════════════════════════════════════════════════════════════════════════
+printf "\n\033[1;34m» Git identity warning — partial identity\033[0m\n"
+
+# Case 1: user.name set, user.email missing → warning must appear.
+IDTEST_HOME1="$(mktemp -d)"
+ID_ROOT1="$(mktemp -d)"
+cp -r "$LESSONS_DIR/lesson-01-first-snapshot" "$ID_ROOT1/"
+printf '[user]\n    name = Test User\n' > "$IDTEST_HOME1/.gitconfig"
+ID_OUT1="$(HOME="$IDTEST_HOME1" GIT_CONFIG_GLOBAL="$IDTEST_HOME1/.gitconfig" \
+  bash "$ID_ROOT1/lesson-01-first-snapshot/setup.sh" 2>&1 || true)"
+if echo "$ID_OUT1" | grep -q "HEADS UP"; then
+  ok "identity warning (email missing): HEADS UP block printed"
+else
+  fail "identity warning (email missing): HEADS UP block NOT printed"
+fi
+if echo "$ID_OUT1" | grep -q "doctor.sh"; then
+  ok "identity warning (email missing): doctor.sh hint printed"
+else
+  fail "identity warning (email missing): doctor.sh hint NOT printed"
+fi
+rm -rf "$IDTEST_HOME1" "$ID_ROOT1"
+
+# Case 2: user.email set, user.name missing → warning must appear.
+IDTEST_HOME2="$(mktemp -d)"
+ID_ROOT2="$(mktemp -d)"
+cp -r "$LESSONS_DIR/lesson-01-first-snapshot" "$ID_ROOT2/"
+printf '[user]\n    email = test@example.invalid\n' > "$IDTEST_HOME2/.gitconfig"
+ID_OUT2="$(HOME="$IDTEST_HOME2" GIT_CONFIG_GLOBAL="$IDTEST_HOME2/.gitconfig" \
+  bash "$ID_ROOT2/lesson-01-first-snapshot/setup.sh" 2>&1 || true)"
+if echo "$ID_OUT2" | grep -q "HEADS UP"; then
+  ok "identity warning (name missing): HEADS UP block printed"
+else
+  fail "identity warning (name missing): HEADS UP block NOT printed"
+fi
+if echo "$ID_OUT2" | grep -q "doctor.sh"; then
+  ok "identity warning (name missing): doctor.sh hint printed"
+else
+  fail "identity warning (name missing): doctor.sh hint NOT printed"
+fi
+rm -rf "$IDTEST_HOME2" "$ID_ROOT2"
+
+# ═════════════════════════════════════════════════════════════════════════════
 # ERR trap — doctor.sh hint appears when a setup script fails midway
 # ─────────────────────────────────────────────────────────────────────────────
 # Strategy: shadow git with a fake binary that exits 1 immediately. Lesson-02
