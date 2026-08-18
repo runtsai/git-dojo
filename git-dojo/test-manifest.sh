@@ -2,6 +2,10 @@
 # test-manifest.sh — cross-checks lesson folders against the dashboard manifest.
 #
 # Rules enforced:
+#   0. Every lesson-like folder must follow the canonical naming convention
+#      (lesson-NN-slug, all lowercase, numeric NN, at least one slug token).
+#      Folders with unexpected casing, separators, or alpha-suffixed numbers
+#      are flagged before any ID extraction takes place.
 #   1. Every lesson-NN folder in git-dojo/ must have its ID in CLI_LESSON_IDS.
 #   2. Every ID in CLI_LESSON_IDS must have a corresponding lesson-NN-* folder.
 #
@@ -19,12 +23,35 @@ if [ ! -f "$LESSONS_FILE" ]; then
   exit 1
 fi
 
+FAILURES=0
+
+# ── Check 0: detect lesson-like folders that violate the naming convention ────
+# A broader scan (case-insensitive -iname plus an underscore variant) catches
+# names that the canonical case-sensitive "lesson-*" pattern would silently
+# skip — e.g. Lesson-01-*, LESSON-02-*, lesson_01-*, lesson-01a-*.
+#
+# Canonical pattern: lesson-NN-slug (fully anchored)
+#   • all-lowercase "lesson"
+#   • dash separator (not underscore)
+#   • one or more decimal digits for NN (no alpha suffix like "01a")
+#   • one or more dash-separated slug tokens, each token [a-z0-9]+
+#   • no trailing underscores, uppercase letters, or other non-dash separators
+CANONICAL_RE='^lesson-[0-9]+-[a-z0-9]+(-[a-z0-9]+)*$'
+while IFS= read -r folder; do
+  bname=$(basename "$folder")
+  if [[ "$bname" =~ $CANONICAL_RE ]]; then
+    pass "folder '$bname' follows the naming convention"
+  else
+    fail "folder '$bname' violates naming convention — expected lesson-NN-slug (all lowercase, numeric NN, dash separators, [a-z0-9] tokens only)"
+    FAILURES=$((FAILURES + 1))
+  fi
+done < <(find "$SCRIPT_DIR" -maxdepth 1 -type d \( -iname "lesson-*" -o -iname "lesson_*" \) | sort)
+
 # ── Collect folder IDs ────────────────────────────────────────────────────────
-# Lesson folders are named lesson-NN-<slug>. The manifest ID is the lesson-NN prefix.
+# Only process folders that passed the naming convention check above.
+# The manifest ID is the lesson-NN prefix (first two dash-separated tokens).
 FOLDER_IDS=()
 while IFS= read -r folder; do
-  id="${folder%%-*-*}"  # strip everything after the second dash
-  # fallback: use awk to get the first two dash-separated tokens
   id=$(basename "$folder" | awk -F'-' '{print $1"-"$2}')
   FOLDER_IDS+=("$id")
 done < <(find "$SCRIPT_DIR" -maxdepth 1 -type d -name "lesson-*" | sort)
@@ -43,8 +70,6 @@ while IFS= read -r line; do
     MANIFEST_IDS+=("${BASH_REMATCH[1]}")
   fi
 done < "$LESSONS_FILE"
-
-FAILURES=0
 
 # ── Check 1: every folder ID must appear in the manifest ─────────────────────
 for fid in "${FOLDER_IDS[@]}"; do
