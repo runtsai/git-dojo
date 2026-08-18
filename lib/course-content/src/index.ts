@@ -80,3 +80,46 @@ export const MODULE_PREREQUISITES: Record<string, string> = Object.fromEntries(
     .filter((m): m is ModuleDef & { prerequisite: string } => m.prerequisite !== undefined)
     .map((m) => [m.id, m.prerequisite]),
 );
+
+/**
+ * Walks the prerequisite graph starting from each key and returns a
+ * human-readable cycle description if one is found, or `null` if the graph is
+ * acyclic.
+ *
+ * Example returned string for a cycle: `"2.4 → 2.3 → 2.4"`
+ *
+ * Exported so unit tests can exercise it with synthetic inputs.
+ */
+export function findPrerequisiteCycle(
+  prereqs: Record<string, string>,
+): string | null {
+  for (const startId of Object.keys(prereqs)) {
+    const visited = new Set<string>();
+    const path: string[] = [];
+    let current: string | undefined = startId;
+    while (current !== undefined) {
+      if (visited.has(current)) {
+        const cycleStart = path.indexOf(current);
+        return [...path.slice(cycleStart), current].join(" → ");
+      }
+      visited.add(current);
+      path.push(current);
+      current = prereqs[current];
+    }
+  }
+  return null;
+}
+
+// ── Startup guard ───────────────────────────────────────────────────────────
+// Runs once when the module is first imported (server startup, test load, or
+// build-time evaluation).  A cycle in MODULE_PREREQUISITES would make one or
+// more modules permanently unreachable, so we fail loudly rather than silently
+// locking learners out.
+const _cycle = findPrerequisiteCycle(MODULE_PREREQUISITES);
+if (_cycle) {
+  throw new Error(
+    `[course-content] Circular prerequisite chain detected: ${_cycle}. ` +
+      `This would lock learners out of those modules forever. ` +
+      `Fix the prerequisite declarations in tiers.`,
+  );
+}

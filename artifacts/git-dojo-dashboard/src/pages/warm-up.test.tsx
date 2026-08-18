@@ -90,12 +90,31 @@ import type { DrillFrictionEntry } from "@workspace/api-client-react";
 
 /** Minimal eligible drill item so WarmUp renders the lobby (not the empty state). */
 const STUB_ELIGIBLE = [
-  { id: "drill-01", type: "concept" as const, prompt: "What does git reset do?", sourceLabel: "Lesson 01", sourceId: "lesson-01" },
+  {
+    id: "drill-01",
+    type: "concept" as const,
+    prompt: "What does git reset do?",
+    options: ["Deletes the repo", "Moves HEAD back", "Pushes to remote", "Merges branches"],
+    answerIndex: 1,
+    explain: "git reset moves HEAD to a previous commit.",
+    sourceLabel: "Lesson 01",
+    sourceId: "lesson-01",
+    unlockedBy: ["1.1"],
+  },
 ];
 
 /** A stub stats entry to avoid undefined de-refs inside WarmUp. */
 const STUB_STATS = [
-  { id: "drill-01", seenCount: 0, lastCorrect: null, lastSeenAt: null, dueNow: false },
+  {
+    id: "drill-01",
+    seenCount: 0,
+    correctCount: 0,
+    lastCorrect: null,
+    lastSeenAt: null,
+    dueAt: null,
+    dueNow: false,
+    priority: 0,
+  },
 ];
 
 function makeRecoveredEntry(sourceId: string): DrillFrictionEntry {
