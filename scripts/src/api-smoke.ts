@@ -538,10 +538,10 @@ async function smokeDurationMismatch(): Promise<void> {
         timeout: 15_000,
       });
     } catch {
-      // Promo app loaded a page but the React bundle never initialised — the
-      // app is not running in this environment (e.g. CI / smoke-only run).
-      console.log(
-        `  -  ${label}  (skipped — promo app not running at ${PROMO_EXPORT_PAGE_URL})`,
+      fail(
+        label,
+        `Promo page did not set window.__exportReady within 15 s — ` +
+          `is the promo app running at ${PROMO_EXPORT_PAGE_URL}?`,
       );
       return;
     }
