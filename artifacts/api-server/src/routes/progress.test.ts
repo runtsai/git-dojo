@@ -8,6 +8,7 @@
 import { describe, it, expect, vi, beforeEach, beforeAll, afterAll } from "vitest";
 import express from "express";
 import type { Server } from "node:http";
+import { MODULE_PREREQUISITES } from "@workspace/course-content";
 
 // ---------------------------------------------------------------------------
 // Mock the progress-store BEFORE importing the route so the route picks up
@@ -155,6 +156,37 @@ describe("POST /api/progress/complete — prerequisite gate", () => {
     const count24 = visualEntries.filter((e) => e.moduleId === "2.4").length;
     expect(count24).toBe(1); // not duplicated
   });
+});
+
+describe("POST /api/progress/complete — CLI-track prereq bypass (all MODULE_PREREQUISITES entries)", () => {
+  /**
+   * For every gated module in MODULE_PREREQUISITES, seeding only a CLI-track
+   * completion of the prerequisite must NOT satisfy the visual-track gate.
+   * This parameterised test catches regressions when new prereq mappings are added.
+   */
+  const prereqEntries = Object.entries(MODULE_PREREQUISITES);
+
+  it("MODULE_PREREQUISITES has at least one entry (sanity check)", () => {
+    expect(prereqEntries.length).toBeGreaterThan(0);
+  });
+
+  for (const [gatedModuleId, prereqModuleId] of prereqEntries) {
+    it(`CLI-track ${prereqModuleId} completion does NOT unlock ${gatedModuleId}`, async () => {
+      // Seed only a CLI-track completion of the prerequisite.
+      mockEntries.push({
+        moduleId: prereqModuleId,
+        track: "cli",
+        completedAt: new Date().toISOString(),
+      });
+
+      const { status, body } = await postComplete(gatedModuleId);
+
+      expect(status).toBe(400);
+      expect(body).toMatchObject({
+        error: expect.stringContaining(prereqModuleId),
+      });
+    });
+  }
 });
 
 describe("POST /api/progress/complete — basic validation", () => {
