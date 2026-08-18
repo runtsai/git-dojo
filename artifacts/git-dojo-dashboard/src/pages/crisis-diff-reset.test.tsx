@@ -14,6 +14,7 @@
 import React from "react";
 import { render, screen, fireEvent, act, cleanup } from "@testing-library/react";
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { useSetupCrisisScenario } from "@workspace/api-client-react";
 import { CrisisView } from "./crisis";
 
 // ---------------------------------------------------------------------------
@@ -104,7 +105,7 @@ vi.mock("@workspace/api-client-react", () => ({
     failureCount: 0,
   }),
   getGetCrisisRepoStateQueryKey: (id: string) => ["crisis-repo", id],
-  useSetupCrisisScenario: () => ({ mutate: vi.fn(), isPending: false }),
+  useSetupCrisisScenario: vi.fn(() => ({ mutate: vi.fn(), isPending: false })),
   useListCrisisScenarios: () => ({ data: [] }),
   getListCrisisScenariosQueryKey: () => ["list-crisis"],
   // All four diff hooks must be present — DiffViewer imports every variant
@@ -329,5 +330,52 @@ describe("diff viewer closes when navigating to a different crisis URL", () => {
     navigateToCrisis02(rerender);
 
     expect(screen.queryByTestId("diff-viewer")).toBeNull();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Reset button disabled state while setup is in-flight (isPending: true)
+// ---------------------------------------------------------------------------
+
+describe("Reset/Trigger button while setup is in-flight", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockUseParams.mockReturnValue({ crisisId: "crisis-01" });
+  });
+
+  afterEach(() => {
+    cleanup();
+  });
+
+  it("has the disabled attribute when isPending is true", () => {
+    const mockMutate = vi.fn();
+    vi.mocked(useSetupCrisisScenario).mockReturnValue({
+      mutate: mockMutate,
+      isPending: true,
+    } as ReturnType<typeof useSetupCrisisScenario>);
+
+    render(<CrisisView />);
+
+    // The button shows "Breaking things..." when isPending is true
+    const btn = screen.getByRole("button", { name: /breaking things/i });
+    expect(btn).toHaveProperty("disabled", true);
+  });
+
+  it("does not call mutate when the disabled button is clicked", () => {
+    const mockMutate = vi.fn();
+    vi.mocked(useSetupCrisisScenario).mockReturnValue({
+      mutate: mockMutate,
+      isPending: true,
+    } as ReturnType<typeof useSetupCrisisScenario>);
+
+    render(<CrisisView />);
+
+    const btn = screen.getByRole("button", { name: /breaking things/i });
+
+    // Disabled buttons do not fire click handlers, but guard against both
+    // the native disabled behaviour and any explicit guard in handleSetup.
+    fireEvent.click(btn);
+
+    expect(mockMutate).not.toHaveBeenCalled();
   });
 });
