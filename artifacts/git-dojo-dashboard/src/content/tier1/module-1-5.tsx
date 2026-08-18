@@ -106,6 +106,7 @@ export function Module1_5({ onStepChange }: VisualModuleProps = {}) {
       isSubmitDisabled={step === 5 ? (!foundFile || !checkedNotification) : false}
       error={showError}
       stepHints={stepHints}
+      moduleId="1.5"
     >
       {step === 1 && (
         <>

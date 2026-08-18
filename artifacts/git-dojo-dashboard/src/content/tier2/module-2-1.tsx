@@ -80,6 +80,7 @@ export function Module2_1({ onStepChange }: VisualModuleProps = {}) {
       isPending={completeModule.isPending}
       isSubmitDisabled={step === 5 ? !answer : false}
       error={showError}
+      moduleId="2.1"
     >
       {step === 1 && (
         <>

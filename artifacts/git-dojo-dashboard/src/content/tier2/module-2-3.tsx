@@ -88,6 +88,7 @@ export function Module2_3({ onStepChange }: VisualModuleProps = {}) {
       nextLabel={step === 4 ? "Deliver Your Verdict" : "Continue"}
       // Step 5: submit is inside SimReviewPanel – only expose Back in the shell nav
       error={showError}
+      moduleId="2.3"
     >
       {step === 1 && (
         <>

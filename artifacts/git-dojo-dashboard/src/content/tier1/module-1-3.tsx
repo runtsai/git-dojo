@@ -146,6 +146,7 @@ export function Module1_3({ onStepChange }: VisualModuleProps = {}) {
       isPending={completeModule.isPending}
       error={showError}
       stepHints={stepHints}
+      moduleId="1.3"
     >
       {step === 1 && (
         <>

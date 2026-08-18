@@ -94,6 +94,7 @@ export function Module2_2({ onStepChange }: VisualModuleProps = {}) {
       submitLabel="Submit Findings"
       isPending={completeModule.isPending}
       error={showError}
+      moduleId="2.2"
     >
       {step === 1 && (
         <>

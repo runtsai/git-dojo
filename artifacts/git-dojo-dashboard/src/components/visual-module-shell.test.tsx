@@ -13,7 +13,7 @@
 
 import React from "react";
 import { render, screen, fireEvent, cleanup } from "@testing-library/react";
-import { describe, it, expect, vi, afterEach } from "vitest";
+import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
 import { VisualModuleShell } from "./visual-module-shell";
 
 // ---------------------------------------------------------------------------
@@ -27,6 +27,7 @@ vi.mock("lucide-react", () => {
     ArrowLeft: s,
     CheckCircle2: s,
     ChevronRight: s,
+    ChevronDown: s,
     AlertCircle: s,
   };
 });
@@ -181,8 +182,9 @@ describe("nav row", () => {
         })}
       />,
     );
-    // Submit button must be present; Continue must not be
+    // Only the Submit button is present (no onPrev → no Back button)
     const buttons = screen.getAllByRole("button");
+    expect(buttons).toHaveLength(1);
     const labels = buttons.map((b) => b.textContent ?? "");
     expect(labels.some((l) => l.includes("Submit"))).toBe(true);
     expect(labels.some((l) => l.includes("Continue"))).toBe(false);
@@ -376,7 +378,7 @@ describe("error banner", () => {
 // ---------------------------------------------------------------------------
 
 describe("progress dots", () => {
-  it("renders the configured number of dots", () => {
+  it("renders the correct number of dots (totalDots prop)", () => {
     const { container } = render(
       <VisualModuleShell {...base({ step: 3, totalDots: 3 })} />,
     );
@@ -384,25 +386,26 @@ describe("progress dots", () => {
     expect(dots).toHaveLength(3);
   });
 
-  it("marks the current dot as active (bg-primary scale-150)", () => {
+  it("marks the current step dot as active (bg-primary scale-150)", () => {
     const { container } = render(
-      <VisualModuleShell {...base({ step: 2, totalDots: 3 })} />,
+      <VisualModuleShell {...base({ step: 1, totalDots: 3 })} />,
     );
     const dots = Array.from(container.querySelectorAll(".w-2.h-2.rounded-full"));
-    // dot index 1 = step 2 = current
-    expect(dots[1].className).toContain("bg-primary");
-    expect(dots[1].className).toContain("scale-150");
+    // Dot 0 is step 1 — the active step
+    expect(dots[0].className).toContain("bg-primary");
+    expect(dots[0].className).toContain("scale-150");
   });
 
-  it("marks past dots with a dimmer active class (bg-primary/50)", () => {
+  it("marks past dots with the visited class (bg-primary/50)", () => {
     const { container } = render(
       <VisualModuleShell {...base({ step: 3, totalDots: 3 })} />,
     );
     const dots = Array.from(container.querySelectorAll(".w-2.h-2.rounded-full"));
-    // dots 0 and 1 (i=1 and i=2) are before current step 3
+    // Dots 0 and 1 (steps 1 and 2) are before current step 3
     expect(dots[0].className).toContain("bg-primary/50");
     expect(dots[1].className).toContain("bg-primary/50");
   });
+
 
   it("marks future dots with the inactive class (bg-white/10)", () => {
     const { container } = render(
@@ -412,5 +415,126 @@ describe("progress dots", () => {
     // dots 1 and 2 (i=2 and i=3) are after current step 1
     expect(dots[1].className).toContain("bg-white/10");
     expect(dots[2].className).toContain("bg-white/10");
+  });
+
+  it("renders 5 dots when totalDots is omitted (default)", () => {
+    const { container } = render(
+      <VisualModuleShell {...base({ step: 1 })} />,
+    );
+    const dots = Array.from(container.querySelectorAll(".w-2.h-2.rounded-full"));
+    expect(dots).toHaveLength(5);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Hint panel
+// ---------------------------------------------------------------------------
+
+describe("hint panel", () => {
+  beforeEach(() => {
+    localStorage.clear();
+  });
+
+  it("is hidden when no stepHints are provided", () => {
+    render(<VisualModuleShell {...base()} />);
+    expect(screen.queryByText("Where in GitHub")).toBeNull();
+  });
+
+  it("shows expanded by default on first visit (no stored state)", () => {
+    render(
+      <VisualModuleShell
+        {...base({
+          stepHints: { 1: <span>Go to Settings</span> },
+          moduleId: "test-module",
+        })}
+      />,
+    );
+    expect(screen.getByText("Where in GitHub")).toBeTruthy();
+    expect(screen.getByText("Go to Settings")).toBeTruthy();
+  });
+
+  it("collapses the hint body when the toggle is clicked", () => {
+    render(
+      <VisualModuleShell
+        {...base({
+          stepHints: { 1: <span>Go to Settings</span> },
+          moduleId: "test-module",
+        })}
+      />,
+    );
+    expect(screen.getByText("Go to Settings")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: /where in github/i }));
+    expect(screen.queryByText("Go to Settings")).toBeNull();
+  });
+
+  it("expands again when the toggle is clicked a second time", () => {
+    render(
+      <VisualModuleShell
+        {...base({
+          stepHints: { 1: <span>Expandable hint</span> },
+          moduleId: "test-module",
+        })}
+      />,
+    );
+    const toggle = screen.getByRole("button", { name: /where in github/i });
+    fireEvent.click(toggle); // collapse
+    expect(screen.queryByText("Expandable hint")).toBeNull();
+    fireEvent.click(toggle); // expand again
+    expect(screen.getByText("Expandable hint")).toBeTruthy();
+  });
+
+  it("persists collapsed state to localStorage keyed by moduleId", () => {
+    render(
+      <VisualModuleShell
+        {...base({
+          stepHints: { 1: <span>Hint</span> },
+          moduleId: "module-persist",
+        })}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: /where in github/i }));
+    expect(localStorage.getItem("hint-collapsed-module-persist")).toBe("true");
+  });
+
+  it("reads collapsed=true from localStorage on mount and starts collapsed", () => {
+    localStorage.setItem("hint-collapsed-module-remembered", "true");
+    render(
+      <VisualModuleShell
+        {...base({
+          stepHints: { 1: <span>Remembered hint</span> },
+          moduleId: "module-remembered",
+        })}
+      />,
+    );
+    expect(screen.queryByText("Remembered hint")).toBeNull();
+  });
+
+  it("uses separate localStorage keys for different module IDs", () => {
+    localStorage.setItem("hint-collapsed-module-a", "true");
+    render(
+      <VisualModuleShell
+        {...base({
+          stepHints: { 1: <span>Module B hint</span> },
+          moduleId: "module-b",
+        })}
+      />,
+    );
+    // module-b has no stored state — should be expanded
+    expect(screen.getByText("Module B hint")).toBeTruthy();
+  });
+
+  it("is hidden on the completion screen even when a hint is defined for that step", () => {
+    render(
+      <VisualModuleShell
+        {...base({
+          step: 6,
+          completionStep: 6,
+          stepHints: { 6: <span>Should not appear</span> },
+          moduleId: "test-module",
+        })}
+      />,
+    );
+    expect(screen.queryByText("Where in GitHub")).toBeNull();
+    expect(screen.queryByText("Should not appear")).toBeNull();
   });
 });

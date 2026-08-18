@@ -210,6 +210,7 @@ export function Module2_4() {
       }
       // Step 3: submit is inside SimReviewPanel – only expose Back in the shell nav
       error={showError}
+      moduleId="2.4"
     >
       {/* ── Step 1: How the loop works ─────────────────────────────────── */}
       {step === 1 && (
