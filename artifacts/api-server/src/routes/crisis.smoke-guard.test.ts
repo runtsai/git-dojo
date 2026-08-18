@@ -42,6 +42,7 @@ import { execFileSync, execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { Buffer } from "node:buffer";
 
 const execFileAsync = promisify(execFile);
 
@@ -62,6 +63,37 @@ function httpGet(port: number, urlPath: string): Promise<{ status: number; body:
       });
     });
     req.on("error", reject);
+  });
+}
+
+function httpPost(port: number, urlPath: string, payload: unknown = {}): Promise<{ status: number; body: unknown }> {
+  return new Promise((resolve, reject) => {
+    const data = Buffer.from(JSON.stringify(payload));
+    const req = http.request(
+      {
+        hostname: "127.0.0.1",
+        port,
+        path: urlPath,
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Content-Length": data.byteLength,
+        },
+      },
+      (res) => {
+        const chunks: Buffer[] = [];
+        res.on("data", (c: Buffer) => chunks.push(c));
+        res.on("end", () => {
+          let body: unknown;
+          try { body = JSON.parse(Buffer.concat(chunks).toString()); }
+          catch { body = Buffer.concat(chunks).toString(); }
+          resolve({ status: res.statusCode ?? 0, body });
+        });
+      },
+    );
+    req.on("error", reject);
+    req.write(data);
+    req.end();
   });
 }
 
@@ -486,6 +518,79 @@ async function runSmoke(port: number): Promise<void> {
     // which requests were recorded.
   }
 }
+
+// ---------------------------------------------------------------------------
+// 4. Setup → check round-trip — grader must report passed after a fresh setup
+//
+// Confirms that calling setup immediately followed by check never produces a
+// false failure.  Covers the crisis-smoke sentinel (trivially solvable by
+// design) so that any grader regression is caught before a learner sees it.
+// ---------------------------------------------------------------------------
+
+describe("POST setup → POST check round-trip — grader passes after a fresh setup", () => {
+  let server: http.Server;
+  let port: number;
+  let fakeHome: string;
+  let originalHome: string | undefined;
+
+  beforeAll(async () => {
+    fakeHome = mkdtempSync(path.join(tmpdir(), "crisis-roundtrip-"));
+    mkdirSync(path.join(fakeHome, "git-dojo"), { recursive: true });
+
+    originalHome = process.env.HOME;
+    process.env.HOME = fakeHome;
+
+    // HOME is already set above; crisisRoot() reads os.homedir() per-request
+    // so the module-cached import picks up the new HOME automatically.
+    const { default: crisisRouter } = await import("./crisis.js");
+
+    const app = express();
+    app.use(express.json());
+    app.use((req, _res, next) => {
+      (req as unknown as Record<string, unknown>)["log"] = {
+        info: () => {}, warn: () => {}, error: () => {},
+      };
+      next();
+    });
+    app.use("/", crisisRouter);
+
+    server = http.createServer(app);
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+    port = (server.address() as AddressInfo).port;
+  });
+
+  afterAll(async () => {
+    await new Promise<void>((resolve, reject) =>
+      server.close((err) => (err ? reject(err) : resolve())),
+    );
+    if (originalHome !== undefined) process.env.HOME = originalHome;
+    else delete process.env.HOME;
+    try { rmSync(fakeHome, { recursive: true, force: true }); } catch { /* best-effort */ }
+  });
+
+  it("crisis-smoke: grader returns passed:true immediately after setup", async () => {
+    const setup = await httpPost(port, "/crisis/scenarios/crisis-smoke/setup");
+    expect(setup.status).toBe(200);
+    expect((setup.body as { ok?: boolean }).ok).toBe(true);
+
+    const check = await httpPost(port, "/crisis/scenarios/crisis-smoke/check");
+    expect(check.status).toBe(200);
+    const result = check.body as { ran?: boolean; passed?: boolean; output?: string };
+    expect(result.ran).toBe(true);
+    expect(result.passed).toBe(true);
+  });
+
+  it("crisis-smoke: grader output contains no FAIL lines after a fresh setup", async () => {
+    // Re-run setup to guarantee a clean baseline before checking output detail.
+    await httpPost(port, "/crisis/scenarios/crisis-smoke/setup");
+
+    const check = await httpPost(port, "/crisis/scenarios/crisis-smoke/check");
+    const result = check.body as { output?: string };
+    const lines = (result.output ?? "").split("\n");
+    const failLines = lines.filter((l) => l.startsWith("FAIL:"));
+    expect(failLines).toHaveLength(0);
+  });
+});
 
 describe("smoke-script integration — sentinel contract (crisis-smoke always set up)", () => {
   it(
