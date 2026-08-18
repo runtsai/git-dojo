@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { layoutGraph, colorForHash } from "./commit-timeline";
+import { layoutGraph, colorForHash, MAX_GUTTER_LANES, COL_W } from "./commit-timeline";
 import type { RepoCommit } from "@workspace/api-client-react";
 
 // ---------------------------------------------------------------------------
@@ -1266,5 +1266,62 @@ describe("two independent long-running branches both merged into main", () => {
   it("maxCol is at least 2 (main + branchA + branchB are simultaneously live before mergeA)", () => {
     const { maxCol } = layoutGraph(commits());
     expect(maxCol).toBeGreaterThanOrEqual(2);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Gutter-width cap: visual smoke test for a 12-branch layout
+// ---------------------------------------------------------------------------
+
+describe("gutter width cap (MAX_GUTTER_LANES)", () => {
+  // Build a root commit with 12 branches all diverging from it simultaneously.
+  // This forces maxCol >= 11 (12 lanes needed), which exceeds MAX_GUTTER_LANES (8).
+  // The visible gutter must be capped at MAX_GUTTER_LANES * COL_W pixels.
+
+  function build12BranchLayout() {
+    const root = makeCommit("Root");
+    const branches = Array.from({ length: 12 }, (_, i) =>
+      makeCommit(`Branch-${i}`, [root.hash]),
+    );
+    return layoutGraph([...branches, root]);
+  }
+
+  it("12 simultaneous branches produce maxCol >= 11", () => {
+    const { maxCol } = build12BranchLayout();
+    expect(maxCol).toBeGreaterThanOrEqual(11);
+  });
+
+  it("visibleGutterW is capped at MAX_GUTTER_LANES * COL_W for a 12-branch layout", () => {
+    const { maxCol } = build12BranchLayout();
+    const visibleGutterW = Math.min(maxCol + 1, MAX_GUTTER_LANES) * COL_W;
+    expect(visibleGutterW).toBe(MAX_GUTTER_LANES * COL_W);
+  });
+
+  it("full gutterW exceeds the cap for a 12-branch layout", () => {
+    const { maxCol } = build12BranchLayout();
+    const gutterW = (maxCol + 1) * COL_W;
+    expect(gutterW).toBeGreaterThan(MAX_GUTTER_LANES * COL_W);
+  });
+
+  it("a layout within the cap (7 branches) is not capped", () => {
+    const root = makeCommit("Root");
+    const branches = Array.from({ length: 7 }, (_, i) =>
+      makeCommit(`Branch-${i}`, [root.hash]),
+    );
+    const { maxCol } = layoutGraph([...branches, root]);
+    // 7 simultaneous branches use at most 7 lanes → maxCol <= MAX_GUTTER_LANES - 1
+    expect(maxCol).toBeLessThan(MAX_GUTTER_LANES);
+    // visibleGutterW equals the full gutterW (no cap needed)
+    const gutterW = (maxCol + 1) * COL_W;
+    const visibleGutterW = Math.min(maxCol + 1, MAX_GUTTER_LANES) * COL_W;
+    expect(visibleGutterW).toBe(gutterW);
+  });
+
+  it("layoutGraph still produces correct edge resolution for a 12-branch layout", () => {
+    const { edges } = build12BranchLayout();
+    for (const e of edges) {
+      expect(e.toCol).not.toBe(-1);
+      expect(e.fromCol).not.toBe(-1);
+    }
   });
 });

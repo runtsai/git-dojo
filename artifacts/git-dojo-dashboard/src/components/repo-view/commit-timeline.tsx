@@ -9,8 +9,11 @@ import { GitCommit as GitCommitIcon, Clock, User, Cloud, GitBranch, GitMerge } f
  */
 
 const ROW_H = 84;
-const COL_W = 18;
+export const COL_W = 18;
 const NODE_R = 5;
+
+/** Maximum lanes shown in the visible gutter before horizontal scrolling kicks in. */
+export const MAX_GUTTER_LANES = 8;
 
 const LANE_COLORS = [
   // Primary palette — vivid, high-contrast hues
@@ -213,6 +216,9 @@ export function CommitTimeline({ commits, branches = [], remoteBranches = [], cu
 
   const { rows, edges, maxCol } = layoutGraph(commits);
   const gutterW = (maxCol + 1) * COL_W;
+  // Visible gutter is capped at MAX_GUTTER_LANES columns; extra lanes scroll
+  // horizontally within the SVG column only, leaving commit messages undisturbed.
+  const visibleGutterW = Math.min(maxCol + 1, MAX_GUTTER_LANES) * COL_W;
   const height = rows.length * ROW_H;
   const localTips = new Map(branches.map((b) => [b.headHash, b] as const));
   const remoteTips = new Map<string, RemoteBranch[]>();
@@ -242,8 +248,15 @@ export function CommitTimeline({ commits, branches = [], remoteBranches = [], cu
       </div>
 
       <div className="flex overflow-x-auto">
-        {/* Graph gutter: hidden on small screens to give rows full width */}
-        <svg width={gutterW} height={height} className="hidden sm:block shrink-0" aria-hidden="true">
+        {/* Graph gutter: hidden on small screens to give rows full width.
+            The outer div caps the visible width at MAX_GUTTER_LANES columns;
+            when there are more lanes the SVG scrolls horizontally inside it. */}
+        <div
+          className="hidden sm:block shrink-0 overflow-x-auto"
+          style={{ width: visibleGutterW }}
+          data-testid="gutter-scroll-container"
+        >
+        <svg width={gutterW} height={height} className="block shrink-0" aria-hidden="true">
           {edges.map((e, i) => (
             <path key={i} d={edgePath(e)} fill="none" stroke={e.color} strokeWidth="2" opacity="0.65" />
           ))}
@@ -259,6 +272,7 @@ export function CommitTimeline({ commits, branches = [], remoteBranches = [], cu
             );
           })}
         </svg>
+        </div>
 
         {/* Rows */}
         <div className="flex-1 min-w-0">
