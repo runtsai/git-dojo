@@ -413,6 +413,43 @@ fi
 
 rm -rf "$TRAP_ROOT06"
 
+# ═════════════════════════════════════════════════════════════════════════════
+# ERR trap text consistency — all lesson setup scripts must share identical
+# doctor-hint text so learners always see the same guidance.
+# ─────────────────────────────────────────────────────────────────────────────
+# Strategy: extract the trap line from each setup.sh (grep for "trap.*ERR"),
+# compare every lesson against lesson-01 (the reference), and fail on any
+# difference.
+# ═════════════════════════════════════════════════════════════════════════════
+printf "\n\033[1;34m» ERR trap text — consistent across all lesson setup scripts\033[0m\n"
+
+REFERENCE_TRAP=""
+TRAP_MISMATCH=0
+
+for SETUP in "$LESSONS_DIR"/lesson-*/setup.sh; do
+  LESSON_NAME="$(basename "$(dirname "$SETUP")")"
+  TRAP_LINE="$(grep 'trap .*ERR' "$SETUP" || true)"
+
+  if [ -z "$TRAP_LINE" ]; then
+    fail "trap text: no 'trap … ERR' line found in $LESSON_NAME/setup.sh"
+    TRAP_MISMATCH=1
+    continue
+  fi
+
+  if [ -z "$REFERENCE_TRAP" ]; then
+    # First lesson sets the reference.
+    REFERENCE_TRAP="$TRAP_LINE"
+    ok "trap text: $LESSON_NAME — trap line present (reference)"
+  elif [ "$TRAP_LINE" = "$REFERENCE_TRAP" ]; then
+    ok "trap text: $LESSON_NAME — identical to reference"
+  else
+    fail "trap text: $LESSON_NAME — differs from lesson-01 reference"
+    printf "    expected: %s\n" "$REFERENCE_TRAP"
+    printf "    got:      %s\n" "$TRAP_LINE"
+    TRAP_MISMATCH=1
+  fi
+done
+
 # ── Cleanup ───────────────────────────────────────────────────────────────────
 rm -rf "$SELFTEST_HOME"
 

@@ -1,41 +1,15 @@
-import 
-{
- describe, it, expect, beforeEach 
-}
- from "vitest"
-;
-
-import 
-{
- layoutGraph, colorForHash 
-}
- from "./commit-timeline"
-;
-
-import type 
-{
- RepoCommit 
-}
- from "@workspace/api-client-react"
-;
-
+import { describe, it, expect, beforeEach } from "vitest";
+import { layoutGraph, colorForHash } from "./commit-timeline";
+import type { RepoCommit } from "@workspace/api-client-react";
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-let _hash = 0
-;
-
-function makeCommit(subject: string, parents: string[] = []): RepoCommit 
-{
-
-  const hash = `commit${String(++_hash).padStart(3, "0")}`
-;
-
-  return 
-{
-
+let _hash = 0;
+function makeCommit(subject: string, parents: string[] = []): RepoCommit {
+  const hash = `commit${String(++_hash).padStart(3, "0")}`;
+  return {
     hash,
     shortHash: hash.slice(0, 7),
     subject,
@@ -43,725 +17,254 @@ function makeCommit(subject: string, parents: string[] = []): RepoCommit
     date: "2024-01-01T00:00:00Z",
     refs: [],
     parents,
-  
-}
-;
-
+  };
 }
 
-
-beforeEach(() => 
-{
- _hash = 0
-;
- 
-}
-)
-;
-
+beforeEach(() => { _hash = 0; });
 
 // ---------------------------------------------------------------------------
 // Linear history (single branch)
 // ---------------------------------------------------------------------------
 
-describe("linear history", () => 
-{
+describe("linear history", () => {
+  it("assigns all commits to column 0", () => {
+    const c1 = makeCommit("Initial");
+    const c2 = makeCommit("Second", [c1.hash]);
+    const c3 = makeCommit("Third", [c2.hash]);
+    const { rows } = layoutGraph([c3, c2, c1]);
+    expect(rows.every((r) => r.col === 0)).toBe(true);
+  });
 
-  it("assigns all commits to column 0", () => 
-{
+  it("produces no edges for a single commit", () => {
+    const c1 = makeCommit("Only");
+    const { edges } = layoutGraph([c1]);
+    expect(edges).toHaveLength(0);
+  });
 
-    const c1 = makeCommit("Initial")
-;
-
-    const c2 = makeCommit("Second", [c1.hash])
-;
-
-    const c3 = makeCommit("Third", [c2.hash])
-;
-
-    const 
-{
- rows 
-}
- = layoutGraph([c3, c2, c1])
-;
-
-    expect(rows.every((r) => r.col === 0)).toBe(true)
-;
-
-  
-}
-)
-;
-
-
-  it("produces no edges for a single commit", () => 
-{
-
-    const c1 = makeCommit("Only")
-;
-
-    const 
-{
- edges 
-}
- = layoutGraph([c1])
-;
-
-    expect(edges).toHaveLength(0)
-;
-
-  
-}
-)
-;
-
-
-  it("produces one edge for two linear commits", () => 
-{
-
-    const c1 = makeCommit("A")
-;
-
-    const c2 = makeCommit("B", [c1.hash])
-;
-
-    const 
-{
- rows, edges 
-}
- = layoutGraph([c2, c1])
-;
-
-    expect(edges).toHaveLength(1)
-;
-
-    const [e] = edges
-;
-
+  it("produces one edge for two linear commits", () => {
+    const c1 = makeCommit("A");
+    const c2 = makeCommit("B", [c1.hash]);
+    const { rows, edges } = layoutGraph([c2, c1]);
+    expect(edges).toHaveLength(1);
+    const [e] = edges;
     // edge runs from the child (row 0) to the parent (row 1)
-    expect(e.fromRow).toBe(0)
-;
-
-    expect(e.toRow).toBe(1)
-;
-
+    expect(e.fromRow).toBe(0);
+    expect(e.toRow).toBe(1);
     // both endpoints must be on the same column for a linear graph
-    expect(e.fromCol).toBe(rows[0]!.col)
-;
-
-    expect(e.toCol).toBe(rows[1]!.col)
-;
-
-  
-}
-)
-;
-
-}
-)
-;
-
+    expect(e.fromCol).toBe(rows[0]!.col);
+    expect(e.toCol).toBe(rows[1]!.col);
+  });
+});
 
 // ---------------------------------------------------------------------------
 // Divergent branches (two tips)
 // ---------------------------------------------------------------------------
 
-describe("divergent branches", () => 
-{
-
-  it("assigns tips to different columns", () => 
-{
-
+describe("divergent branches", () => {
+  it("assigns tips to different columns", () => {
     //   A (col 0) — the shared root
     //   |\
-    //   B  C  — diverged tips (both children of A
-;
- presented newest first)
-    const a = makeCommit("Root")
-;
-
-    const b = makeCommit("Branch-B", [a.hash])
-;
-
-    const c = makeCommit("Branch-C", [a.hash])
-;
-
+    //   B  C  — diverged tips (both children of A; presented newest first)
+    const a = makeCommit("Root");
+    const b = makeCommit("Branch-B", [a.hash]);
+    const c = makeCommit("Branch-C", [a.hash]);
     // commits ordered newest first: b and c are tips, a is the shared base
-    const 
-{
- rows 
-}
- = layoutGraph([b, c, a])
-;
+    const { rows } = layoutGraph([b, c, a]);
+    const colB = rows.find((r) => r.commit.hash === b.hash)!.col;
+    const colC = rows.find((r) => r.commit.hash === c.hash)!.col;
+    expect(colB).not.toBe(colC);
+  });
 
-    const colB = rows.find((r) => r.commit.hash === b.hash)!.col
-;
-
-    const colC = rows.find((r) => r.commit.hash === c.hash)!.col
-;
-
-    expect(colB).not.toBe(colC)
-;
-
-  
-}
-)
-;
-
-
-  it("every edge endpoint lands on its parent's actual column", () => 
-{
-
-    const a = makeCommit("Root")
-;
-
-    const b = makeCommit("Branch-B", [a.hash])
-;
-
-    const c = makeCommit("Branch-C", [a.hash])
-;
-
-    const 
-{
- rows, edges 
-}
- = layoutGraph([b, c, a])
-;
-
-    const colByHash = new Map(rows.map((r) => [r.commit.hash, r.col]))
-;
-
-    for (const e of edges) 
-{
-
-      const parentCommit = rows[e.toRow]!.commit
-;
-
-      expect(e.toCol).toBe(colByHash.get(parentCommit.hash))
-;
-
-    
-}
-
-  
-}
-)
-;
-
-}
-)
-;
-
+  it("every edge endpoint lands on its parent's actual column", () => {
+    const a = makeCommit("Root");
+    const b = makeCommit("Branch-B", [a.hash]);
+    const c = makeCommit("Branch-C", [a.hash]);
+    const { rows, edges } = layoutGraph([b, c, a]);
+    const colByHash = new Map(rows.map((r) => [r.commit.hash, r.col]));
+    for (const e of edges) {
+      const parentCommit = rows[e.toRow]!.commit;
+      expect(e.toCol).toBe(colByHash.get(parentCommit.hash));
+    }
+  });
+});
 
 // ---------------------------------------------------------------------------
 // Merge commit
 // ---------------------------------------------------------------------------
 
-describe("merge commit", () => 
-{
-
-  it("merge commit edge endpoints land on their parents' final columns", () => 
-{
-
+describe("merge commit", () => {
+  it("merge commit edge endpoints land on their parents' final columns", () => {
     //  C  ← merge commit (parents: B, D)
     //  |  \
     //  B   D  ← two branches
     //  |   |
     //  A   A  ← shared root
-    const a = makeCommit("Root")
-;
-
-    const b = makeCommit("Feature-B", [a.hash])
-;
-
-    const d = makeCommit("Feature-D", [a.hash])
-;
-
-    const mergeC = makeCommit("Merge B+D", [b.hash, d.hash])
-;
-
+    const a = makeCommit("Root");
+    const b = makeCommit("Feature-B", [a.hash]);
+    const d = makeCommit("Feature-D", [a.hash]);
+    const mergeC = makeCommit("Merge B+D", [b.hash, d.hash]);
     // newest first
-    const 
-{
- rows, edges 
-}
- = layoutGraph([mergeC, b, d, a])
-;
-
-    const colByHash = new Map(rows.map((r) => [r.commit.hash, r.col]))
-;
-
-    for (const e of edges) 
-{
-
-      const parentCommit = rows[e.toRow]!.commit
-;
-
+    const { rows, edges } = layoutGraph([mergeC, b, d, a]);
+    const colByHash = new Map(rows.map((r) => [r.commit.hash, r.col]));
+    for (const e of edges) {
+      const parentCommit = rows[e.toRow]!.commit;
       expect(e.toCol).toBe(
         colByHash.get(parentCommit.hash),
         `edge to ${parentCommit.subject} should land on col ${colByHash.get(parentCommit.hash)}, got ${e.toCol}`,
-      )
-;
+      );
+    }
+  });
 
-    
-}
-
-  
-}
-)
-;
-
-
-  it("merge commit is placed on some column (not undefined)", () => 
-{
-
-    const a = makeCommit("Root")
-;
-
-    const b = makeCommit("Branch", [a.hash])
-;
-
-    const m = makeCommit("Merge", [b.hash, a.hash])
-;
-
-    const 
-{
- rows 
-}
- = layoutGraph([m, b, a])
-;
-
-    const mergeRow = rows.find((r) => r.commit.hash === m.hash)!
-;
-
-    expect(mergeRow.col).toBeGreaterThanOrEqual(0)
-;
-
-  
-}
-)
-;
-
-}
-)
-;
-
+  it("merge commit is placed on some column (not undefined)", () => {
+    const a = makeCommit("Root");
+    const b = makeCommit("Branch", [a.hash]);
+    const m = makeCommit("Merge", [b.hash, a.hash]);
+    const { rows } = layoutGraph([m, b, a]);
+    const mergeRow = rows.find((r) => r.commit.hash === m.hash)!;
+    expect(mergeRow.col).toBeGreaterThanOrEqual(0);
+  });
+});
 
 // ---------------------------------------------------------------------------
 // maxCol
 // ---------------------------------------------------------------------------
 
-describe("maxCol", () => 
-{
+describe("maxCol", () => {
+  it("is 0 for a linear history", () => {
+    const a = makeCommit("A");
+    const b = makeCommit("B", [a.hash]);
+    const { maxCol } = layoutGraph([b, a]);
+    expect(maxCol).toBe(0);
+  });
 
-  it("is 0 for a linear history", () => 
-{
-
-    const a = makeCommit("A")
-;
-
-    const b = makeCommit("B", [a.hash])
-;
-
-    const 
-{
- maxCol 
-}
- = layoutGraph([b, a])
-;
-
-    expect(maxCol).toBe(0)
-;
-
-  
-}
-)
-;
-
-
-  it("is at least 1 when two divergent branches exist", () => 
-{
-
-    const a = makeCommit("Root")
-;
-
-    const b = makeCommit("B", [a.hash])
-;
-
-    const c = makeCommit("C", [a.hash])
-;
-
-    const 
-{
- maxCol 
-}
- = layoutGraph([b, c, a])
-;
-
-    expect(maxCol).toBeGreaterThanOrEqual(1)
-;
-
-  
-}
-)
-;
-
-}
-)
-;
-
+  it("is at least 1 when two divergent branches exist", () => {
+    const a = makeCommit("Root");
+    const b = makeCommit("B", [a.hash]);
+    const c = makeCommit("C", [a.hash]);
+    const { maxCol } = layoutGraph([b, c, a]);
+    expect(maxCol).toBeGreaterThanOrEqual(1);
+  });
+});
 
 // ---------------------------------------------------------------------------
 // Edge resolution: no deferred -1 endpoints survive
 // ---------------------------------------------------------------------------
 
-describe("edge resolution", () => 
-{
-
-  it("all edge toCol values are resolved (no -1 sentinel left)", () => 
-{
-
-    const a = makeCommit("Root")
-;
-
-    const b = makeCommit("Branch", [a.hash])
-;
-
-    const c = makeCommit("Branch-C", [a.hash])
-;
-
-    const m = makeCommit("Merge", [b.hash, c.hash])
-;
-
-    const 
-{
- edges 
-}
- = layoutGraph([m, b, c, a])
-;
-
-    for (const e of edges) 
-{
-
-      expect(e.toCol).not.toBe(-1)
-;
-
-      expect(e.fromCol).not.toBe(-1)
-;
-
-    
-}
-
-  
-}
-)
-;
-
-}
-)
-;
-
+describe("edge resolution", () => {
+  it("all edge toCol values are resolved (no -1 sentinel left)", () => {
+    const a = makeCommit("Root");
+    const b = makeCommit("Branch", [a.hash]);
+    const c = makeCommit("Branch-C", [a.hash]);
+    const m = makeCommit("Merge", [b.hash, c.hash]);
+    const { edges } = layoutGraph([m, b, c, a]);
+    for (const e of edges) {
+      expect(e.toCol).not.toBe(-1);
+      expect(e.fromCol).not.toBe(-1);
+    }
+  });
+});
 
 // ---------------------------------------------------------------------------
 // 3+ simultaneous branches
 // ---------------------------------------------------------------------------
 
-describe("three simultaneous branches", () => 
-{
-
+describe("three simultaneous branches", () => {
   // History shape (newest first in array):
   //   B  C  D   ← three tips, all children of A
   //    \ | /
   //      A       ← shared root
-  let a: ReturnType<typeof makeCommit>
-;
+  let a: ReturnType<typeof makeCommit>;
+  let b: ReturnType<typeof makeCommit>;
+  let c: ReturnType<typeof makeCommit>;
+  let d: ReturnType<typeof makeCommit>;
+  beforeEach(() => {
+    a = makeCommit("Root");
+    b = makeCommit("Branch-B", [a.hash]);
+    c = makeCommit("Branch-C", [a.hash]);
+    d = makeCommit("Branch-D", [a.hash]);
+  });
 
-  let b: ReturnType<typeof makeCommit>
-;
+  it("each tip gets a unique column", () => {
+    const { rows } = layoutGraph([b, c, d, a]);
+    const colB = rows.find((r) => r.commit.hash === b.hash)!.col;
+    const colC = rows.find((r) => r.commit.hash === c.hash)!.col;
+    const colD = rows.find((r) => r.commit.hash === d.hash)!.col;
+    expect(colB).not.toBe(colC);
+    expect(colB).not.toBe(colD);
+    expect(colC).not.toBe(colD);
+  });
 
-  let c: ReturnType<typeof makeCommit>
-;
+  it("every edge endpoint lands on its parent's actual column", () => {
+    const { rows, edges } = layoutGraph([b, c, d, a]);
+    const colByHash = new Map(rows.map((r) => [r.commit.hash, r.col]));
+    for (const e of edges) {
+      const parentCommit = rows[e.toRow]!.commit;
+      expect(e.toCol).toBe(colByHash.get(parentCommit.hash));
+    }
+  });
 
-  let d: ReturnType<typeof makeCommit>
-;
+  it("maxCol is at least 2 when three branches exist simultaneously", () => {
+    const { maxCol } = layoutGraph([b, c, d, a]);
+    expect(maxCol).toBeGreaterThanOrEqual(2);
+  });
 
-  beforeEach(() => 
-{
+  it("no -1 sentinel survives resolution with three branches", () => {
+    const { edges } = layoutGraph([b, c, d, a]);
+    for (const e of edges) {
+      expect(e.toCol).not.toBe(-1);
+      expect(e.fromCol).not.toBe(-1);
+    }
+  });
+});
 
-    a = makeCommit("Root")
-;
-
-    b = makeCommit("Branch-B", [a.hash])
-;
-
-    c = makeCommit("Branch-C", [a.hash])
-;
-
-    d = makeCommit("Branch-D", [a.hash])
-;
-
-  
-}
-)
-;
-
-
-  it("each tip gets a unique column", () => 
-{
-
-    const 
-{
- rows 
-}
- = layoutGraph([b, c, d, a])
-;
-
-    const colB = rows.find((r) => r.commit.hash === b.hash)!.col
-;
-
-    const colC = rows.find((r) => r.commit.hash === c.hash)!.col
-;
-
-    const colD = rows.find((r) => r.commit.hash === d.hash)!.col
-;
-
-    expect(colB).not.toBe(colC)
-;
-
-    expect(colB).not.toBe(colD)
-;
-
-    expect(colC).not.toBe(colD)
-;
-
-  
-}
-)
-;
-
-
-  it("every edge endpoint lands on its parent's actual column", () => 
-{
-
-    const 
-{
- rows, edges 
-}
- = layoutGraph([b, c, d, a])
-;
-
-    const colByHash = new Map(rows.map((r) => [r.commit.hash, r.col]))
-;
-
-    for (const e of edges) 
-{
-
-      const parentCommit = rows[e.toRow]!.commit
-;
-
-      expect(e.toCol).toBe(colByHash.get(parentCommit.hash))
-;
-
-    
-}
-
-  
-}
-)
-;
-
-
-  it("maxCol is at least 2 when three branches exist simultaneously", () => 
-{
-
-    const 
-{
- maxCol 
-}
- = layoutGraph([b, c, d, a])
-;
-
-    expect(maxCol).toBeGreaterThanOrEqual(2)
-;
-
-  
-}
-)
-;
-
-
-  it("no -1 sentinel survives resolution with three branches", () => 
-{
-
-    const 
-{
- edges 
-}
- = layoutGraph([b, c, d, a])
-;
-
-    for (const e of edges) 
-{
-
-      expect(e.toCol).not.toBe(-1)
-;
-
-      expect(e.fromCol).not.toBe(-1)
-;
-
-    
-}
-
-  
-}
-)
-;
-
-}
-)
-;
-
-
-describe("four simultaneous branches", () => 
-{
-
+describe("four simultaneous branches", () => {
   // History shape (newest first in array):
   //   B  C  D  E  ← four tips, all children of A
   //    \ | / | /
   //        A      ← shared root
-  it("each tip gets a unique column", () => 
-{
-
-    const a = makeCommit("Root")
-;
-
-    const b = makeCommit("Branch-B", [a.hash])
-;
-
-    const c = makeCommit("Branch-C", [a.hash])
-;
-
-    const d = makeCommit("Branch-D", [a.hash])
-;
-
-    const e = makeCommit("Branch-E", [a.hash])
-;
-
-    const 
-{
- rows 
-}
- = layoutGraph([b, c, d, e, a])
-;
-
-    const cols = [b, c, d, e].map((x) => rows.find((r) => r.commit.hash === x.hash)!.col)
-;
-
+  it("each tip gets a unique column", () => {
+    const a = makeCommit("Root");
+    const b = makeCommit("Branch-B", [a.hash]);
+    const c = makeCommit("Branch-C", [a.hash]);
+    const d = makeCommit("Branch-D", [a.hash]);
+    const e = makeCommit("Branch-E", [a.hash]);
+    const { rows } = layoutGraph([b, c, d, e, a]);
+    const cols = [b, c, d, e].map((x) => rows.find((r) => r.commit.hash === x.hash)!.col);
     // All four columns must be distinct
-    const unique = new Set(cols)
-;
+    const unique = new Set(cols);
+    expect(unique.size).toBe(4);
+  });
 
-    expect(unique.size).toBe(4)
-;
+  it("every edge endpoint lands on its parent's actual column", () => {
+    const a = makeCommit("Root");
+    const b = makeCommit("Branch-B", [a.hash]);
+    const c = makeCommit("Branch-C", [a.hash]);
+    const d = makeCommit("Branch-D", [a.hash]);
+    const e = makeCommit("Branch-E", [a.hash]);
+    const { rows, edges } = layoutGraph([b, c, d, e, a]);
+    const colByHash = new Map(rows.map((r) => [r.commit.hash, r.col]));
+    for (const edge of edges) {
+      const parentCommit = rows[edge.toRow]!.commit;
+      expect(edge.toCol).toBe(colByHash.get(parentCommit.hash));
+    }
+  });
 
-  
-}
-)
-;
-
-
-  it("every edge endpoint lands on its parent's actual column", () => 
-{
-
-    const a = makeCommit("Root")
-;
-
-    const b = makeCommit("Branch-B", [a.hash])
-;
-
-    const c = makeCommit("Branch-C", [a.hash])
-;
-
-    const d = makeCommit("Branch-D", [a.hash])
-;
-
-    const e = makeCommit("Branch-E", [a.hash])
-;
-
-    const 
-{
- rows, edges 
-}
- = layoutGraph([b, c, d, e, a])
-;
-
-    const colByHash = new Map(rows.map((r) => [r.commit.hash, r.col]))
-;
-
-    for (const edge of edges) 
-{
-
-      const parentCommit = rows[edge.toRow]!.commit
-;
-
-      expect(edge.toCol).toBe(colByHash.get(parentCommit.hash))
-;
-
-    
-}
-
-  
-}
-)
-;
-
-
-  it("maxCol is at least 3 when four branches exist simultaneously", () => 
-{
-
-    const a = makeCommit("Root")
-;
-
-    const b = makeCommit("Branch-B", [a.hash])
-;
-
-    const c = makeCommit("Branch-C", [a.hash])
-;
-
-    const d = makeCommit("Branch-D", [a.hash])
-;
-
-    const e = makeCommit("Branch-E", [a.hash])
-;
-
-    const 
-{
- maxCol 
-}
- = layoutGraph([b, c, d, e, a])
-;
-
-    expect(maxCol).toBeGreaterThanOrEqual(3)
-;
-
-  
-}
-)
-;
-
-}
-)
-;
-
+  it("maxCol is at least 3 when four branches exist simultaneously", () => {
+    const a = makeCommit("Root");
+    const b = makeCommit("Branch-B", [a.hash]);
+    const c = makeCommit("Branch-C", [a.hash]);
+    const d = makeCommit("Branch-D", [a.hash]);
+    const e = makeCommit("Branch-E", [a.hash]);
+    const { maxCol } = layoutGraph([b, c, d, e, a]);
+    expect(maxCol).toBeGreaterThanOrEqual(3);
+  });
+});
 
 // ---------------------------------------------------------------------------
 // Back-to-back merges (fan-in): freed lanes are reused in order
 // ---------------------------------------------------------------------------
 
-describe("back-to-back merges (fan-in)", () => 
-{
-
+describe("back-to-back merges (fan-in)", () => {
   // History shape (newest first in array):
   //
   //   M2          ← merge of M1 and D  (row 0)
@@ -776,210 +279,75 @@ describe("back-to-back merges (fan-in)", () =>
   // When M2 is laid out, D's lane is freed.
   // A subsequent tip should reuse the lowest-index freed lane.
 
-  it("all edge endpoints land on the parent's actual column", () => 
-{
-
-    const a = makeCommit("Root")
-;
-
-    const b = makeCommit("Feature-B", [a.hash])
-;
-
-    const c = makeCommit("Feature-C", [a.hash])
-;
-
-    const d = makeCommit("Feature-D", [a.hash])
-;
-
-    const m1 = makeCommit("Merge B+C", [b.hash, c.hash])
-;
-
-    const m2 = makeCommit("Merge M1+D", [m1.hash, d.hash])
-;
-
+  it("all edge endpoints land on the parent's actual column", () => {
+    const a = makeCommit("Root");
+    const b = makeCommit("Feature-B", [a.hash]);
+    const c = makeCommit("Feature-C", [a.hash]);
+    const d = makeCommit("Feature-D", [a.hash]);
+    const m1 = makeCommit("Merge B+C", [b.hash, c.hash]);
+    const m2 = makeCommit("Merge M1+D", [m1.hash, d.hash]);
     // newest first
-    const 
-{
- rows, edges 
-}
- = layoutGraph([m2, m1, b, c, d, a])
-;
+    const { rows, edges } = layoutGraph([m2, m1, b, c, d, a]);
+    const colByHash = new Map(rows.map((r) => [r.commit.hash, r.col]));
+    for (const e of edges) {
+      const parentCommit = rows[e.toRow]!.commit;
+      expect(e.toCol).toBe(colByHash.get(parentCommit.hash));
+    }
+  });
 
-    const colByHash = new Map(rows.map((r) => [r.commit.hash, r.col]))
-;
+  it("no -1 sentinel survives resolution in a fan-in graph", () => {
+    const a = makeCommit("Root");
+    const b = makeCommit("Feature-B", [a.hash]);
+    const c = makeCommit("Feature-C", [a.hash]);
+    const d = makeCommit("Feature-D", [a.hash]);
+    const m1 = makeCommit("Merge B+C", [b.hash, c.hash]);
+    const m2 = makeCommit("Merge M1+D", [m1.hash, d.hash]);
+    const { edges } = layoutGraph([m2, m1, b, c, d, a]);
+    for (const e of edges) {
+      expect(e.toCol).not.toBe(-1);
+      expect(e.fromCol).not.toBe(-1);
+    }
+  });
 
-    for (const e of edges) 
-{
-
-      const parentCommit = rows[e.toRow]!.commit
-;
-
-      expect(e.toCol).toBe(colByHash.get(parentCommit.hash))
-;
-
-    
-}
-
-  
-}
-)
-;
-
-
-  it("no -1 sentinel survives resolution in a fan-in graph", () => 
-{
-
-    const a = makeCommit("Root")
-;
-
-    const b = makeCommit("Feature-B", [a.hash])
-;
-
-    const c = makeCommit("Feature-C", [a.hash])
-;
-
-    const d = makeCommit("Feature-D", [a.hash])
-;
-
-    const m1 = makeCommit("Merge B+C", [b.hash, c.hash])
-;
-
-    const m2 = makeCommit("Merge M1+D", [m1.hash, d.hash])
-;
-
-    const 
-{
- edges 
-}
- = layoutGraph([m2, m1, b, c, d, a])
-;
-
-    for (const e of edges) 
-{
-
-      expect(e.toCol).not.toBe(-1)
-;
-
-      expect(e.fromCol).not.toBe(-1)
-;
-
-    
-}
-
-  
-}
-)
-;
-
-
-  it("maxCol stays bounded after lanes are freed by a merge (no unnecessary lane expansion)", () => 
-{
-
-    // B (col 0) and C (col 1) are simultaneous branches
-;
- M1 merges them.
+  it("maxCol stays bounded after lanes are freed by a merge (no unnecessary lane expansion)", () => {
+    // B (col 0) and C (col 1) are simultaneous branches; M1 merges them.
     // After A (the shared root) is processed both lanes collapse into one and become free.
     // maxCol must remain 1 — no commit should force a third column to open.
-    const a = makeCommit("Root")
-;
+    const a = makeCommit("Root");
+    const b = makeCommit("Feature-B", [a.hash]);
+    const c = makeCommit("Feature-C", [a.hash]);
+    const m1 = makeCommit("Merge B+C", [b.hash, c.hash]);
+    const { maxCol } = layoutGraph([m1, b, c, a]);
+    // Two simultaneous branches need exactly 2 columns (0 and 1); maxCol must be 1.
+    expect(maxCol).toBe(1);
+  });
 
-    const b = makeCommit("Feature-B", [a.hash])
-;
-
-    const c = makeCommit("Feature-C", [a.hash])
-;
-
-    const m1 = makeCommit("Merge B+C", [b.hash, c.hash])
-;
-
-    const 
-{
- maxCol 
-}
- = layoutGraph([m1, b, c, a])
-;
-
-    // Two simultaneous branches need exactly 2 columns (0 and 1)
-;
- maxCol must be 1.
-    expect(maxCol).toBe(1)
-;
-
-  
-}
-)
-;
-
-
-  it("back-to-back merges produce correct unique columns for all simultaneous branches", () => 
-{
-
+  it("back-to-back merges produce correct unique columns for all simultaneous branches", () => {
     // Three branches B, C, D exist simultaneously before any merge.
     // Verify they each sit on distinct columns.
-    const a = makeCommit("Root")
-;
-
-    const b = makeCommit("Feature-B", [a.hash])
-;
-
-    const c = makeCommit("Feature-C", [a.hash])
-;
-
-    const d = makeCommit("Feature-D", [a.hash])
-;
-
-    const m1 = makeCommit("Merge B+C", [b.hash, c.hash])
-;
-
-    const m2 = makeCommit("Merge M1+D", [m1.hash, d.hash])
-;
-
-    const 
-{
- rows 
-}
- = layoutGraph([m2, m1, b, c, d, a])
-;
-
-    const colByHash = new Map(rows.map((r) => [r.commit.hash, r.col]))
-;
-
+    const a = makeCommit("Root");
+    const b = makeCommit("Feature-B", [a.hash]);
+    const c = makeCommit("Feature-C", [a.hash]);
+    const d = makeCommit("Feature-D", [a.hash]);
+    const m1 = makeCommit("Merge B+C", [b.hash, c.hash]);
+    const m2 = makeCommit("Merge M1+D", [m1.hash, d.hash]);
+    const { rows } = layoutGraph([m2, m1, b, c, d, a]);
+    const colByHash = new Map(rows.map((r) => [r.commit.hash, r.col]));
     // At the point B, C, D are all live simultaneously they must occupy distinct columns.
-    const colB = colByHash.get(b.hash)!
-;
-
-    const colC = colByHash.get(c.hash)!
-;
-
-    const colD = colByHash.get(d.hash)!
-;
-
-    expect(colB).not.toBe(colC)
-;
-
-    expect(colB).not.toBe(colD)
-;
-
-    expect(colC).not.toBe(colD)
-;
-
-  
-}
-)
-;
-
-}
-)
-;
-
+    const colB = colByHash.get(b.hash)!;
+    const colC = colByHash.get(c.hash)!;
+    const colD = colByHash.get(d.hash)!;
+    expect(colB).not.toBe(colC);
+    expect(colB).not.toBe(colD);
+    expect(colC).not.toBe(colD);
+  });
+});
 
 // ---------------------------------------------------------------------------
 // Branch survives its own merge (merged-in branch continues forward)
 // ---------------------------------------------------------------------------
 
-describe("branch survives its own merge", () => 
-{
-
+describe("branch survives its own merge", () => {
   // History shape (newest first in array):
   //
   //   b2            ← branch continues AFTER it was merged into main  (row 0)
@@ -997,183 +365,64 @@ describe("branch survives its own merge", () =>
   //   • it is the first parent of `b2`      (branch kept going)
   // This topology can cause column re-assignment and crossing edge lines.
 
-  let root: ReturnType<typeof makeCommit>
-;
+  let root: ReturnType<typeof makeCommit>;
+  let main1: ReturnType<typeof makeCommit>;
+  let b1: ReturnType<typeof makeCommit>;
+  let b2: ReturnType<typeof makeCommit>;
+  let merge: ReturnType<typeof makeCommit>;
 
-  let main1: ReturnType<typeof makeCommit>
-;
+  beforeEach(() => {
+    root  = makeCommit("Root");
+    main1 = makeCommit("Main-1",  [root.hash]);
+    b1    = makeCommit("Branch-1",[root.hash]);
+    merge = makeCommit("Merge B1 into main", [main1.hash, b1.hash]);
+    b2    = makeCommit("Branch-2",[b1.hash]);
+  });
 
-  let b1: ReturnType<typeof makeCommit>
-;
-
-  let b2: ReturnType<typeof makeCommit>
-;
-
-  let merge: ReturnType<typeof makeCommit>
-;
-
-
-  beforeEach(() => 
-{
-
-    root  = makeCommit("Root")
-;
-
-    main1 = makeCommit("Main-1",  [root.hash])
-;
-
-    b1    = makeCommit("Branch-1",[root.hash])
-;
-
-    merge = makeCommit("Merge B1 into main", [main1.hash, b1.hash])
-;
-
-    b2    = makeCommit("Branch-2",[b1.hash])
-;
-
-  
-}
-)
-;
-
-
-  it("every edge endpoint lands on the parent's actual column", () => 
-{
-
+  it("every edge endpoint lands on the parent's actual column", () => {
     // newest first: b2 is the tip on the still-live branch, merge is on main
-    const 
-{
- rows, edges 
-}
- = layoutGraph([b2, merge, main1, b1, root])
-;
-
-    const colByHash = new Map(rows.map((r) => [r.commit.hash, r.col]))
-;
-
-    for (const e of edges) 
-{
-
-      const parentCommit = rows[e.toRow]!.commit
-;
-
+    const { rows, edges } = layoutGraph([b2, merge, main1, b1, root]);
+    const colByHash = new Map(rows.map((r) => [r.commit.hash, r.col]));
+    for (const e of edges) {
+      const parentCommit = rows[e.toRow]!.commit;
       expect(e.toCol).toBe(
         colByHash.get(parentCommit.hash),
         `edge to "${parentCommit.subject}" should land on col ${colByHash.get(parentCommit.hash)}, got ${e.toCol}`,
-      )
-;
+      );
+    }
+  });
 
-    
-}
+  it("no -1 sentinel survives when a branch outlives its own merge", () => {
+    const { edges } = layoutGraph([b2, merge, main1, b1, root]);
+    for (const e of edges) {
+      expect(e.toCol).not.toBe(-1);
+      expect(e.fromCol).not.toBe(-1);
+    }
+  });
 
-  
-}
-)
-;
+  it("b1 and b2 sit on the same column (branch lane is preserved after the merge)", () => {
+    const { rows } = layoutGraph([b2, merge, main1, b1, root]);
+    const colByHash = new Map(rows.map((r) => [r.commit.hash, r.col]));
+    expect(colByHash.get(b1.hash)).toBe(colByHash.get(b2.hash));
+  });
 
+  it("b1 and merge sit on different columns (they coexist in the graph)", () => {
+    const { rows } = layoutGraph([b2, merge, main1, b1, root]);
+    const colByHash = new Map(rows.map((r) => [r.commit.hash, r.col]));
+    expect(colByHash.get(b1.hash)).not.toBe(colByHash.get(merge.hash));
+  });
 
-  it("no -1 sentinel survives when a branch outlives its own merge", () => 
-{
-
-    const 
-{
- edges 
-}
- = layoutGraph([b2, merge, main1, b1, root])
-;
-
-    for (const e of edges) 
-{
-
-      expect(e.toCol).not.toBe(-1)
-;
-
-      expect(e.fromCol).not.toBe(-1)
-;
-
-    
-}
-
-  
-}
-)
-;
-
-
-  it("b1 and b2 sit on the same column (branch lane is preserved after the merge)", () => 
-{
-
-    const 
-{
- rows 
-}
- = layoutGraph([b2, merge, main1, b1, root])
-;
-
-    const colByHash = new Map(rows.map((r) => [r.commit.hash, r.col]))
-;
-
-    expect(colByHash.get(b1.hash)).toBe(colByHash.get(b2.hash))
-;
-
-  
-}
-)
-;
-
-
-  it("b1 and merge sit on different columns (they coexist in the graph)", () => 
-{
-
-    const 
-{
- rows 
-}
- = layoutGraph([b2, merge, main1, b1, root])
-;
-
-    const colByHash = new Map(rows.map((r) => [r.commit.hash, r.col]))
-;
-
-    expect(colByHash.get(b1.hash)).not.toBe(colByHash.get(merge.hash))
-;
-
-  
-}
-)
-;
-
-
-  it("maxCol is at least 1 (two lanes are open while branch and main coexist)", () => 
-{
-
-    const 
-{
- maxCol 
-}
- = layoutGraph([b2, merge, main1, b1, root])
-;
-
-    expect(maxCol).toBeGreaterThanOrEqual(1)
-;
-
-  
-}
-)
-;
-
-}
-)
-;
-
+  it("maxCol is at least 1 (two lanes are open while branch and main coexist)", () => {
+    const { maxCol } = layoutGraph([b2, merge, main1, b1, root]);
+    expect(maxCol).toBeGreaterThanOrEqual(1);
+  });
+});
 
 // ---------------------------------------------------------------------------
 // Long-running branch merged twice into main
 // ---------------------------------------------------------------------------
 
-describe("long-running branch merged twice into main", () => 
-{
-
+describe("long-running branch merged twice into main", () => {
   // Topology (newest → oldest, left = branch, right = main):
   //
   //   b4              ← branch continues after second merge  (row 0)
@@ -1193,225 +442,78 @@ describe("long-running branch merged twice into main", () =>
   // After the second merge the branch continues (b4).
   // This topology can cause lane re-assignment that produces crossing edges.
 
-  let root: ReturnType<typeof makeCommit>
-;
+  let root: ReturnType<typeof makeCommit>;
+  let main1: ReturnType<typeof makeCommit>;
+  let main2: ReturnType<typeof makeCommit>;
+  let b1: ReturnType<typeof makeCommit>;
+  let b2: ReturnType<typeof makeCommit>;
+  let b3: ReturnType<typeof makeCommit>;
+  let b4: ReturnType<typeof makeCommit>;
+  let merge1: ReturnType<typeof makeCommit>;
+  let merge2: ReturnType<typeof makeCommit>;
 
-  let main1: ReturnType<typeof makeCommit>
-;
+  beforeEach(() => {
+    root   = makeCommit("Root");
+    main1  = makeCommit("Main-1",  [root.hash]);
+    b1     = makeCommit("Branch-1",[root.hash]);
+    merge1 = makeCommit("Merge-1-into-main", [main1.hash, b1.hash]);
+    b2     = makeCommit("Branch-2",[b1.hash]);
+    main2  = makeCommit("Main-2",  [merge1.hash]);
+    b3     = makeCommit("Branch-3",[b2.hash]);
+    merge2 = makeCommit("Merge-2-into-main", [main2.hash, b3.hash]);
+    b4     = makeCommit("Branch-4",[b3.hash]);
+  });
 
-  let main2: ReturnType<typeof makeCommit>
-;
-
-  let b1: ReturnType<typeof makeCommit>
-;
-
-  let b2: ReturnType<typeof makeCommit>
-;
-
-  let b3: ReturnType<typeof makeCommit>
-;
-
-  let b4: ReturnType<typeof makeCommit>
-;
-
-  let merge1: ReturnType<typeof makeCommit>
-;
-
-  let merge2: ReturnType<typeof makeCommit>
-;
-
-
-  beforeEach(() => 
-{
-
-    root   = makeCommit("Root")
-;
-
-    main1  = makeCommit("Main-1",  [root.hash])
-;
-
-    b1     = makeCommit("Branch-1",[root.hash])
-;
-
-    merge1 = makeCommit("Merge-1-into-main", [main1.hash, b1.hash])
-;
-
-    b2     = makeCommit("Branch-2",[b1.hash])
-;
-
-    main2  = makeCommit("Main-2",  [merge1.hash])
-;
-
-    b3     = makeCommit("Branch-3",[b2.hash])
-;
-
-    merge2 = makeCommit("Merge-2-into-main", [main2.hash, b3.hash])
-;
-
-    b4     = makeCommit("Branch-4",[b3.hash])
-;
-
-  
-}
-)
-;
-
-
-  it("every edge endpoint lands on its parent's actual column", () => 
-{
-
-    // newest first: b4 and merge2 are tips
-;
- parents must follow
-    const 
-{
- rows, edges 
-}
- = layoutGraph([b4, merge2, main2, b3, merge1, b2, main1, b1, root])
-;
-
-    const colByHash = new Map(rows.map((r) => [r.commit.hash, r.col]))
-;
-
-    for (const e of edges) 
-{
-
-      const parentCommit = rows[e.toRow]!.commit
-;
-
+  it("every edge endpoint lands on its parent's actual column", () => {
+    // newest first: b4 and merge2 are tips; parents must follow
+    const { rows, edges } = layoutGraph([b4, merge2, main2, b3, merge1, b2, main1, b1, root]);
+    const colByHash = new Map(rows.map((r) => [r.commit.hash, r.col]));
+    for (const e of edges) {
+      const parentCommit = rows[e.toRow]!.commit;
       expect(e.toCol).toBe(
         colByHash.get(parentCommit.hash),
         `edge to "${parentCommit.subject}" should land on col ${colByHash.get(parentCommit.hash)}, got ${e.toCol}`,
-      )
-;
+      );
+    }
+  });
 
-    
-}
+  it("no -1 sentinel survives when a branch is merged twice", () => {
+    const { edges } = layoutGraph([b4, merge2, main2, b3, merge1, b2, main1, b1, root]);
+    for (const e of edges) {
+      expect(e.toCol).not.toBe(-1);
+      expect(e.fromCol).not.toBe(-1);
+    }
+  });
 
-  
-}
-)
-;
-
-
-  it("no -1 sentinel survives when a branch is merged twice", () => 
-{
-
-    const 
-{
- edges 
-}
- = layoutGraph([b4, merge2, main2, b3, merge1, b2, main1, b1, root])
-;
-
-    for (const e of edges) 
-{
-
-      expect(e.toCol).not.toBe(-1)
-;
-
-      expect(e.fromCol).not.toBe(-1)
-;
-
-    
-}
-
-  
-}
-)
-;
-
-
-  it("branch commits all sit on the same column (lane is preserved across both merges)", () => 
-{
-
-    const 
-{
- rows 
-}
- = layoutGraph([b4, merge2, main2, b3, merge1, b2, main1, b1, root])
-;
-
-    const colByHash = new Map(rows.map((r) => [r.commit.hash, r.col]))
-;
-
+  it("branch commits all sit on the same column (lane is preserved across both merges)", () => {
+    const { rows } = layoutGraph([b4, merge2, main2, b3, merge1, b2, main1, b1, root]);
+    const colByHash = new Map(rows.map((r) => [r.commit.hash, r.col]));
     // b1 → b2 → b3 → b4 must share a single column so no crossing occurs.
-    const branchCol = colByHash.get(b1.hash)!
-;
+    const branchCol = colByHash.get(b1.hash)!;
+    expect(colByHash.get(b2.hash)).toBe(branchCol);
+    expect(colByHash.get(b3.hash)).toBe(branchCol);
+    expect(colByHash.get(b4.hash)).toBe(branchCol);
+  });
 
-    expect(colByHash.get(b2.hash)).toBe(branchCol)
-;
+  it("merge commits sit on a different column than the branch (lanes never overlap)", () => {
+    const { rows } = layoutGraph([b4, merge2, main2, b3, merge1, b2, main1, b1, root]);
+    const colByHash = new Map(rows.map((r) => [r.commit.hash, r.col]));
+    const branchCol = colByHash.get(b1.hash)!;
+    expect(colByHash.get(merge1.hash)).not.toBe(branchCol);
+    expect(colByHash.get(merge2.hash)).not.toBe(branchCol);
+  });
 
-    expect(colByHash.get(b3.hash)).toBe(branchCol)
-;
-
-    expect(colByHash.get(b4.hash)).toBe(branchCol)
-;
-
-  
-}
-)
-;
-
-
-  it("merge commits sit on a different column than the branch (lanes never overlap)", () => 
-{
-
-    const 
-{
- rows 
-}
- = layoutGraph([b4, merge2, main2, b3, merge1, b2, main1, b1, root])
-;
-
-    const colByHash = new Map(rows.map((r) => [r.commit.hash, r.col]))
-;
-
-    const branchCol = colByHash.get(b1.hash)!
-;
-
-    expect(colByHash.get(merge1.hash)).not.toBe(branchCol)
-;
-
-    expect(colByHash.get(merge2.hash)).not.toBe(branchCol)
-;
-
-  
-}
-)
-;
-
-
-  it("maxCol is at least 1 (two lanes are open while branch and main coexist)", () => 
-{
-
-    const 
-{
- maxCol 
-}
- = layoutGraph([b4, merge2, main2, b3, merge1, b2, main1, b1, root])
-;
-
-    expect(maxCol).toBeGreaterThanOrEqual(1)
-;
-
-  
-}
-)
-;
-
-}
-)
-;
-
+  it("maxCol is at least 1 (two lanes are open while branch and main coexist)", () => {
+    const { maxCol } = layoutGraph([b4, merge2, main2, b3, merge1, b2, main1, b1, root]);
+    expect(maxCol).toBeGreaterThanOrEqual(1);
+  });
+});
 
 // ---------------------------------------------------------------------------
 // Long-running branch merged three times into main
 // ---------------------------------------------------------------------------
 
-describe("long-running branch merged three times into main", () => 
-{
-
+describe("long-running branch merged three times into main", () => {
   // Topology (newest → oldest, left = branch, right = main):
   //
   //   b5              ← branch continues after third merge  (tip)
@@ -1435,306 +537,106 @@ describe("long-running branch merged three times into main", () =>
   // after the last merge. This topology applies additional pressure to lane
   // re-assignment and can expose column-overlap bugs the double-merge case misses.
 
-  let root: ReturnType<typeof makeCommit>
-;
+  let root: ReturnType<typeof makeCommit>;
+  let main1: ReturnType<typeof makeCommit>;
+  let main2: ReturnType<typeof makeCommit>;
+  let main3: ReturnType<typeof makeCommit>;
+  let b1: ReturnType<typeof makeCommit>;
+  let b2: ReturnType<typeof makeCommit>;
+  let b3: ReturnType<typeof makeCommit>;
+  let b4: ReturnType<typeof makeCommit>;
+  let b5: ReturnType<typeof makeCommit>;
+  let merge1: ReturnType<typeof makeCommit>;
+  let merge2: ReturnType<typeof makeCommit>;
+  let merge3: ReturnType<typeof makeCommit>;
 
-  let main1: ReturnType<typeof makeCommit>
-;
-
-  let main2: ReturnType<typeof makeCommit>
-;
-
-  let main3: ReturnType<typeof makeCommit>
-;
-
-  let b1: ReturnType<typeof makeCommit>
-;
-
-  let b2: ReturnType<typeof makeCommit>
-;
-
-  let b3: ReturnType<typeof makeCommit>
-;
-
-  let b4: ReturnType<typeof makeCommit>
-;
-
-  let b5: ReturnType<typeof makeCommit>
-;
-
-  let merge1: ReturnType<typeof makeCommit>
-;
-
-  let merge2: ReturnType<typeof makeCommit>
-;
-
-  let merge3: ReturnType<typeof makeCommit>
-;
-
-
-  beforeEach(() => 
-{
-
-    root   = makeCommit("Root")
-;
-
-    main1  = makeCommit("Main-1",  [root.hash])
-;
-
-    b1     = makeCommit("Branch-1", [root.hash])
-;
-
-    merge1 = makeCommit("Merge-1-into-main", [main1.hash, b1.hash])
-;
-
-    b2     = makeCommit("Branch-2", [b1.hash])
-;
-
-    main2  = makeCommit("Main-2",  [merge1.hash])
-;
-
-    merge2 = makeCommit("Merge-2-into-main", [main2.hash, b2.hash])
-;
-
-    b3     = makeCommit("Branch-3", [b2.hash])
-;
-
-    main3  = makeCommit("Main-3",  [merge2.hash])
-;
-
-    b4     = makeCommit("Branch-4", [b3.hash])
-;
-
-    merge3 = makeCommit("Merge-3-into-main", [main3.hash, b4.hash])
-;
-
-    b5     = makeCommit("Branch-5", [b4.hash])
-;
-
-  
-}
-)
-;
-
+  beforeEach(() => {
+    root   = makeCommit("Root");
+    main1  = makeCommit("Main-1",  [root.hash]);
+    b1     = makeCommit("Branch-1", [root.hash]);
+    merge1 = makeCommit("Merge-1-into-main", [main1.hash, b1.hash]);
+    b2     = makeCommit("Branch-2", [b1.hash]);
+    main2  = makeCommit("Main-2",  [merge1.hash]);
+    merge2 = makeCommit("Merge-2-into-main", [main2.hash, b2.hash]);
+    b3     = makeCommit("Branch-3", [b2.hash]);
+    main3  = makeCommit("Main-3",  [merge2.hash]);
+    b4     = makeCommit("Branch-4", [b3.hash]);
+    merge3 = makeCommit("Merge-3-into-main", [main3.hash, b4.hash]);
+    b5     = makeCommit("Branch-5", [b4.hash]);
+  });
 
   // Newest-first ordering for all tests in this suite.
   // Tips: b5 (branch continues) and merge3 (latest main tip).
-  function commits() 
-{
+  function commits() {
+    return [b5, merge3, main3, b4, merge2, b3, main2, b2, merge1, b1, main1, root];
+  }
 
-    return [b5, merge3, main3, b4, merge2, b3, main2, b2, merge1, b1, main1, root]
-;
-
-  
-}
-
-
-  it("every edge endpoint lands on its parent's actual column", () => 
-{
-
-    const 
-{
- rows, edges 
-}
- = layoutGraph(commits())
-;
-
-    const colByHash = new Map(rows.map((r) => [r.commit.hash, r.col]))
-;
-
-    for (const e of edges) 
-{
-
-      const parentCommit = rows[e.toRow]!.commit
-;
-
+  it("every edge endpoint lands on its parent's actual column", () => {
+    const { rows, edges } = layoutGraph(commits());
+    const colByHash = new Map(rows.map((r) => [r.commit.hash, r.col]));
+    for (const e of edges) {
+      const parentCommit = rows[e.toRow]!.commit;
       expect(e.toCol).toBe(
         colByHash.get(parentCommit.hash),
         `edge to "${parentCommit.subject}" should land on col ${colByHash.get(parentCommit.hash)}, got ${e.toCol}`,
-      )
-;
+      );
+    }
+  });
 
-    
-}
+  it("no -1 sentinel survives when a branch is merged three times", () => {
+    const { edges } = layoutGraph(commits());
+    for (const e of edges) {
+      expect(e.toCol).not.toBe(-1);
+      expect(e.fromCol).not.toBe(-1);
+    }
+  });
 
-  
-}
-)
-;
+  it("all branch commits sit on the same column (lane preserved across all three merges)", () => {
+    const { rows } = layoutGraph(commits());
+    const colByHash = new Map(rows.map((r) => [r.commit.hash, r.col]));
+    const branchCol = colByHash.get(b1.hash)!;
+    expect(colByHash.get(b2.hash)).toBe(branchCol);
+    expect(colByHash.get(b3.hash)).toBe(branchCol);
+    expect(colByHash.get(b4.hash)).toBe(branchCol);
+    expect(colByHash.get(b5.hash)).toBe(branchCol);
+  });
 
+  it("all three merge commits sit on a different column than the branch (lanes never overlap)", () => {
+    const { rows } = layoutGraph(commits());
+    const colByHash = new Map(rows.map((r) => [r.commit.hash, r.col]));
+    const branchCol = colByHash.get(b1.hash)!;
+    expect(colByHash.get(merge1.hash)).not.toBe(branchCol);
+    expect(colByHash.get(merge2.hash)).not.toBe(branchCol);
+    expect(colByHash.get(merge3.hash)).not.toBe(branchCol);
+  });
 
-  it("no -1 sentinel survives when a branch is merged three times", () => 
-{
-
-    const 
-{
- edges 
-}
- = layoutGraph(commits())
-;
-
-    for (const e of edges) 
-{
-
-      expect(e.toCol).not.toBe(-1)
-;
-
-      expect(e.fromCol).not.toBe(-1)
-;
-
-    
-}
-
-  
-}
-)
-;
-
-
-  it("all branch commits sit on the same column (lane preserved across all three merges)", () => 
-{
-
-    const 
-{
- rows 
-}
- = layoutGraph(commits())
-;
-
-    const colByHash = new Map(rows.map((r) => [r.commit.hash, r.col]))
-;
-
-    const branchCol = colByHash.get(b1.hash)!
-;
-
-    expect(colByHash.get(b2.hash)).toBe(branchCol)
-;
-
-    expect(colByHash.get(b3.hash)).toBe(branchCol)
-;
-
-    expect(colByHash.get(b4.hash)).toBe(branchCol)
-;
-
-    expect(colByHash.get(b5.hash)).toBe(branchCol)
-;
-
-  
-}
-)
-;
-
-
-  it("all three merge commits sit on a different column than the branch (lanes never overlap)", () => 
-{
-
-    const 
-{
- rows 
-}
- = layoutGraph(commits())
-;
-
-    const colByHash = new Map(rows.map((r) => [r.commit.hash, r.col]))
-;
-
-    const branchCol = colByHash.get(b1.hash)!
-;
-
-    expect(colByHash.get(merge1.hash)).not.toBe(branchCol)
-;
-
-    expect(colByHash.get(merge2.hash)).not.toBe(branchCol)
-;
-
-    expect(colByHash.get(merge3.hash)).not.toBe(branchCol)
-;
-
-  
-}
-)
-;
-
-
-  it("maxCol is at least 1 (two lanes open while branch and main coexist across three merges)", () => 
-{
-
-    const 
-{
- maxCol 
-}
- = layoutGraph(commits())
-;
-
-    expect(maxCol).toBeGreaterThanOrEqual(1)
-;
-
-  
-}
-)
-;
-
-}
-)
-;
-
+  it("maxCol is at least 1 (two lanes open while branch and main coexist across three merges)", () => {
+    const { maxCol } = layoutGraph(commits());
+    expect(maxCol).toBeGreaterThanOrEqual(1);
+  });
+});
 
 // ---------------------------------------------------------------------------
 // Color stability: same commit always gets the same color
 // ---------------------------------------------------------------------------
 
-describe("colorForHash", () => 
-{
+describe("colorForHash", () => {
+  it("returns a non-empty string", () => {
+    expect(colorForHash("abc123")).toBeTruthy();
+  });
 
-  it("returns a non-empty string", () => 
-{
+  it("is deterministic — same input always produces the same output", () => {
+    expect(colorForHash("deadbeef")).toBe(colorForHash("deadbeef"));
+  });
 
-    expect(colorForHash("abc123")).toBeTruthy()
-;
-
-  
-}
-)
-;
-
-
-  it("is deterministic — same input always produces the same output", () => 
-{
-
-    expect(colorForHash("deadbeef")).toBe(colorForHash("deadbeef"))
-;
-
-  
-}
-)
-;
-
-
-  it("different hashes can produce different colors", () => 
-{
-
+  it("different hashes can produce different colors", () => {
     // At least two of these must differ (pigeonhole: 6 colors, many hashes)
-    const hashes = ["aaa", "bbb", "ccc", "ddd", "eee", "fff", "ggg", "hhh"]
-;
-
-    const colors = hashes.map(colorForHash)
-;
-
-    const unique = new Set(colors)
-;
-
-    expect(unique.size).toBeGreaterThan(1)
-;
-
-  
-}
-)
-;
-
-}
-)
-;
-
+    const hashes = ["aaa", "bbb", "ccc", "ddd", "eee", "fff", "ggg", "hhh"];
+    const colors = hashes.map(colorForHash);
+    const unique = new Set(colors);
+    expect(unique.size).toBeGreaterThan(1);
+  });
+});
 
 // ---------------------------------------------------------------------------
 // Color is adjacency-aware: what still holds unconditionally
@@ -1751,68 +653,23 @@ describe("colorForHash", () =>
 // adjacency-avoidance contract.
 // ---------------------------------------------------------------------------
 
-describe("isolated lane always gets its hash-preferred color", () => 
-{
+describe("isolated lane always gets its hash-preferred color", () => {
+  it("a single commit with no neighbors gets colorForHash", () => {
+    const only = makeCommit("Only");
+    const { rows } = layoutGraph([only]);
+    expect(rows[0]!.color).toBe(colorForHash(only.hash));
+  });
 
-  it("a single commit with no neighbors gets colorForHash", () => 
-{
-
-    const only = makeCommit("Only")
-;
-
-    const 
-{
- rows 
-}
- = layoutGraph([only])
-;
-
-    expect(rows[0]!.color).toBe(colorForHash(only.hash))
-;
-
-  
-}
-)
-;
-
-
-  it("linear chain: every commit is on col 0 with no neighbors and gets colorForHash", () => 
-{
-
-    const a = makeCommit("A")
-;
-
-    const b = makeCommit("B", [a.hash])
-;
-
-    const c = makeCommit("C", [b.hash])
-;
-
-    const 
-{
- rows 
-}
- = layoutGraph([c, b, a])
-;
-
-    for (const r of rows) 
-{
-
-      expect(r.color).toBe(colorForHash(r.commit.hash))
-;
-
-    
-}
-
-  
-}
-)
-;
-
-}
-)
-;
-
+  it("linear chain: every commit is on col 0 with no neighbors and gets colorForHash", () => {
+    const a = makeCommit("A");
+    const b = makeCommit("B", [a.hash]);
+    const c = makeCommit("C", [b.hash]);
+    const { rows } = layoutGraph([c, b, a]);
+    for (const r of rows) {
+      expect(r.color).toBe(colorForHash(r.commit.hash));
+    }
+  });
+});
 
 // ---------------------------------------------------------------------------
 // Adjacency avoidance corrects hash collisions — deterministic fixtures
@@ -1825,416 +682,169 @@ describe("isolated lane always gets its hash-preferred color", () =>
  */
 function findCollidingPair(
   root: ReturnType<typeof makeCommit>,
-): [ReturnType<typeof makeCommit>, ReturnType<typeof makeCommit>] 
-{
-
-  const candidates: ReturnType<typeof makeCommit>[] = []
-;
-
-  for (let k = 0
-;
- k < 20
-;
- k++) 
-{
-
-    candidates.push(makeCommit(`Cand-${k}`, [root.hash]))
-;
-
-  
+): [ReturnType<typeof makeCommit>, ReturnType<typeof makeCommit>] {
+  const candidates: ReturnType<typeof makeCommit>[] = [];
+  for (let k = 0; k < 20; k++) {
+    candidates.push(makeCommit(`Cand-${k}`, [root.hash]));
+  }
+  const byColor = new Map<string, ReturnType<typeof makeCommit>[]>();
+  for (const c of candidates) {
+    const pref = colorForHash(c.hash);
+    if (!byColor.has(pref)) byColor.set(pref, []);
+    byColor.get(pref)!.push(c);
+  }
+  const group = [...byColor.values()].find((g) => g.length >= 2);
+  if (!group || group.length < 2) throw new Error("No palette collision found — pigeonhole invariant violated");
+  return [group[0]!, group[1]!];
 }
 
-  const byColor = new Map<string, ReturnType<typeof makeCommit>[]>()
-;
-
-  for (const c of candidates) 
-{
-
-    const pref = colorForHash(c.hash)
-;
-
-    if (!byColor.has(pref)) byColor.set(pref, [])
-;
-
-    byColor.get(pref)!.push(c)
-;
-
-  
-}
-
-  const group = [...byColor.values()].find((g) => g.length >= 2)
-;
-
-  if (!group || group.length < 2) throw new Error("No palette collision found — pigeonhole invariant violated")
-;
-
-  return [group[0]!, group[1]!]
-;
-
-}
-
-
-describe("adjacency avoidance corrects hash collisions", () => 
-{
-
-  it("two adjacent tips that prefer the same palette color get different assigned colors", () => 
-{
-
-    const root = makeCommit("Root")
-;
-
-    const [tip1, tip2] = findCollidingPair(root)
-;
-
+describe("adjacency avoidance corrects hash collisions", () => {
+  it("two adjacent tips that prefer the same palette color get different assigned colors", () => {
+    const root = makeCommit("Root");
+    const [tip1, tip2] = findCollidingPair(root);
 
     // Confirm the preferred colors genuinely collide.
-    expect(colorForHash(tip1.hash)).toBe(colorForHash(tip2.hash))
-;
+    expect(colorForHash(tip1.hash)).toBe(colorForHash(tip2.hash));
 
-
-    const 
-{
- rows 
-}
- = layoutGraph([tip1, tip2, root])
-;
-
-    const r1 = rows.find((r) => r.commit.hash === tip1.hash)!
-;
-
-    const r2 = rows.find((r) => r.commit.hash === tip2.hash)!
-;
-
+    const { rows } = layoutGraph([tip1, tip2, root]);
+    const r1 = rows.find((r) => r.commit.hash === tip1.hash)!;
+    const r2 = rows.find((r) => r.commit.hash === tip2.hash)!;
 
     // They must be placed on adjacent columns.
-    expect(Math.abs(r1.col - r2.col)).toBe(1)
-;
-
+    expect(Math.abs(r1.col - r2.col)).toBe(1);
     // Despite the preferred-color collision, assigned colors must differ.
-    expect(r1.color).not.toBe(r2.color)
-;
+    expect(r1.color).not.toBe(r2.color);
+  });
 
-  
-}
-)
-;
-
-
-  it("merge commit and adjacent extra-parent lane always have different colors", () => 
-{
-
-    // merge is on col 0
-;
- extra-parent lane opens on col 1 (adjacent).
+  it("merge commit and adjacent extra-parent lane always have different colors", () => {
+    // merge is on col 0; extra-parent lane opens on col 1 (adjacent).
     // Regardless of hash-preferred color, adjacency must be respected.
-    const root = makeCommit("Root")
-;
+    const root = makeCommit("Root");
+    const fp   = makeCommit("FirstParent",  [root.hash]);
+    const ep   = makeCommit("ExtraParent",  [root.hash]);
+    const m    = makeCommit("Merge",        [fp.hash, ep.hash]);
 
-    const fp   = makeCommit("FirstParent",  [root.hash])
-;
+    const { rows } = layoutGraph([m, fp, ep, root]);
+    const mergeRow = rows.find((r) => r.commit.hash === m.hash)!;
+    const epRow    = rows.find((r) => r.commit.hash === ep.hash)!;
 
-    const ep   = makeCommit("ExtraParent",  [root.hash])
-;
+    expect(Math.abs(mergeRow.col - epRow.col)).toBe(1);
+    expect(mergeRow.color).not.toBe(epRow.color);
+  });
 
-    const m    = makeCommit("Merge",        [fp.hash, ep.hash])
-;
-
-
-    const 
-{
- rows 
-}
- = layoutGraph([m, fp, ep, root])
-;
-
-    const mergeRow = rows.find((r) => r.commit.hash === m.hash)!
-;
-
-    const epRow    = rows.find((r) => r.commit.hash === ep.hash)!
-;
-
-
-    expect(Math.abs(mergeRow.col - epRow.col)).toBe(1)
-;
-
-    expect(mergeRow.color).not.toBe(epRow.color)
-;
-
-  
-}
-)
-;
-
-
-  it("merge extra-parent edge color matches the extra-parent node color (no edge/node drift)", () => 
-{
-
+  it("merge extra-parent edge color matches the extra-parent node color (no edge/node drift)", () => {
     // The merge edge to the extra parent is drawn when the merge commit is processed.
     // The extra-parent node is drawn later. Both must carry the same color so the
     // graph line flows visually from edge to node without a color jump.
-    const root = makeCommit("Root")
-;
-
-    const fp   = makeCommit("FirstParent", [root.hash])
-;
-
+    const root = makeCommit("Root");
+    const fp   = makeCommit("FirstParent", [root.hash]);
     // Use a colliding pair so adjacency adjustment fires on the extra-parent lane.
-    const [ep] = findCollidingPair(root)
-;
+    const [ep] = findCollidingPair(root);
+    const m    = makeCommit("Merge", [fp.hash, ep.hash]);
 
-    const m    = makeCommit("Merge", [fp.hash, ep.hash])
-;
+    const { rows, edges } = layoutGraph([m, fp, ep, root]);
 
-
-    const 
-{
- rows, edges 
-}
- = layoutGraph([m, fp, ep, root])
-;
-
-
-    const epRow      = rows.find((r) => r.commit.hash === ep.hash)!
-;
-
-    const mRowIndex  = rows.findIndex((r) => r.commit.hash === m.hash)
-;
-
-    const epRowIndex = rows.findIndex((r) => r.commit.hash === ep.hash)
-;
-
+    const epRow      = rows.find((r) => r.commit.hash === ep.hash)!;
+    const mRowIndex  = rows.findIndex((r) => r.commit.hash === m.hash);
+    const epRowIndex = rows.findIndex((r) => r.commit.hash === ep.hash);
 
     const mergeParentEdge = edges.find(
       (e) => e.fromRow === mRowIndex && e.toRow === epRowIndex,
-    )
-;
+    );
+    expect(mergeParentEdge).toBeDefined();
+    expect(mergeParentEdge!.color).toBe(epRow.color);
+  });
 
-    expect(mergeParentEdge).toBeDefined()
-;
-
-    expect(mergeParentEdge!.color).toBe(epRow.color)
-;
-
-  
-}
-)
-;
-
-
-  it("second merge reusing an already-active extra-parent lane: edge and node colors agree", () => 
-{
-
+  it("second merge reusing an already-active extra-parent lane: edge and node colors agree", () => {
     // Topology (newest first):
     //   X       — has extraParent as its first parent (opens the ep lane)
-    //   M       — merge of [firstParent, extraParent] (reuses the ep lane
-;
- existing >= 0)
+    //   M       — merge of [firstParent, extraParent] (reuses the ep lane; existing >= 0)
     //   firstParent
     //   extraParent
     //   root
     //
     // When M is processed, the ep lane already exists (opened by X).  The merge
     // edge M→ep must use the same color as the ep node — no color jump in the graph.
-    const root        = makeCommit("Root")
-;
+    const root        = makeCommit("Root");
+    const firstParent = makeCommit("FirstParent",  [root.hash]);
+    const extraParent = makeCommit("ExtraParent",  [root.hash]);
+    const x           = makeCommit("X",            [extraParent.hash]);
+    const m           = makeCommit("Merge",        [firstParent.hash, extraParent.hash]);
 
-    const firstParent = makeCommit("FirstParent",  [root.hash])
-;
+    const { rows, edges } = layoutGraph([x, m, firstParent, extraParent, root]);
 
-    const extraParent = makeCommit("ExtraParent",  [root.hash])
-;
-
-    const x           = makeCommit("X",            [extraParent.hash])
-;
-
-    const m           = makeCommit("Merge",        [firstParent.hash, extraParent.hash])
-;
-
-
-    const 
-{
- rows, edges 
-}
- = layoutGraph([x, m, firstParent, extraParent, root])
-;
-
-
-    const epRow      = rows.find((r) => r.commit.hash === extraParent.hash)!
-;
-
-    const mRowIndex  = rows.findIndex((r) => r.commit.hash === m.hash)
-;
-
-    const epRowIndex = rows.findIndex((r) => r.commit.hash === extraParent.hash)
-;
-
+    const epRow      = rows.find((r) => r.commit.hash === extraParent.hash)!;
+    const mRowIndex  = rows.findIndex((r) => r.commit.hash === m.hash);
+    const epRowIndex = rows.findIndex((r) => r.commit.hash === extraParent.hash);
 
     // There must be an edge from M to extraParent.
     const mergeParentEdge = edges.find(
       (e) => e.fromRow === mRowIndex && e.toRow === epRowIndex,
-    )
-;
-
-    expect(mergeParentEdge).toBeDefined()
-;
-
+    );
+    expect(mergeParentEdge).toBeDefined();
     // The edge color and the node color must be identical.
-    expect(mergeParentEdge!.color).toBe(epRow.color)
-;
-
-  
-}
-)
-;
-
-}
-)
-;
-
+    expect(mergeParentEdge!.color).toBe(epRow.color);
+  });
+});
 
 // ---------------------------------------------------------------------------
 // Adjacent lane color uniqueness
 // ---------------------------------------------------------------------------
 
-describe("adjacent lane color uniqueness", () => 
-{
-
-  it("6 simultaneous branch tips all have distinct colors", () => 
-{
-
+describe("adjacent lane color uniqueness", () => {
+  it("6 simultaneous branch tips all have distinct colors", () => {
     // Six branches diverge from a shared root — each gets its own lane (cols 0-5).
     // With only 6 colors available, the adjacency-avoidance logic must ensure that
     // no two neighboring columns end up with the same color.
-    const root = makeCommit("Root")
-;
-
-    const tips = Array.from(
-{
- length: 6 
-}
-, (_, k) =>
+    const root = makeCommit("Root");
+    const tips = Array.from({ length: 6 }, (_, k) =>
       makeCommit(`Branch-${k + 1}`, [root.hash]),
-    )
-;
-
-    const 
-{
- rows 
-}
- = layoutGraph([...tips, root])
-;
-
+    );
+    const { rows } = layoutGraph([...tips, root]);
     const tipColors = tips.map(
       (t) => rows.find((r) => r.commit.hash === t.hash)!.color,
-    )
-;
+    );
+    const unique = new Set(tipColors);
+    expect(unique.size).toBe(6);
+  });
 
-    const unique = new Set(tipColors)
-;
-
-    expect(unique.size).toBe(6)
-;
-
-  
-}
-)
-;
-
-
-  it("no two adjacent columns share a color in a 6-branch graph", () => 
-{
-
-    const root = makeCommit("Root")
-;
-
-    const tips = Array.from(
-{
- length: 6 
-}
-, (_, k) =>
+  it("no two adjacent columns share a color in a 6-branch graph", () => {
+    const root = makeCommit("Root");
+    const tips = Array.from({ length: 6 }, (_, k) =>
       makeCommit(`Branch-${k + 1}`, [root.hash]),
-    )
-;
-
-    const 
-{
- rows 
-}
- = layoutGraph([...tips, root])
-;
-
+    );
+    const { rows } = layoutGraph([...tips, root]);
     // Build col→color map for the tips (they sit on cols 0-5 simultaneously).
-    const colColor = new Map<number, string>()
-;
-
-    for (const t of tips) 
-{
-
-      const r = rows.find((row) => row.commit.hash === t.hash)!
-;
-
-      colColor.set(r.col, r.color)
-;
-
-    
-}
-
+    const colColor = new Map<number, string>();
+    for (const t of tips) {
+      const r = rows.find((row) => row.commit.hash === t.hash)!;
+      colColor.set(r.col, r.color);
+    }
     // For every pair of adjacent columns verify they differ.
-    const cols = [...colColor.keys()].sort((a, b) => a - b)
-;
-
-    for (let i = 0
-;
- i < cols.length - 1
-;
- i++) 
-{
-
-      const left = cols[i]!
-;
-
-      const right = cols[i + 1]!
-;
-
-      if (right === left + 1) 
-{
-
+    const cols = [...colColor.keys()].sort((a, b) => a - b);
+    for (let i = 0; i < cols.length - 1; i++) {
+      const left = cols[i]!;
+      const right = cols[i + 1]!;
+      if (right === left + 1) {
         expect(colColor.get(left)).not.toBe(
           colColor.get(right),
           `cols ${left} and ${right} both use color ${colColor.get(left)}`,
-        )
-;
-
-      
-}
-
-    
-}
-
-  
-}
-)
-;
-
-}
-)
-;
-
+        );
+      }
+    }
+  });
+});
 
 // ---------------------------------------------------------------------------
 // Cascading merge: a merge commit is itself merged into a third branch
 // ---------------------------------------------------------------------------
 
-describe("cascading merge (merge commit re-merged into a third branch)", () => 
-{
-
+describe("cascading merge (merge commit re-merged into a third branch)", () => {
   // Topology (newest first in array):
   //
   //   M2               ← merge into branch C: parents [c3, M1]   (row 0)
   //   |  \
-  //   c3   M1          ← branch C tip
-;
- M1 is the extra parent     (rows 1, 2)
+  //   c3   M1          ← branch C tip; M1 is the extra parent     (rows 1, 2)
   //   |    | \
   //   |    c1  c2      ← branches A and B                         (rows 3, 4)
   //   |    |   |
@@ -2246,252 +856,85 @@ describe("cascading merge (merge commit re-merged into a third branch)", () =>
   // This topology exercises the path where layoutGraph encounters M1 (already
   // placed as a merge node) as the non-first parent of a subsequent commit.
 
-  let root: ReturnType<typeof makeCommit>
-;
+  let root: ReturnType<typeof makeCommit>;
+  let c1: ReturnType<typeof makeCommit>;
+  let c2: ReturnType<typeof makeCommit>;
+  let c3: ReturnType<typeof makeCommit>;
+  let m1: ReturnType<typeof makeCommit>;
+  let m2: ReturnType<typeof makeCommit>;
 
-  let c1: ReturnType<typeof makeCommit>
-;
+  beforeEach(() => {
+    root = makeCommit("Root");
+    c1   = makeCommit("Branch-A-1", [root.hash]);
+    c2   = makeCommit("Branch-B-1", [root.hash]);
+    c3   = makeCommit("Branch-C-1", [root.hash]);
+    m1   = makeCommit("Merge A+B",  [c1.hash, c2.hash]);
+    // M2 is on branch C; first parent is c3 (continuing lane), extra parent is M1
+    m2   = makeCommit("Merge M1 into C", [c3.hash, m1.hash]);
+  });
 
-  let c2: ReturnType<typeof makeCommit>
-;
-
-  let c3: ReturnType<typeof makeCommit>
-;
-
-  let m1: ReturnType<typeof makeCommit>
-;
-
-  let m2: ReturnType<typeof makeCommit>
-;
-
-
-  beforeEach(() => 
-{
-
-    root = makeCommit("Root")
-;
-
-    c1   = makeCommit("Branch-A-1", [root.hash])
-;
-
-    c2   = makeCommit("Branch-B-1", [root.hash])
-;
-
-    c3   = makeCommit("Branch-C-1", [root.hash])
-;
-
-    m1   = makeCommit("Merge A+B",  [c1.hash, c2.hash])
-;
-
-    // M2 is on branch C
-;
- first parent is c3 (continuing lane), extra parent is M1
-    m2   = makeCommit("Merge M1 into C", [c3.hash, m1.hash])
-;
-
-  
-}
-)
-;
-
-
-  it("every edge endpoint lands on its parent's actual column", () => 
-{
-
+  it("every edge endpoint lands on its parent's actual column", () => {
     // newest first: M2 is tip of branch C (after absorbing M1)
-    const 
-{
- rows, edges 
-}
- = layoutGraph([m2, c3, m1, c1, c2, root])
-;
-
-    const colByHash = new Map(rows.map((r) => [r.commit.hash, r.col]))
-;
-
-    for (const e of edges) 
-{
-
-      const parentCommit = rows[e.toRow]!.commit
-;
-
+    const { rows, edges } = layoutGraph([m2, c3, m1, c1, c2, root]);
+    const colByHash = new Map(rows.map((r) => [r.commit.hash, r.col]));
+    for (const e of edges) {
+      const parentCommit = rows[e.toRow]!.commit;
       expect(e.toCol).toBe(
         colByHash.get(parentCommit.hash),
         `edge to "${parentCommit.subject}" should land on col ${colByHash.get(parentCommit.hash)}, got ${e.toCol}`,
-      )
-;
+      );
+    }
+  });
 
-    
-}
+  it("no -1 sentinel survives when a merge commit is the extra parent of another merge", () => {
+    const { edges } = layoutGraph([m2, c3, m1, c1, c2, root]);
+    for (const e of edges) {
+      expect(e.toCol).not.toBe(-1);
+      expect(e.fromCol).not.toBe(-1);
+    }
+  });
 
-  
-}
-)
-;
+  it("c1, c2, and c3 all sit on distinct columns (three simultaneous lanes)", () => {
+    const { rows } = layoutGraph([m2, c3, m1, c1, c2, root]);
+    const colByHash = new Map(rows.map((r) => [r.commit.hash, r.col]));
+    const colC1 = colByHash.get(c1.hash)!;
+    const colC2 = colByHash.get(c2.hash)!;
+    const colC3 = colByHash.get(c3.hash)!;
+    expect(colC1).not.toBe(colC2);
+    expect(colC1).not.toBe(colC3);
+    expect(colC2).not.toBe(colC3);
+  });
 
+  it("M1 sits on a valid column (not undefined, not negative)", () => {
+    const { rows } = layoutGraph([m2, c3, m1, c1, c2, root]);
+    const m1Row = rows.find((r) => r.commit.hash === m1.hash)!;
+    expect(m1Row.col).toBeGreaterThanOrEqual(0);
+  });
 
-  it("no -1 sentinel survives when a merge commit is the extra parent of another merge", () => 
-{
-
-    const 
-{
- edges 
-}
- = layoutGraph([m2, c3, m1, c1, c2, root])
-;
-
-    for (const e of edges) 
-{
-
-      expect(e.toCol).not.toBe(-1)
-;
-
-      expect(e.fromCol).not.toBe(-1)
-;
-
-    
-}
-
-  
-}
-)
-;
-
-
-  it("c1, c2, and c3 all sit on distinct columns (three simultaneous lanes)", () => 
-{
-
-    const 
-{
- rows 
-}
- = layoutGraph([m2, c3, m1, c1, c2, root])
-;
-
-    const colByHash = new Map(rows.map((r) => [r.commit.hash, r.col]))
-;
-
-    const colC1 = colByHash.get(c1.hash)!
-;
-
-    const colC2 = colByHash.get(c2.hash)!
-;
-
-    const colC3 = colByHash.get(c3.hash)!
-;
-
-    expect(colC1).not.toBe(colC2)
-;
-
-    expect(colC1).not.toBe(colC3)
-;
-
-    expect(colC2).not.toBe(colC3)
-;
-
-  
-}
-)
-;
-
-
-  it("M1 sits on a valid column (not undefined, not negative)", () => 
-{
-
-    const 
-{
- rows 
-}
- = layoutGraph([m2, c3, m1, c1, c2, root])
-;
-
-    const m1Row = rows.find((r) => r.commit.hash === m1.hash)!
-;
-
-    expect(m1Row.col).toBeGreaterThanOrEqual(0)
-;
-
-  
-}
-)
-;
-
-
-  it("M2 sits on the same column as c3 (first-parent lane is preserved)", () => 
-{
-
-    const 
-{
- rows 
-}
- = layoutGraph([m2, c3, m1, c1, c2, root])
-;
-
-    const colByHash = new Map(rows.map((r) => [r.commit.hash, r.col]))
-;
-
+  it("M2 sits on the same column as c3 (first-parent lane is preserved)", () => {
+    const { rows } = layoutGraph([m2, c3, m1, c1, c2, root]);
+    const colByHash = new Map(rows.map((r) => [r.commit.hash, r.col]));
     // M2's first parent is c3, so M2 should continue on c3's lane
-    expect(colByHash.get(m2.hash)).toBe(colByHash.get(c3.hash))
-;
+    expect(colByHash.get(m2.hash)).toBe(colByHash.get(c3.hash));
+  });
 
-  
-}
-)
-;
+  it("M1 sits on a different column than M2 (extra-parent lane is distinct)", () => {
+    const { rows } = layoutGraph([m2, c3, m1, c1, c2, root]);
+    const colByHash = new Map(rows.map((r) => [r.commit.hash, r.col]));
+    expect(colByHash.get(m2.hash)).not.toBe(colByHash.get(m1.hash));
+  });
 
-
-  it("M1 sits on a different column than M2 (extra-parent lane is distinct)", () => 
-{
-
-    const 
-{
- rows 
-}
- = layoutGraph([m2, c3, m1, c1, c2, root])
-;
-
-    const colByHash = new Map(rows.map((r) => [r.commit.hash, r.col]))
-;
-
-    expect(colByHash.get(m2.hash)).not.toBe(colByHash.get(m1.hash))
-;
-
-  
-}
-)
-;
-
-
-  it("maxCol is at least 2 (three branches are simultaneously live before any merge)", () => 
-{
-
-    const 
-{
- maxCol 
-}
- = layoutGraph([m2, c3, m1, c1, c2, root])
-;
-
-    expect(maxCol).toBeGreaterThanOrEqual(2)
-;
-
-  
-}
-)
-;
-
-}
-)
-;
-
+  it("maxCol is at least 2 (three branches are simultaneously live before any merge)", () => {
+    const { maxCol } = layoutGraph([m2, c3, m1, c1, c2, root]);
+    expect(maxCol).toBeGreaterThanOrEqual(2);
+  });
+});
 
 // ---------------------------------------------------------------------------
 // Two merge commits share the same non-first (extra) parent
 // ---------------------------------------------------------------------------
 
-describe("two merge commits share the same non-first parent", () => 
-{
-
+describe("two merge commits share the same non-first parent", () => {
   // Topology (newest first in array):
   //
   //   M1    M2          ← two independent merge commits              (rows 0, 1)
@@ -2508,179 +951,61 @@ describe("two merge commits share the same non-first parent", () =>
   // while S has not yet been processed), or leave -1 sentinels unresolved when
   // both lanes collapse onto S.
 
-  let root: ReturnType<typeof makeCommit>
-;
+  let root: ReturnType<typeof makeCommit>;
+  let a: ReturnType<typeof makeCommit>;
+  let b: ReturnType<typeof makeCommit>;
+  let s: ReturnType<typeof makeCommit>; // shared extra parent
+  let m1: ReturnType<typeof makeCommit>;
+  let m2: ReturnType<typeof makeCommit>;
 
-  let a: ReturnType<typeof makeCommit>
-;
+  beforeEach(() => {
+    root = makeCommit("Root");
+    a    = makeCommit("Branch-A", [root.hash]);
+    b    = makeCommit("Branch-B", [root.hash]);
+    s    = makeCommit("Shared-Extra", [root.hash]);
+    m1   = makeCommit("Merge-A+S",   [a.hash, s.hash]);
+    m2   = makeCommit("Merge-B+S",   [b.hash, s.hash]);
+  });
 
-  let b: ReturnType<typeof makeCommit>
-;
-
-  let s: ReturnType<typeof makeCommit>
-;
- // shared extra parent
-  let m1: ReturnType<typeof makeCommit>
-;
-
-  let m2: ReturnType<typeof makeCommit>
-;
-
-
-  beforeEach(() => 
-{
-
-    root = makeCommit("Root")
-;
-
-    a    = makeCommit("Branch-A", [root.hash])
-;
-
-    b    = makeCommit("Branch-B", [root.hash])
-;
-
-    s    = makeCommit("Shared-Extra", [root.hash])
-;
-
-    m1   = makeCommit("Merge-A+S",   [a.hash, s.hash])
-;
-
-    m2   = makeCommit("Merge-B+S",   [b.hash, s.hash])
-;
-
-  
-}
-)
-;
-
-
-  it("every edge endpoint lands on its parent's actual column", () => 
-{
-
-    // Both M1 and M2 are tips
-;
- present newest first.
-    const 
-{
- rows, edges 
-}
- = layoutGraph([m1, m2, a, b, s, root])
-;
-
-    const colByHash = new Map(rows.map((r) => [r.commit.hash, r.col]))
-;
-
-    for (const e of edges) 
-{
-
-      const parentCommit = rows[e.toRow]!.commit
-;
-
+  it("every edge endpoint lands on its parent's actual column", () => {
+    // Both M1 and M2 are tips; present newest first.
+    const { rows, edges } = layoutGraph([m1, m2, a, b, s, root]);
+    const colByHash = new Map(rows.map((r) => [r.commit.hash, r.col]));
+    for (const e of edges) {
+      const parentCommit = rows[e.toRow]!.commit;
       expect(e.toCol).toBe(
         colByHash.get(parentCommit.hash),
         `edge to "${parentCommit.subject}" should land on col ${colByHash.get(parentCommit.hash)}, got ${e.toCol}`,
-      )
-;
+      );
+    }
+  });
 
-    
-}
+  it("no -1 sentinel survives when two merges share a non-first parent", () => {
+    const { edges } = layoutGraph([m1, m2, a, b, s, root]);
+    for (const e of edges) {
+      expect(e.toCol).not.toBe(-1);
+      expect(e.fromCol).not.toBe(-1);
+    }
+  });
 
-  
-}
-)
-;
+  it("M1 and M2 sit on distinct columns", () => {
+    const { rows } = layoutGraph([m1, m2, a, b, s, root]);
+    const colByHash = new Map(rows.map((r) => [r.commit.hash, r.col]));
+    expect(colByHash.get(m1.hash)).not.toBe(colByHash.get(m2.hash));
+  });
 
+  it("the shared extra parent S lands on a valid non-negative column", () => {
+    const { rows } = layoutGraph([m1, m2, a, b, s, root]);
+    const sRow = rows.find((r) => r.commit.hash === s.hash)!;
+    expect(sRow.col).toBeGreaterThanOrEqual(0);
+  });
 
-  it("no -1 sentinel survives when two merges share a non-first parent", () => 
-{
-
-    const 
-{
- edges 
-}
- = layoutGraph([m1, m2, a, b, s, root])
-;
-
-    for (const e of edges) 
-{
-
-      expect(e.toCol).not.toBe(-1)
-;
-
-      expect(e.fromCol).not.toBe(-1)
-;
-
-    
-}
-
-  
-}
-)
-;
-
-
-  it("M1 and M2 sit on distinct columns", () => 
-{
-
-    const 
-{
- rows 
-}
- = layoutGraph([m1, m2, a, b, s, root])
-;
-
-    const colByHash = new Map(rows.map((r) => [r.commit.hash, r.col]))
-;
-
-    expect(colByHash.get(m1.hash)).not.toBe(colByHash.get(m2.hash))
-;
-
-  
-}
-)
-;
-
-
-  it("the shared extra parent S lands on a valid non-negative column", () => 
-{
-
-    const 
-{
- rows 
-}
- = layoutGraph([m1, m2, a, b, s, root])
-;
-
-    const sRow = rows.find((r) => r.commit.hash === s.hash)!
-;
-
-    expect(sRow.col).toBeGreaterThanOrEqual(0)
-;
-
-  
-}
-)
-;
-
-
-  it("the shared extra parent S lands on the correct column (edge endpoints match)", () => 
-{
-
+  it("the shared extra parent S lands on the correct column (edge endpoints match)", () => {
     // Re-assert the column alignment specifically for S to make debugging easy
     // if the shared-parent collapse logic regresses.
-    const 
-{
- rows, edges 
-}
- = layoutGraph([m1, m2, a, b, s, root])
-;
-
-    const sRow = rows.find((r) => r.commit.hash === s.hash)!
-;
-
-    const sRowIndex = rows.indexOf(sRow)
-;
-
+    const { rows, edges } = layoutGraph([m1, m2, a, b, s, root]);
+    const sRow = rows.find((r) => r.commit.hash === s.hash)!;
+    const sRowIndex = rows.indexOf(sRow);
     // Every edge that targets S must arrive at S's actual column.
     const edgesToS = edges.filter((e) => e.toRow === sRowIndex);
     for (const e of edgesToS) {
@@ -2790,207 +1115,75 @@ describe("octopus merge (3 parents)", () => {
   // twice for the same commit (parents[1] and parents[2]).  Without a fixture
   // this code path is untested and could emit column overlaps or -1 sentinel leaks.
 
-  let root: ReturnType<typeof makeCommit>
-;
+  let root: ReturnType<typeof makeCommit>;
+  let branchA: ReturnType<typeof makeCommit>;
+  let branchB: ReturnType<typeof makeCommit>;
+  let branchC: ReturnType<typeof makeCommit>;
+  let octopus: ReturnType<typeof makeCommit>;
 
-  let branchA: ReturnType<typeof makeCommit>
-;
-
-  let branchB: ReturnType<typeof makeCommit>
-;
-
-  let branchC: ReturnType<typeof makeCommit>
-;
-
-  let octopus: ReturnType<typeof makeCommit>
-;
-
-
-  beforeEach(() => 
-{
-
-    root    = makeCommit("Root")
-;
-
-    branchA = makeCommit("Branch-A", [root.hash])
-;
-
-    branchB = makeCommit("Branch-B", [root.hash])
-;
-
-    branchC = makeCommit("Branch-C", [root.hash])
-;
-
+  beforeEach(() => {
+    root    = makeCommit("Root");
+    branchA = makeCommit("Branch-A", [root.hash]);
+    branchB = makeCommit("Branch-B", [root.hash]);
+    branchC = makeCommit("Branch-C", [root.hash]);
     // 3-parent octopus: first parent is branchA, extras are branchB and branchC.
-    octopus = makeCommit("Octopus merge A+B+C", [branchA.hash, branchB.hash, branchC.hash])
-;
+    octopus = makeCommit("Octopus merge A+B+C", [branchA.hash, branchB.hash, branchC.hash]);
+  });
 
-  
-}
-)
-;
-
-
-  it("every edge endpoint lands on its parent's actual column", () => 
-{
-
-    const 
-{
- rows, edges 
-}
- = layoutGraph([octopus, branchA, branchB, branchC, root])
-;
-
-    const colByHash = new Map(rows.map((r) => [r.commit.hash, r.col]))
-;
-
-    for (const e of edges) 
-{
-
-      const parentCommit = rows[e.toRow]!.commit
-;
-
+  it("every edge endpoint lands on its parent's actual column", () => {
+    const { rows, edges } = layoutGraph([octopus, branchA, branchB, branchC, root]);
+    const colByHash = new Map(rows.map((r) => [r.commit.hash, r.col]));
+    for (const e of edges) {
+      const parentCommit = rows[e.toRow]!.commit;
       expect(e.toCol).toBe(
         colByHash.get(parentCommit.hash),
         `edge to "${parentCommit.subject}" should land on col ${colByHash.get(parentCommit.hash)}, got ${e.toCol}`,
-      )
-;
+      );
+    }
+  });
 
-    
-}
+  it("no -1 sentinel survives in an octopus merge graph", () => {
+    const { edges } = layoutGraph([octopus, branchA, branchB, branchC, root]);
+    for (const e of edges) {
+      expect(e.toCol).not.toBe(-1);
+      expect(e.fromCol).not.toBe(-1);
+    }
+  });
 
-  
-}
-)
-;
+  it("each of the three parents is placed on a distinct column", () => {
+    const { rows } = layoutGraph([octopus, branchA, branchB, branchC, root]);
+    const colByHash = new Map(rows.map((r) => [r.commit.hash, r.col]));
+    const colA = colByHash.get(branchA.hash)!;
+    const colB = colByHash.get(branchB.hash)!;
+    const colC = colByHash.get(branchC.hash)!;
+    expect(colA).not.toBe(colB);
+    expect(colA).not.toBe(colC);
+    expect(colB).not.toBe(colC);
+  });
 
+  it("the octopus commit itself is placed on a valid non-negative column", () => {
+    const { rows } = layoutGraph([octopus, branchA, branchB, branchC, root]);
+    const octRow = rows.find((r) => r.commit.hash === octopus.hash)!;
+    expect(octRow.col).toBeGreaterThanOrEqual(0);
+  });
 
-  it("no -1 sentinel survives in an octopus merge graph", () => 
-{
-
-    const 
-{
- edges 
-}
- = layoutGraph([octopus, branchA, branchB, branchC, root])
-;
-
-    for (const e of edges) 
-{
-
-      expect(e.toCol).not.toBe(-1)
-;
-
-      expect(e.fromCol).not.toBe(-1)
-;
-
-    
-}
-
-  
-}
-)
-;
-
-
-  it("each of the three parents is placed on a distinct column", () => 
-{
-
-    const 
-{
- rows 
-}
- = layoutGraph([octopus, branchA, branchB, branchC, root])
-;
-
-    const colByHash = new Map(rows.map((r) => [r.commit.hash, r.col]))
-;
-
-    const colA = colByHash.get(branchA.hash)!
-;
-
-    const colB = colByHash.get(branchB.hash)!
-;
-
-    const colC = colByHash.get(branchC.hash)!
-;
-
-    expect(colA).not.toBe(colB)
-;
-
-    expect(colA).not.toBe(colC)
-;
-
-    expect(colB).not.toBe(colC)
-;
-
-  
-}
-)
-;
-
-
-  it("the octopus commit itself is placed on a valid non-negative column", () => 
-{
-
-    const 
-{
- rows 
-}
- = layoutGraph([octopus, branchA, branchB, branchC, root])
-;
-
-    const octRow = rows.find((r) => r.commit.hash === octopus.hash)!
-;
-
-    expect(octRow.col).toBeGreaterThanOrEqual(0)
-;
-
-  
-}
-)
-;
-
-
-  it("maxCol is at least 2 (three branch lanes are simultaneously open)", () => 
-{
-
-    const 
-{
- maxCol 
-}
- = layoutGraph([octopus, branchA, branchB, branchC, root])
-;
-
-    expect(maxCol).toBeGreaterThanOrEqual(2)
-;
-
-  
-}
-)
-;
-
-}
-)
-;
-
+  it("maxCol is at least 2 (three branch lanes are simultaneously open)", () => {
+    const { maxCol } = layoutGraph([octopus, branchA, branchB, branchC, root]);
+    expect(maxCol).toBeGreaterThanOrEqual(2);
+  });
+});
 
 // ---------------------------------------------------------------------------
 // Two independent long-running branches both merged into main
 // ---------------------------------------------------------------------------
 
-describe("two independent long-running branches both merged into main", () => 
-{
+describe("two independent long-running branches both merged into main", () => {
 
-  // Topology (newest → oldest
-;
- left = branchA, right = branchB, centre = main):
+  // Topology (newest → oldest; left = branchA, right = branchB, centre = main):
   //
   //   mergeB            ← second merge: parents [main2, bB3]   (tip)
   //   |      \
-  //  main2   bB3        ← main advances
-;
- branchB still live
+  //  main2   bB3        ← main advances; branchB still live
   //   |       |
   //  mergeA  bB2        ← first merge:  parents [main1, bA2]
   //   |   \   |
@@ -3000,7 +1193,7 @@ describe("two independent long-running branches both merged into main", () =>
   //   \     /  |
   //    root    |        ← shared root
   //        \  /
-  //         bB1 ← branchB also diverges from root
+  //         bB1         ← branchB also diverges from root
   //
   // branchA (bA1 → bA2) is merged into main at mergeA while branchB is still live.
   // branchB (bB1 → bB2 → bB3) is merged into main at mergeB after mergeA.
@@ -3008,246 +1201,80 @@ describe("two independent long-running branches both merged into main", () =>
   // This stresses lane-reuse: the lane freed when branchA is absorbed into mergeA
   // must not be incorrectly claimed by the still-live branchB lane.
 
-  let root: ReturnType<typeof makeCommit>
-;
+  let root: ReturnType<typeof makeCommit>;
+  let main1: ReturnType<typeof makeCommit>;
+  let main2: ReturnType<typeof makeCommit>;
+  let bA1: ReturnType<typeof makeCommit>;
+  let bA2: ReturnType<typeof makeCommit>;
+  let bB1: ReturnType<typeof makeCommit>;
+  let bB2: ReturnType<typeof makeCommit>;
+  let bB3: ReturnType<typeof makeCommit>;
+  let mergeA: ReturnType<typeof makeCommit>;
+  let mergeB: ReturnType<typeof makeCommit>;
 
-  let main1: ReturnType<typeof makeCommit>
-;
-
-  let main2: ReturnType<typeof makeCommit>
-;
-
-  let bA1: ReturnType<typeof makeCommit>
-;
-
-  let bA2: ReturnType<typeof makeCommit>
-;
-
-  let bB1: ReturnType<typeof makeCommit>
-;
-
-  let bB2: ReturnType<typeof makeCommit>
-;
-
-  let bB3: ReturnType<typeof makeCommit>
-;
-
-  let mergeA: ReturnType<typeof makeCommit>
-;
-
-  let mergeB: ReturnType<typeof makeCommit>
-;
-
-
-  beforeEach(() => 
-{
-
-    root   = makeCommit("Root")
-;
-
-    main1  = makeCommit("Main-1",    [root.hash])
-;
-
-    bA1    = makeCommit("BranchA-1", [root.hash])
-;
-
-    bB1    = makeCommit("BranchB-1", [root.hash])
-;
-
-    bA2    = makeCommit("BranchA-2", [bA1.hash])
-;
-
-    bB2    = makeCommit("BranchB-2", [bB1.hash])
-;
-
-    // branchA is merged into main first
-;
- branchB is still live at this point
-    mergeA = makeCommit("Merge-branchA-into-main", [main1.hash, bA2.hash])
-;
-
-    main2  = makeCommit("Main-2",    [mergeA.hash])
-;
-
-    bB3    = makeCommit("BranchB-3", [bB2.hash])
-;
-
+  beforeEach(() => {
+    root   = makeCommit("Root");
+    main1  = makeCommit("Main-1",    [root.hash]);
+    bA1    = makeCommit("BranchA-1", [root.hash]);
+    bB1    = makeCommit("BranchB-1", [root.hash]);
+    bA2    = makeCommit("BranchA-2", [bA1.hash]);
+    bB2    = makeCommit("BranchB-2", [bB1.hash]);
+    // branchA is merged into main first; branchB is still live at this point
+    mergeA = makeCommit("Merge-branchA-into-main", [main1.hash, bA2.hash]);
+    main2  = makeCommit("Main-2",    [mergeA.hash]);
+    bB3    = makeCommit("BranchB-3", [bB2.hash]);
     // branchB is merged into main second
-    mergeB = makeCommit("Merge-branchB-into-main", [main2.hash, bB3.hash])
-;
-
-  
-}
-)
-;
-
+    mergeB = makeCommit("Merge-branchB-into-main", [main2.hash, bB3.hash]);
+  });
 
   // Newest-first ordering for all tests in this suite.
-  function commits() 
-{
+  function commits() {
+    return [mergeB, main2, mergeA, bA2, main1, bB3, bB2, bA1, bB1, root];
+  }
 
-    return [mergeB, main2, mergeA, bA2, main1, bB3, bB2, bA1, bB1, root]
-;
-
-  
-}
-
-
-  it("every edge endpoint lands on its parent's actual column", () => 
-{
-
-    const 
-{
- rows, edges 
-}
- = layoutGraph(commits())
-;
-
-    const colByHash = new Map(rows.map((r) => [r.commit.hash, r.col]))
-;
-
-    for (const e of edges) 
-{
-
-      const parentCommit = rows[e.toRow]!.commit
-;
-
+  it("every edge endpoint lands on its parent's actual column", () => {
+    const { rows, edges } = layoutGraph(commits());
+    const colByHash = new Map(rows.map((r) => [r.commit.hash, r.col]));
+    for (const e of edges) {
+      const parentCommit = rows[e.toRow]!.commit;
       expect(e.toCol).toBe(
         colByHash.get(parentCommit.hash),
         `edge to "${parentCommit.subject}" should land on col ${colByHash.get(parentCommit.hash)}, got ${e.toCol}`,
-      )
-;
+      );
+    }
+  });
 
-    
-}
+  it("no -1 sentinel survives when two independent branches are both merged into main", () => {
+    const { edges } = layoutGraph(commits());
+    for (const e of edges) {
+      expect(e.toCol).not.toBe(-1);
+      expect(e.fromCol).not.toBe(-1);
+    }
+  });
 
-  
-}
-)
-;
+  it("branchA commits all share the same column", () => {
+    const { rows } = layoutGraph(commits());
+    const colByHash = new Map(rows.map((r) => [r.commit.hash, r.col]));
+    const colA = colByHash.get(bA1.hash)!;
+    expect(colByHash.get(bA2.hash)).toBe(colA);
+  });
 
+  it("branchB commits all share the same column", () => {
+    const { rows } = layoutGraph(commits());
+    const colByHash = new Map(rows.map((r) => [r.commit.hash, r.col]));
+    const colB = colByHash.get(bB1.hash)!;
+    expect(colByHash.get(bB2.hash)).toBe(colB);
+    expect(colByHash.get(bB3.hash)).toBe(colB);
+  });
 
-  it("no -1 sentinel survives when two independent branches are both merged into main", () => 
-{
+  it("branchA and branchB occupy different columns (independent branches never share a lane)", () => {
+    const { rows } = layoutGraph(commits());
+    const colByHash = new Map(rows.map((r) => [r.commit.hash, r.col]));
+    expect(colByHash.get(bA1.hash)).not.toBe(colByHash.get(bB1.hash));
+  });
 
-    const 
-{
- edges 
-}
- = layoutGraph(commits())
-;
-
-    for (const e of edges) 
-{
-
-      expect(e.toCol).not.toBe(-1)
-;
-
-      expect(e.fromCol).not.toBe(-1)
-;
-
-    
-}
-
-  
-}
-)
-;
-
-
-  it("branchA commits all share the same column", () => 
-{
-
-    const 
-{
- rows 
-}
- = layoutGraph(commits())
-;
-
-    const colByHash = new Map(rows.map((r) => [r.commit.hash, r.col]))
-;
-
-    const colA = colByHash.get(bA1.hash)!
-;
-
-    expect(colByHash.get(bA2.hash)).toBe(colA)
-;
-
-  
-}
-)
-;
-
-
-  it("branchB commits all share the same column", () => 
-{
-
-    const 
-{
- rows 
-}
- = layoutGraph(commits())
-;
-
-    const colByHash = new Map(rows.map((r) => [r.commit.hash, r.col]))
-;
-
-    const colB = colByHash.get(bB1.hash)!
-;
-
-    expect(colByHash.get(bB2.hash)).toBe(colB)
-;
-
-    expect(colByHash.get(bB3.hash)).toBe(colB)
-;
-
-  
-}
-)
-;
-
-
-  it("branchA and branchB occupy different columns (independent branches never share a lane)", () => 
-{
-
-    const 
-{
- rows 
-}
- = layoutGraph(commits())
-;
-
-    const colByHash = new Map(rows.map((r) => [r.commit.hash, r.col]))
-;
-
-    expect(colByHash.get(bA1.hash)).not.toBe(colByHash.get(bB1.hash))
-;
-
-  
-}
-)
-;
-
-
-  it("maxCol is at least 2 (main + branchA + branchB are simultaneously live before mergeA)", () => 
-{
-
-    const 
-{
- maxCol 
-}
- = layoutGraph(commits())
-;
-
-    expect(maxCol).toBeGreaterThanOrEqual(2)
-;
-
-  
-}
-)
-;
-
-}
-)
-;
+  it("maxCol is at least 2 (main + branchA + branchB are simultaneously live before mergeA)", () => {
+    const { maxCol } = layoutGraph(commits());
+    expect(maxCol).toBeGreaterThanOrEqual(2);
+  });
+});
