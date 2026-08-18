@@ -1317,4 +1317,35 @@ describe("branch switch: staged files and freshKeys", () => {
     // A purely staged file must NOT receive the orange highlight ring
     expect(switchEv!.freshKeys).not.toContain("staged.ts");
   });
+
+  it("includes a deleted file that appears only after the branch switch", () => {
+    // gone.ts does not exist on main at all; the feature branch has it as
+    // "deleted" (tracked by git, removed from the working tree).
+    // workbenchFiles() includes "deleted" status, so a file that first appears
+    // with this status after the switch was brought in by the switch and must
+    // receive the orange highlight ring.
+    const prev = state({
+      currentBranch: "main",
+      branches: [
+        { name: "main", isCurrent: true, headHash: "abc" },
+        { name: "feature", isCurrent: false, headHash: "def" },
+      ],
+      files: [],
+    });
+    const next = state({
+      currentBranch: "feature",
+      branches: [
+        { name: "main", isCurrent: false, headHash: "abc" },
+        { name: "feature", isCurrent: true, headHash: "def" },
+      ],
+      // gone.ts is visible on the Workbench only because we switched to feature.
+      files: [{ path: "gone.ts", status: "deleted" }],
+    });
+    const events = detectMovements(prev, next, counter);
+    const switchEv = events.find((e) => e.from === "sealed" && e.to === "workbench");
+    expect(switchEv).toBeDefined();
+    // A deleted file that first appears after the switch IS part of the
+    // workbench and must receive the highlight ring.
+    expect(switchEv!.freshKeys).toContain("gone.ts");
+  });
 });
