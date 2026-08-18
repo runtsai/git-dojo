@@ -394,3 +394,156 @@ describe("GET /crisis/scenarios/crisis-02/file-diff — both conflicted files re
     }
   });
 });
+
+// ---------------------------------------------------------------------------
+// Suite 3 — partial resolution: rates.txt resolved & staged, drivers.txt still
+//            conflicted.
+//
+// A common mid-session state: the learner has resolved rates.txt, written the
+// resolved content, and staged it (git add rates.txt), but drivers.txt still
+// has conflict markers.  The endpoint must:
+//   • return 200 + status "conflicted" for drivers.txt
+//   • return 200 + a non-conflicted status for rates.txt
+//
+// This guards against an implementation that relies on the full set of
+// conflicted files being identical between calls, or that misreads git's
+// porcelain output for a partially-staged file during a merge.
+// ---------------------------------------------------------------------------
+
+describe("GET /crisis/scenarios/:crisisId/file-diff — partial resolution (rates.txt staged, drivers.txt still conflicted)", () => {
+  let server: http.Server;
+  let port: number;
+  let fakeHome: string;
+  let originalHome: string | undefined;
+
+  beforeAll(async () => {
+    fakeHome = mkdtempSync(path.join(tmpdir(), "crisis-filediff-partial-"));
+    originalHome = process.env.HOME;
+    process.env.HOME = fakeHome;
+
+    // Reuse "crisis-02" as the scenario id — it IS registered in the router's
+    // scenario list, so findScenario() will not reject it.  Each suite sets its
+    // own fakeHome, which redirects crisisRoot() / playground() to a fully
+    // isolated directory, so there is no collision with Suite 2.
+    const crisisId = "crisis-02";
+    const playgroundDir = path.join(fakeHome, "git-dojo", "playground", crisisId);
+    mkdirSync(playgroundDir, { recursive: true });
+
+    const env = {
+      ...process.env,
+      GIT_AUTHOR_NAME: "Previous Operator",
+      GIT_AUTHOR_EMAIL: "ops@example.com",
+      GIT_COMMITTER_NAME: "Previous Operator",
+      GIT_COMMITTER_EMAIL: "ops@example.com",
+      GIT_TERMINAL_PROMPT: "0",
+      GIT_CONFIG_GLOBAL: "/dev/null",
+      HOME: fakeHome,
+    };
+
+    const git = (...args: string[]) =>
+      execFileSync("git", args, { cwd: playgroundDir, env });
+
+    // ---------- 1. Baseline commit ----------
+    git("init", "-q", "-b", "main");
+    git("config", "user.name", "Previous Operator");
+    git("config", "user.email", "ops@example.com");
+
+    const RATES = "RTS Freight rates\nStandard load: $500\nRush load: $750\nFuel surcharge: $40\n";
+    const DRIVERS = "Active drivers\nM. Alvarez\nJ. Okafor\n";
+
+    writeFileSync(path.join(playgroundDir, "rates.txt"), RATES);
+    writeFileSync(path.join(playgroundDir, "drivers.txt"), DRIVERS);
+    git("add", "-A");
+    git("commit", "-q", "-m", "Open the books");
+
+    // ---------- 2. rate-overhaul branch ----------
+    git("switch", "-q", "-c", "rate-overhaul");
+    writeFileSync(
+      path.join(playgroundDir, "rates.txt"),
+      RATES.replace("Fuel surcharge: $40", "Fuel surcharge: $80"),
+    );
+    writeFileSync(path.join(playgroundDir, "drivers.txt"), DRIVERS + "T. Brandt\n");
+    git("add", "-A");
+    git("commit", "-q", "-m", "Overhaul: raise fuel surcharge, add Brandt");
+
+    // ---------- 3. main branch ----------
+    git("switch", "-q", "main");
+    writeFileSync(
+      path.join(playgroundDir, "rates.txt"),
+      RATES.replace("Fuel surcharge: $40", "Fuel surcharge: $65"),
+    );
+    writeFileSync(path.join(playgroundDir, "drivers.txt"), DRIVERS + "R. Chen\n");
+    git("add", "-A");
+    git("commit", "-q", "-m", "Mainline: raise fuel surcharge, add Chen");
+
+    // ---------- 4. Trigger merge conflict ----------
+    try {
+      git("merge", "rate-overhaul");
+    } catch {
+      /* expected: conflict leaves both files mid-merge */
+    }
+
+    // ---------- 5. Resolve rates.txt and stage it ----------
+    // Write a clean resolved version (no conflict markers) and stage it.
+    // drivers.txt is intentionally left conflicted.
+    writeFileSync(
+      path.join(playgroundDir, "rates.txt"),
+      "RTS Freight rates\nStandard load: $500\nRush load: $750\nFuel surcharge: $72\n",
+    );
+    git("add", "rates.txt");
+
+    // ---------- 6. Mount the crisis router ----------
+    const { default: crisisRouter } = await import("./crisis.js");
+
+    const app = express();
+    app.use((req, _res, next) => {
+      (req as unknown as Record<string, unknown>)["log"] = {
+        info: () => {},
+        warn: () => {},
+        error: () => {},
+      };
+      next();
+    });
+    app.use("/", crisisRouter);
+
+    server = http.createServer(app);
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+    port = (server.address() as AddressInfo).port;
+  });
+
+  afterAll(async () => {
+    await new Promise<void>((resolve, reject) =>
+      server.close((err) => (err ? reject(err) : resolve())),
+    );
+    if (originalHome !== undefined) process.env.HOME = originalHome;
+    else delete process.env.HOME;
+    try {
+      rmSync(fakeHome, { recursive: true, force: true });
+    } catch {
+      /* best-effort cleanup */
+    }
+  });
+
+  it("returns 200 for drivers.txt and reports status 'conflicted' while rates.txt is already resolved", async () => {
+    const { status, body } = await get(
+      port,
+      "/crisis/scenarios/crisis-02/file-diff?filePath=drivers.txt",
+    );
+    expect(status).toBe(200);
+    const json = JSON.parse(body) as Record<string, unknown>;
+    assertWorkingFileDiffShape(json, "drivers.txt");
+    expect(json["status"]).toBe("conflicted");
+  });
+
+  it("returns 200 for rates.txt with a non-conflicted status after it has been resolved and staged", async () => {
+    const { status, body } = await get(
+      port,
+      "/crisis/scenarios/crisis-02/file-diff?filePath=rates.txt",
+    );
+    expect(status).toBe(200);
+    const json = JSON.parse(body) as Record<string, unknown>;
+    assertWorkingFileDiffShape(json, "rates.txt");
+    // After resolving and staging, rates.txt must no longer be "conflicted".
+    expect(json["status"]).not.toBe("conflicted");
+  });
+});
