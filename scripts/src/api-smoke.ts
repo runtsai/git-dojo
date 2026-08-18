@@ -494,7 +494,13 @@ async function smokeDurationMismatch(): Promise<void> {
 
   let browser: import("puppeteer-core").Browser | null = null;
   try {
-    const puppeteer = (await import("puppeteer-core")).default;
+    let puppeteer: typeof import("puppeteer-core")["default"];
+    try {
+      puppeteer = (await import("puppeteer-core")).default;
+    } catch {
+      console.log(`  -  ${label}  (skipped — puppeteer-core not installed)`);
+      return;
+    }
     browser = await puppeteer.launch({
       executablePath: chromiumPath,
       headless: true,
