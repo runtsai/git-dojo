@@ -197,6 +197,20 @@ else
 fi
 
 # ═════════════════════════════════════════════════════════════════════════════
+# check.sh "files but no Git" regression tests (lessons 01–09)
+# Verifies that each lesson's check.sh emits at least one FAIL: line when setup
+# populated the playground but its Git metadata is missing.
+# ═════════════════════════════════════════════════════════════════════════════
+step "check.sh files-without-Git checks (lessons 01–09)"
+if bash "$LESSONS_DIR/test-check-no-git.sh" 2>&1; then
+  ok "test-check-no-git.sh — all lessons emit FAIL when Git metadata is missing"
+  PASS_TOTAL=$((PASS_TOTAL+1))
+else
+  fail "test-check-no-git.sh — one or more lessons did not emit a counted FAIL"
+  FAIL_TOTAL=$((FAIL_TOTAL+1))
+fi
+
+# ═════════════════════════════════════════════════════════════════════════════
 # Grader regression tests (lessons 01–07)
 # ═════════════════════════════════════════════════════════════════════════════
 step "Grader checks (lessons 01–07)"
