@@ -581,6 +581,123 @@ describe("POST /api/capstone/verify/:missionId — response shape", () => {
       });
     }
   });
+
+  it("does not award a badge when the capstone is reset before the badge-write reload", async () => {
+    mockCapstoneState = makeCapstoneState({
+      missionsVerifiedAt: {
+        "push-commit": "2026-01-01T00:00:00.000Z",
+        "create-branch": "2026-01-01T00:01:00.000Z",
+      },
+    });
+
+    const { loadCapstone, saveCapstone, clearCapstone } = await import("../lib/capstone-store.js");
+    const { recordCompletion } = await import("../lib/progress-store.js");
+    const initialState = JSON.parse(JSON.stringify(mockCapstoneState)) as CapstoneState;
+    let loadCount = 0;
+
+    // Return an independent snapshot for the initial route load, then model a
+    // concurrent DELETE /capstone/repo immediately before the reload in the
+    // badge-write block.
+    vi.mocked(loadCapstone).mockImplementation(() => {
+      loadCount += 1;
+      if (loadCount === 2) {
+        vi.mocked(clearCapstone)();
+        return null;
+      }
+      return JSON.parse(JSON.stringify(initialState)) as CapstoneState;
+    });
+
+    try {
+      mockGhJson.mockImplementation(async (path: string) => {
+        if (path === "/repos/testuser/dojo-live-capstone") {
+          return { ok: true, status: 200, data: makeRepo(), errorMessage: null };
+        }
+        if (path.includes("/pulls/42")) {
+          return {
+            ok: true,
+            status: 200,
+            data: { merged: true, state: "closed" },
+            errorMessage: null,
+          };
+        }
+        throw new Error(`Unexpected ghJson call: ${path}`);
+      });
+
+      const res = await fetch(`${base}/api/capstone/verify/merge-pr`, { method: "POST" });
+      expect(res.status).toBe(409);
+      expect(await res.json()).toEqual({
+        error: "The capstone was reset while verification was in progress. No completion was recorded.",
+      });
+      expect(loadCount).toBe(2);
+      expect(saveCapstone).not.toHaveBeenCalled();
+      expect(recordCompletion).not.toHaveBeenCalled();
+      expect(mockCapstoneState).toBeNull();
+    } finally {
+      vi.mocked(loadCapstone).mockImplementation(() => mockCapstoneState);
+    }
+  });
+
+  it("does not apply an old verification to a capstone recreated during the request", async () => {
+    const initialState = makeCapstoneState({
+      missionsVerifiedAt: {
+        "push-commit": "2026-01-01T00:00:00.000Z",
+        "create-branch": "2026-01-01T00:01:00.000Z",
+      },
+    });
+    const replacementState = makeCapstoneState({
+      repoId: 654321,
+      repoName: "dojo-live-capstone-replacement",
+      repoFullName: "testuser/dojo-live-capstone-replacement",
+      htmlUrl: "https://github.com/testuser/dojo-live-capstone-replacement",
+      cloneUrl: "https://github.com/testuser/dojo-live-capstone-replacement.git",
+    });
+    mockCapstoneState = JSON.parse(JSON.stringify(initialState)) as CapstoneState;
+
+    const { loadCapstone, saveCapstone, clearCapstone } = await import("../lib/capstone-store.js");
+    const { recordCompletion } = await import("../lib/progress-store.js");
+    let loadCount = 0;
+
+    // Model DELETE /capstone/repo followed by a new repo creation after the
+    // initial verification snapshot but before its badge-write reload.
+    vi.mocked(loadCapstone).mockImplementation(() => {
+      loadCount += 1;
+      if (loadCount === 2) {
+        vi.mocked(clearCapstone)();
+        mockCapstoneState = JSON.parse(JSON.stringify(replacementState)) as CapstoneState;
+      }
+      return mockCapstoneState ? (JSON.parse(JSON.stringify(mockCapstoneState)) as CapstoneState) : null;
+    });
+
+    try {
+      mockGhJson.mockImplementation(async (path: string) => {
+        if (path === "/repos/testuser/dojo-live-capstone") {
+          return { ok: true, status: 200, data: makeRepo(), errorMessage: null };
+        }
+        if (path.includes("/pulls/42")) {
+          return {
+            ok: true,
+            status: 200,
+            data: { merged: true, state: "closed" },
+            errorMessage: null,
+          };
+        }
+        throw new Error(`Unexpected ghJson call: ${path}`);
+      });
+
+      const res = await fetch(`${base}/api/capstone/verify/merge-pr`, { method: "POST" });
+      expect(res.status).toBe(409);
+      expect(await res.json()).toEqual({
+        error: "The capstone was reset while verification was in progress. No completion was recorded.",
+      });
+      expect(loadCount).toBe(2);
+      expect(clearCapstone).toHaveBeenCalledTimes(1);
+      expect(saveCapstone).not.toHaveBeenCalled();
+      expect(recordCompletion).not.toHaveBeenCalled();
+      expect(mockCapstoneState).toEqual(replacementState);
+    } finally {
+      vi.mocked(loadCapstone).mockImplementation(() => mockCapstoneState);
+    }
+  });
 });
 
 // ---------------------------------------------------------------------------

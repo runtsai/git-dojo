@@ -662,7 +662,19 @@ router.post("/capstone/verify/:missionId", requireOwner, async (req, res): Promi
     // — with no await between this point and saveCapstone — makes the
     // check-then-write block effectively atomic in Node.js's single-threaded
     // event loop, so the badge and recordCompletion are issued at most once.
-    const latestState = loadCapstone() ?? state;
+    const latestState = loadCapstone();
+    if (
+      !latestState ||
+      latestState.repoId !== state.repoId ||
+      latestState.repoFullName !== state.repoFullName ||
+      latestState.owner !== state.owner
+    ) {
+      req.log.warn("Capstone state was cleared while verification was in progress; skipping completion write");
+      res.status(409).json({
+        error: "The capstone was reset while verification was in progress. No completion was recorded.",
+      });
+      return;
+    }
     if (!latestState.missionsVerifiedAt[missionId as MissionId]) {
       latestState.missionsVerifiedAt[missionId as MissionId] = new Date().toISOString();
       const allDone = MISSIONS.every((m) => !!latestState.missionsVerifiedAt[m.id]);
