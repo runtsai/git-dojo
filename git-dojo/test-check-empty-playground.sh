@@ -1,8 +1,7 @@
 #!/usr/bin/env bash
 # test-check-empty-playground.sh — verify that each lesson's check.sh emits at
 # least one "FAIL:" line when the playground folder exists but is completely
-# empty (zero files, no git repo — as if setup.sh was interrupted before doing
-# any real work).
+# empty (e.g. setup.sh was interrupted before it could populate it).
 #
 # Called by selftest.sh; exits 0 only if every lesson behaves correctly.
 set -euo pipefail
@@ -22,7 +21,8 @@ check_lesson_empty_playground() {
   local slot
   slot="$PLAYGROUND/$(echo "$label" | grep -oE 'lesson-[0-9]+')"
 
-  # Create the slot as an empty directory (remove any prior content first).
+  # Remove any existing content, then re-create the folder empty so check.sh
+  # sees a "setup ran but left nothing behind" state.
   rm -rf "$slot"
   mkdir -p "$slot"
 
@@ -38,11 +38,11 @@ check_lesson_empty_playground() {
     echo "PASS: $label check.sh emits FAIL line when playground is empty"
     pass=$((pass + 1))
   else
-    echo "FAIL: $label check.sh produced no FAIL: line when playground is empty (got: $out)"
+    echo "FAIL: $label check.sh produced no FAIL: line when playground empty (got: $out)"
     fail=$((fail + 1))
   fi
 
-  # Clean up the empty slot so it doesn't interfere with later tests.
+  # Clean up the empty slot so subsequent test phases start fresh.
   rm -rf "$slot"
 }
 
