@@ -54,11 +54,13 @@ export function SimPrHeader({
       ? { text: "Changes requested", cls: "bg-red-500/20 text-red-300 border-red-500/40", Icon: XCircle }
       : { text: "Open", cls: "bg-emerald-600/20 text-emerald-400 border-emerald-600/40", Icon: GitPullRequest };
   return (
-    <div className="relative p-4 md:p-5 border-b border-white/10 bg-[#161b22]">
-      {callout}
-      <h3 className="text-white font-bold text-lg leading-snug">
-        {title} <span className="text-muted-foreground font-normal">#{number}</span>
-      </h3>
+    <div className="p-4 md:p-5 border-b border-white/10 bg-[#161b22]">
+      <div className="flex flex-wrap items-start justify-between gap-x-3 gap-y-2">
+        <h3 className="text-white font-bold text-lg leading-snug">
+          {title} <span className="text-muted-foreground font-normal">#{number}</span>
+        </h3>
+        {callout && <div className="shrink-0">{callout}</div>}
+      </div>
       <div className="flex flex-wrap items-center gap-2 mt-3 text-sm">
         <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full border font-bold text-xs ${badge.cls}`}>
           <badge.Icon className="w-3.5 h-3.5" /> {badge.text}

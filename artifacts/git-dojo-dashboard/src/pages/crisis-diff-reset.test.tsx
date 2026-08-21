@@ -34,7 +34,6 @@ vi.mock("lucide-react", () => {
     GitMerge: s, Package: s, Wrench: s,
   };
 });
-
 // ---------------------------------------------------------------------------
 // wouter: controllable crisisId
 // ---------------------------------------------------------------------------
@@ -275,7 +274,6 @@ describe("diff viewer closes when the user clicks Reset / Trigger the Disaster",
     expect(screen.queryByTestId("diff-viewer")).toBeNull();
   });
 });
-
 describe("diff viewer closes when navigating to a different crisis URL", () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -355,7 +353,7 @@ describe("Reset/Trigger button while setup is in-flight", () => {
     vi.mocked(useSetupCrisisScenario).mockReturnValue({
       mutate: mockMutate,
       isPending: true,
-    } as ReturnType<typeof useSetupCrisisScenario>);
+    } as unknown as ReturnType<typeof useSetupCrisisScenario>);
 
     render(<CrisisView />);
 
@@ -368,7 +366,7 @@ describe("Reset/Trigger button while setup is in-flight", () => {
     vi.mocked(useSetupCrisisScenario).mockReturnValue({
       mutate: mockMutate,
       isPending: true,
-    } as ReturnType<typeof useSetupCrisisScenario>);
+    } as unknown as ReturnType<typeof useSetupCrisisScenario>);
 
     render(<CrisisView />);
 
@@ -390,12 +388,12 @@ describe("hints are reset to zero when the disaster is re-triggered", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockUseParams.mockReturnValue({ crisisId: "crisis-01" });
-    // The previous describe sets isPending:true via mockReturnValue.
-    // vi.clearAllMocks() only clears call history, so restore the normal state.
+    // Earlier tests use mockReturnValue({ isPending: true }); vi.clearAllMocks()
+    // does not reset that implementation, so we restore the default here.
     vi.mocked(useSetupCrisisScenario).mockReturnValue({
       mutate: vi.fn(),
       isPending: false,
-    } as ReturnType<typeof useSetupCrisisScenario>);
+    } as unknown as ReturnType<typeof useSetupCrisisScenario>);
   });
 
   afterEach(() => {
@@ -465,3 +463,4 @@ describe("hints are reset to zero when the disaster is re-triggered", () => {
     expect(safeStorage.removeItem).toHaveBeenCalledWith("crisis-hints-crisis-01");
   });
 });
+

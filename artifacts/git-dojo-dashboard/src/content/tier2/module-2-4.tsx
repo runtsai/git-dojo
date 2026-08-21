@@ -300,7 +300,7 @@ export function Module2_4() {
               commitCount={3}
               status="changes_requested"
               callout={
-                <div className="absolute top-3 right-3 flex items-center gap-1.5 text-[11px] font-bold text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded px-2 py-1">
+                <div className="flex items-center gap-1.5 text-[11px] font-bold text-amber-400 bg-amber-500/10 border border-amber-500/20 rounded px-2 py-1">
                   <MessageSquare className="w-3 h-3" /> Your changes requested — re-review needed
                 </div>
               }
