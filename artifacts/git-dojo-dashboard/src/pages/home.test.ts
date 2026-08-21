@@ -298,6 +298,55 @@ describe("computeBadgeShelf — only crisis badges earned", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Tier status rollback: active → coming_soon
+// ---------------------------------------------------------------------------
+
+describe("computeBadgeShelf — tier reverted from active to coming_soon", () => {
+  it("completedTiers does not include a tier whose status is rolled back to coming_soon", () => {
+    // Simulate a tier that was previously active (all modules complete) but
+    // whose status has since been set back to coming_soon (e.g. after a failed
+    // launch).
+    const rolledBackTier = makeTier({
+      id: "tier-rollback",
+      status: "coming_soon",
+      modules: [
+        { id: "rb.1", title: "Module rb.1", path: "/learn/rb-1" },
+        { id: "rb.2", title: "Module rb.2", path: "/learn/rb-2" },
+      ],
+    });
+    const result = computeBadgeShelf({
+      completedVisualModules: ["rb.1", "rb.2"],
+      completedCliLessons: [],
+      goLiveBadgeEarned: false,
+      lessons: [],
+      allTiers: [rolledBackTier],
+      allCrises: [],
+    });
+    expect(result.completedTiers).toHaveLength(0);
+  });
+
+  it("hasAnyBadge is false when the only completed tier is rolled back to coming_soon", () => {
+    const rolledBackTier = makeTier({
+      id: "tier-rollback",
+      status: "coming_soon",
+      modules: [
+        { id: "rb.1", title: "Module rb.1", path: "/learn/rb-1" },
+        { id: "rb.2", title: "Module rb.2", path: "/learn/rb-2" },
+      ],
+    });
+    const result = computeBadgeShelf({
+      completedVisualModules: ["rb.1", "rb.2"],
+      completedCliLessons: [],
+      goLiveBadgeEarned: false,
+      lessons: [],
+      allTiers: [rolledBackTier],
+      allCrises: [],
+    });
+    expect(result.hasAnyBadge).toBe(false);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // All three badge types together
 // ---------------------------------------------------------------------------
 
