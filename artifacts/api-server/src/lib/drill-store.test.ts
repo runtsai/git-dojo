@@ -581,6 +581,26 @@ describe("queryDue recovery filter — end-to-end via recordGraderResult", () =>
     mockTempFiles.clear();
   });
 
+  it("caps inflated legacy failure and pass totals when loading drills.json", () => {
+    // This mimics a persisted drills.json written before totals were bounded.
+    // queryDue loads the fixture through normaliseFriction, so returned friction
+    // data must never expose the inflated values.
+    setDrillData({
+      "source-inflated": {
+        failures: 3_500,
+        passes: 4_200,
+        runs: [],
+      },
+    });
+
+    const { friction } = queryDue([{ id: "d1", sourceId: "source-inflated" }]);
+    const entry = friction.find((f) => f.sourceId === "source-inflated");
+
+    expect(entry).toBeDefined();
+    expect(entry!.failures).toBe(999);
+    expect(entry!.passes).toBe(999);
+  });
+
   it("shows recovered badge once then hides a source after enough passes fill the recent half-window", () => {
     const candidates = [{ id: "d1", sourceId: "source-a" }];
 
