@@ -1,0 +1,166 @@
+Finalize the existing Git Dojo open-source repository preparation and publish the completed repository state to GitHub.
+
+Owner intent
+
+The prior open-source and launch-preparation work was intentionally drafted locally first. That draft phase is now complete.
+
+My intent is now to make Git Dojo an open-source public application/project, with the repository front-door materials finalized, committed, pushed to GitHub, and merged into the repository’s default/public branch.
+
+Public destinations:
+
+* App: https://git-dojo.com
+* Source repository: https://github.com/runtsai/git-dojo
+
+The existing locally prepared files are the starting point for this work.
+
+Existing local drafts
+
+The prior pass reportedly created:
+
+* README.md
+* CONTRIBUTING.md
+* CODE_OF_CONDUCT.md
+* SECURITY.md
+* Bug-report issue template
+* Lesson-improvement issue template
+* Pull-request template
+* docs/launch/LAUNCH-KIT.md
+
+The launch kit reportedly contains:
+
+* Pre-launch checklist
+* Suggested GitHub topics
+* v0.1.0 release draft
+* Show HN draft
+* Reddit draft
+* Dev.to article outline
+* Social post copy
+* Gradual launch sequence
+
+Do not blindly publish these files merely because they exist. First review the actual current working tree and repository state.
+
+Authorized scope
+
+You are authorized to:
+
+1. Inspect the current Git repository, branch, working tree, remotes, and local uncommitted drafts.
+2. Review the locally drafted open-source files for correctness, consistency, broken references, placeholders, inaccurate statements, and obvious omissions.
+3. Make reasonable source/documentation corrections necessary to turn those drafts into final repository-ready files.
+4. Verify that the repository contains an appropriate open-source license.
+5. If no valid license exists, stop and report that as an owner decision rather than choosing a license for me.
+6. Verify that no credentials, secrets, private keys, tokens, .env contents, internal-only notes, private URLs, or other sensitive material are being introduced into the public repository.
+7. Verify the public-facing README accurately describes what Git Dojo currently is and does, without claiming unfinished features as complete.
+8. Verify contribution, security, issue, and pull-request instructions point to real repository locations/workflows.
+9. Run the repository’s appropriate tests, lint/type checks, and build checks before publication.
+10. Commit the finalized open-source preparation.
+11. Push the resulting branch/history to GitHub.
+12. Merge the finalized work into the repository’s default/public branch using the repository’s normal safe workflow.
+13. Push the resulting merged default branch so GitHub reflects the final state.
+14. Confirm that the GitHub repository is public. If it is currently private, you are authorized to change the repository visibility to public, provided the secret/sensitive-information audit has passed first.
+15. Add appropriate GitHub repository topics from the launch-kit recommendations where supported and clearly applicable.
+16. Produce an exact final commit SHA and report the final GitHub branch/repository state.
+
+Do not do yet
+
+The repository itself should become public and finalized, but do not perform the broader promotional launch yet.
+
+Specifically, do not:
+
+* Post to Hacker News
+* Post to Reddit
+* Publish the Dev.to article
+* Publish social-media announcements
+* Send emails or outreach
+* Start paid promotion
+* Create background agents
+* Create unrelated workflows
+* Change production application behavior merely for launch marketing
+
+Keep docs/launch/LAUNCH-KIT.md as the prepared launch package for a later owner-authorized publicity step.
+
+GitHub release
+
+You may create the GitHub v0.1.0 release only if all of the following are true:
+
+* the version accurately reflects the current application state,
+* the launch-kit release notes have been reviewed and finalized,
+* the default branch is successfully merged and pushed,
+* CI/build/tests are passing,
+* no known blocking repository issue remains.
+
+If any of those conditions are not satisfied, do not force the release. Report the blocker instead.
+
+Do not invent a version bump or alter application-version semantics solely to make the release possible.
+
+Required verification before publication
+
+Before changing repository visibility or merging, explicitly check:
+
+* git status
+* current branch
+* default branch
+* configured remotes
+* untracked files
+* ignored files that could contain secrets
+* staged diff
+* full publication diff relative to the current GitHub default branch
+* secret/credential exposure
+* hard-coded local paths
+* private/internal URLs
+* TODO or placeholder language in public-facing documents
+* broken documentation links
+* license status
+* build
+* tests
+* lint/type checks where applicable
+
+Do not treat “files exist” as evidence that the repository is ready.
+
+Commit and merge discipline
+
+Keep the change narrowly scoped to the open-source/public-repository preparation and any corrections required to make that work truthful and safe.
+
+Do not mix unrelated product changes into this publication commit.
+
+Use a clear commit message such as:
+
+chore: finalize Git Dojo open-source repository
+
+If the existing branch should be merged through a PR rather than directly into the default branch, use the repository’s established workflow. Do not bypass required branch protections.
+
+If GitHub requires a PR/review/check that cannot be legitimately satisfied from this environment, stop at that boundary and report exactly what remains rather than weakening the protection.
+
+Final report
+
+When finished, return a concise evidence report containing:
+
+* Repository
+* Previous branch/SHA
+* Final branch
+* Final exact SHA
+* Files added/changed
+* License detected
+* Tests/build/lint results
+* Secret/publication audit result
+* GitHub visibility: PUBLIC or NOT PUBLIC
+* Merge status
+* GitHub topics applied
+* v0.1.0 release status
+* Anything deliberately not published
+* Any remaining blockers or owner decisions
+
+Explicitly distinguish:
+
+* committed
+* pushed
+* merged
+* public
+* released
+
+Do not describe one of these states as another.
+
+Success condition
+
+This work is complete only when the finalized repository materials are safely in GitHub’s public/default repository state and the exact resulting SHA is known, or when a genuine blocking condition is identified and reported without bypassing it.
+
+Proceed with this bounded finalization and publication work.
