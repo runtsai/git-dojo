@@ -526,7 +526,16 @@ router.get("/crisis/scenarios/:crisisId/file-diff", async (req, res) => {
     res.status(404).json({ error: "This scenario's practice repository doesn't exist yet." });
     return;
   }
-  const diff = await readWorkingFileDiff(pg, filePath);
+  let diff;
+  try {
+    diff = await readWorkingFileDiff(pg, filePath);
+  } catch {
+    // The playground directory may have been removed between the initial
+    // existence check above and the git calls inside readWorkingFileDiff.
+    // Treat that as a not-found condition rather than surfacing a 500.
+    res.status(404).json({ error: "The practice repository became unavailable mid-request." });
+    return;
+  }
   if (!diff) {
     res.status(404).json({ error: `No working-copy changes found for: ${filePath}` });
     return;
