@@ -136,6 +136,7 @@ export function Module1_3({ onStepChange }: VisualModuleProps = {}) {
       step={step}
       completionTitle="Module Passed!"
       completionText="You can now audit your company's records. You know how to find the exact moment a file changed and read the diff to see what was replaced."
+      practicePointer="To learn how to read this history in your terminal using git log, try the Command Test Center — Lesson 2. Optional, always."
       nextModuleHref="/learn/1-4"
       nextModuleLabel="Next: Repo Settings →"
       onPrev={step > 1 ? handlePrev : undefined}
@@ -309,9 +310,6 @@ export function Module1_3({ onStepChange }: VisualModuleProps = {}) {
             </div>
           </div>
 
-          <p className="text-xs text-muted-foreground/60 text-center mt-6">
-            To learn how to read this history in your terminal using <code>git log</code>, try the Command Test Center — Lesson 2. Optional, always.
-          </p>
         </>
       )}
     </VisualModuleShell>

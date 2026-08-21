@@ -401,6 +401,14 @@ describe("hints are reset to zero when the disaster is re-triggered", () => {
       isPending: false,
     } as ReturnType<typeof useSetupCrisisScenario>));
     mockUseParams.mockReturnValue({ crisisId: "crisis-01" });
+    // A previous describe block sets isPending:true via mockReturnValue.
+    // vi.clearAllMocks() clears call history but NOT mockReturnValue state, so
+    // we must explicitly reset here or the button renders "Breaking things…"
+    // instead of "Reset the Disaster" / "Trigger the Disaster".
+    vi.mocked(useSetupCrisisScenario).mockReturnValue({
+      mutate: vi.fn(),
+      isPending: false,
+    } as ReturnType<typeof useSetupCrisisScenario>);
   });
 
   afterEach(() => {

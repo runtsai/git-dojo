@@ -97,6 +97,7 @@ export function Module1_2({ onStepChange }: VisualModuleProps = {}) {
       step={step}
       completionTitle="Module Passed!"
       completionText="You know your way around the front door. You can instantly tell how active a project is and where to find its purpose."
+      practicePointer="To learn how to create your first snapshot from the terminal, try the Command Test Center — Lesson 1. Optional, always."
       nextModuleHref="/learn/1-3"
       nextModuleLabel="Next: Reading History →"
       onPrev={step > 1 ? handlePrev : undefined}
@@ -290,9 +291,6 @@ export function Module1_2({ onStepChange }: VisualModuleProps = {}) {
             </div>
           </div>
 
-          <p className="text-xs text-muted-foreground/60 text-center mt-6">
-            To learn how to create your first snapshot from the terminal, try the Command Test Center — Lesson 1. Optional, always.
-          </p>
         </>
       )}
     </VisualModuleShell>

@@ -97,6 +97,7 @@ export function Module1_5({ onStepChange }: VisualModuleProps = {}) {
       step={step}
       completionTitle="Tier 1 Complete!"
       completionText="You've mastered the GitHub interface. You can navigate, audit history, configure settings, and stay on top of notifications. The Ground Truth is yours."
+      practicePointer="The idea behind GitHub as the shared, always-on copy lives in the Breakthrough Two Machines. To try actually pushing to a remote from the terminal, the Command Test Center has Lesson 6. Optional, always."
       onPrev={step > 1 ? handlePrev : undefined}
       onNext={step < TOTAL_STEPS ? handleNext : undefined}
       nextLabel={step === 4 ? "Begin Navigation Tasks" : "Continue"}

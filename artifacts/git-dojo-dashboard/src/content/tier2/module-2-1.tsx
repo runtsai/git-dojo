@@ -70,6 +70,7 @@ export function Module2_1({ onStepChange }: VisualModuleProps = {}) {
       step={step}
       completionTitle="Module Complete"
       completionText="You know what a pull request is: a gated proposal with a paper trail. Next, you open the evidence — the Files changed tab."
+      practicePointer="The branch mechanics behind a pull request — what a branch actually is — live in the Command Test Center: Lesson 4. The Breakthrough Branches Are Stickers explains why a branch is a pointer, not a copy. Optional, always."
       nextModuleHref="/learn/2-2"
       nextModuleLabel="Next: Files Changed"
       onPrev={step > 1 ? handlePrev : undefined}

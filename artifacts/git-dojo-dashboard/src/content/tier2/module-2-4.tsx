@@ -184,6 +184,9 @@ export function Module2_4() {
         actionable feedback, verified the fix, and approved clean work. That's
         the full loop real teams live in.
       </p>
+      <p className="text-xs text-muted-foreground/60 max-w-sm mx-auto leading-relaxed px-4">
+        The full history — including Ruth's original broken commits — is all still in git. The Breakthrough Nothing Is Lost shows you where to find it. Optional, always.
+      </p>
       <div className="pt-8 flex flex-wrap gap-4 justify-center">
         <Link
           href="/"

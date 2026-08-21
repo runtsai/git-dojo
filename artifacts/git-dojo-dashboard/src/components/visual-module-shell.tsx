@@ -69,6 +69,12 @@ export type VisualModuleShellProps = {
    */
   moduleId?: string;
   /**
+   * Optional low-pressure pointer shown below the completion text on the
+   * standard completion screen (not used when completionSlot is provided).
+   * Match the tone of Module 1.1's footer: "Optional, always."
+   */
+  practicePointer?: ReactNode;
+  /**
    * Step content – everything except the outer padding wrapper, nav row,
    * error banner, and completion screen.
    */
@@ -85,6 +91,7 @@ export function VisualModuleShell({
   nextModuleHref,
   nextModuleLabel,
   completionSlot,
+  practicePointer,
   onPrev,
   onNext,
   nextLabel = "Continue",
@@ -215,6 +222,11 @@ export function VisualModuleShell({
               {completionText && (
                 <p className="text-lg text-muted-foreground max-w-md mx-auto leading-relaxed">
                   {completionText}
+                </p>
+              )}
+              {practicePointer && (
+                <p className="text-xs text-muted-foreground/60 max-w-sm mx-auto leading-relaxed px-4">
+                  {practicePointer}
                 </p>
               )}
               <div className="pt-8 flex flex-wrap gap-4 justify-center">

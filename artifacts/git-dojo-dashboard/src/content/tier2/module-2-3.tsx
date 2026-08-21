@@ -81,6 +81,7 @@ export function Module2_3({ onStepChange }: VisualModuleProps = {}) {
       step={step}
       completionTitle="Changes requested."
       completionText="You blocked the merge with a courteous, specific verdict. Ruth just pushed a fix — the story isn't over yet."
+      practicePointer="The Command Test Center's Lesson 7 is a capstone built around exactly this scenario — a contractor delivery you have to verify from the terminal side. Optional, always."
       nextModuleHref="/learn/2-4"
       nextModuleLabel="See Ruth's reply"
       onPrev={step > 1 ? handlePrev : undefined}

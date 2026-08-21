@@ -85,6 +85,7 @@ export function Module2_2({ onStepChange }: VisualModuleProps = {}) {
       step={step}
       completionTitle="Module Complete"
       completionText="You caught a live credential and a silent behavior flip — the two classic merge-stoppers. Now you deliver the verdict."
+      practicePointer="To practice reading diffs in the terminal, try the Command Test Center — Lesson 2. The Breakthrough Secrets Never Heal covers why credentials found in a diff can't be erased once they're committed. Optional, always."
       nextModuleHref="/learn/2-3"
       nextModuleLabel="Next: The Verdict"
       onPrev={step > 1 ? handlePrev : undefined}
