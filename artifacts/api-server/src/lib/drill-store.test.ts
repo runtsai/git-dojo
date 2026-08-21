@@ -685,6 +685,27 @@ describe("queryDue recovery filter — end-to-end via recordGraderResult", () =>
     expect(entry!.failures).toBeGreaterThan(0);
   });
 
+  it("keeps a high-pass legacy source active after its first new failure", () => {
+    // The synthetic history must leave room for the real failure appended by
+    // recordGraderResult. Otherwise the pass-heavy seeded tail could make this
+    // genuine weak spot look recovered on its first query.
+    setDrillData({
+      "source-legacy-high-pass": {
+        failures: 1,
+        passes: 20,
+        runs: [],
+      },
+    });
+    const candidates = [{ id: "d1", sourceId: "source-legacy-high-pass" }];
+
+    recordGraderResult("source-legacy-high-pass", false);
+
+    const { friction } = queryDue(candidates);
+    expect(friction.some((entry) => entry.sourceId === "source-legacy-high-pass")).toBe(true);
+    const entry = friction.find((item) => item.sourceId === "source-legacy-high-pass")!;
+    expect(entry.recovered).toBe(false);
+  });
+
   it("persists via temp-file write then rename (atomic pattern)", () => {
     recordGraderResult("source-atomic", false);
     // save() must have staged with writeFileSync then published via rename.
