@@ -958,4 +958,65 @@ describe("queryDue recovery filter — end-to-end via recordGraderResult", () =>
     expect(entry.recovered).toBe(false);
     expect(entry.recentFailures).toBeGreaterThan(0);
   });
+
+  it("uses only real runs after a legacy seed is fully displaced by 30 new runs", () => {
+    const fakeNow = new Date("2026-08-21T12:00:00.000Z").getTime();
+    const realRunAt = new Date(fakeNow).toISOString();
+    const candidates = [{ id: "d1", sourceId: "source-legacy-overwritten" }];
+
+    vi.useFakeTimers();
+    vi.setSystemTime(fakeNow);
+    try {
+      setDrillData({
+        "source-legacy-overwritten": {
+          failures: 4,
+          passes: 6,
+          runs: [], // legacy record: the first write will seed synthetic runs
+        },
+      });
+
+      // This first run triggers legacy seeding and is then followed by 30
+      // additional real runs. The final rolling window must contain only those
+      // 30 additional runs, not the synthetic seed or this trigger run.
+      recordGraderResult("source-legacy-overwritten", false);
+      for (let i = 0; i < 25; i++) recordGraderResult("source-legacy-overwritten", true);
+      for (let i = 0; i < 5; i++) recordGraderResult("source-legacy-overwritten", false);
+
+      const persisted = JSON.parse(mockFileContents.value!);
+      const runs: Array<{ at: string; passed: boolean }> =
+        persisted.friction["source-legacy-overwritten"].runs;
+
+      // FRICTION_WINDOW = 30. Every remaining run is one of the additional
+      // real runs, proving all synthetic entries were evicted.
+      expect(runs).toHaveLength(30);
+      expect(runs.every((run) => run.at === realRunAt)).toBe(true);
+      expect(runs.filter((run) => run.passed)).toHaveLength(25);
+      expect(runs.filter((run) => !run.passed)).toHaveLength(5);
+
+      const { friction } = queryDue(candidates);
+      const entry = friction.find((f) => f.sourceId === "source-legacy-overwritten")!;
+      expect(entry).toBeDefined();
+
+      // The last 10 real runs are [P×5, F×5], so the trend halves must not
+      // include the seeded failures or the trigger failure.
+      expect(entry.recentPasses).toBe(0);
+      expect(entry.recentFailures).toBe(5);
+      expect(entry.olderPasses).toBe(5);
+      expect(entry.olderFailures).toBe(0);
+
+      // The effective score and window counters must reflect only the five
+      // current failures, without counting seeded or evicted failures again.
+      expect(entry.effectiveFailures).toBe(5);
+      expect(entry.windowFailures).toBe(5);
+      expect(entry.windowPasses).toBe(25);
+
+      // Raw totals retain the legacy aggregates and count each new real run
+      // once; synthetic entries never affect these counters.
+      expect(entry.failures).toBe(10); // 4 legacy + 1 trigger + 5 real
+      expect(entry.passes).toBe(31); // 6 legacy + 25 real
+      expect(entry.recovered).toBe(false);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });
