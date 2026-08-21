@@ -54,6 +54,26 @@ describe("active visual-track modules are covered by lessonLocations", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Every active visual-track module must have a visualModuleSteps entry
+// ---------------------------------------------------------------------------
+
+describe("active visual-track modules are registered in visualModuleSteps", () => {
+  const activeTiers = tiers.filter((t) => t.status === "active");
+
+  for (const tier of activeTiers) {
+    for (const mod of tier.modules ?? []) {
+      it(`module "${mod.id}" (tier "${tier.id}") has a step-count registry entry`, () => {
+        expect(
+          Object.prototype.hasOwnProperty.call(visualModuleSteps, mod.id),
+          `visualModuleSteps is missing an entry for module id "${mod.id}" (tier "${tier.id}", title "${mod.title}"). ` +
+            `Add the module's step cap to src/content/visual-module-steps.ts.`,
+        ).toBe(true);
+      });
+    }
+  }
+});
+
+// ---------------------------------------------------------------------------
 // Every CLI lesson must have a lessonLocations entry
 // ---------------------------------------------------------------------------
 
