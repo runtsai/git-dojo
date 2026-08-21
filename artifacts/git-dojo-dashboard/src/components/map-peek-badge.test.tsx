@@ -11,7 +11,7 @@
  */
 
 import React from "react";
-import { render, screen, cleanup } from "@testing-library/react";
+import { render, screen, cleanup, within } from "@testing-library/react";
 import { describe, it, expect, vi, afterEach } from "vitest";
 import { MapPeek } from "./map-peek";
 
@@ -41,12 +41,13 @@ vi.mock("@/components/map-peek-gesture", () => ({
 }));
 
 /**
- * SheetTrigger must render its children so the badge text is query-able.
- * The rest of the Sheet family can safely return null for this test.
+ * Render the controlled sheet as open so both step labels are query-able.
+ * SheetTrigger must render its children so the badge text is query-able, and
+ * SheetTitle must preserve its children so the drawer label can be checked.
  */
 vi.mock("@/components/ui/sheet", () => ({
   Sheet: ({ children }: { children?: React.ReactNode }) =>
-    React.createElement(React.Fragment, null, children),
+    React.createElement("div", { "data-sheet-open": "true" }, children),
   SheetTrigger: ({
     children,
     className,
@@ -57,10 +58,14 @@ vi.mock("@/components/ui/sheet", () => ({
     "aria-label"?: string;
   }) =>
     React.createElement("button", { className, "aria-label": ariaLabel }, children),
-  SheetContent: () => null,
-  SheetHeader: () => null,
-  SheetTitle: () => null,
-  SheetDescription: () => null,
+  SheetContent: ({ children }: { children?: React.ReactNode }) =>
+    React.createElement("section", { "data-testid": "sheet-content" }, children),
+  SheetHeader: ({ children }: { children?: React.ReactNode }) =>
+    React.createElement("div", null, children),
+  SheetTitle: ({ children }: { children?: React.ReactNode }) =>
+    React.createElement("h2", null, children),
+  SheetDescription: ({ children }: { children?: React.ReactNode }) =>
+    React.createElement("p", null, children),
 }));
 
 afterEach(cleanup);
@@ -89,6 +94,18 @@ describe("MapPeek step badge — freshness on re-render", () => {
     expect(screen.getByText(`3/${TOTAL}`)).toBeTruthy();
     // Stale text from the previous render must be absent.
     expect(screen.queryByText(`1/${TOTAL}`)).toBeNull();
+  });
+
+  it("updates the inner SheetTitle step label when stepIndex prop changes", () => {
+    const { rerender } = render(<MapPeek locationId={LOC} stepIndex={1} />);
+    const initialTitle = screen.getByRole("heading", { name: /You are here/ });
+    expect(within(initialTitle).getByText(`Step 1 of ${TOTAL}`)).toBeTruthy();
+
+    rerender(<MapPeek locationId={LOC} stepIndex={3} />);
+    const updatedTitle = screen.getByRole("heading", { name: /You are here/ });
+    expect(within(updatedTitle).getByText(`Step 3 of ${TOTAL}`)).toBeTruthy();
+    // The drawer must not retain the previous step label after the update.
+    expect(screen.queryByText(`Step 1 of ${TOTAL}`)).toBeNull();
   });
 
   it("updates the badge across every valid step in sequence", () => {
