@@ -1,0 +1,58 @@
+Great idea—**the fastest path is to publish `git-dojo` like a polished open-source project and distribute it where developers already discover tools**.
+
+## 1) Put the project in a public GitHub repo (foundation)
+- Repo name: `git-dojo`
+- Add:
+  - `README.md` (what it does, screenshots/GIF, quick start)
+  - `LICENSE` (MIT/Apache-2.0 are common)
+  - `CONTRIBUTING.md`
+  - `CODE_OF_CONDUCT.md`
+  - `SECURITY.md`
+  - issue/PR templates (`.github/ISSUE_TEMPLATE`, `PULL_REQUEST_TEMPLATE.md`)
+- Add topics in repo settings (e.g. `learning`, `git`, `education`, `opensource`, `cli`, etc.)
+
+## 2) Clarify “GitHub Learning Marketplace”
+There isn’t a single official “GitHub Learning Marketplace” for listing arbitrary open-source apps like an app store.  
+For GitHub ecosystem visibility, people usually use:
+- **GitHub Marketplace** (mainly for GitHub Apps/Actions integrations)
+- **Awesome lists**, community showcases, dev forums, Product Hunt, Reddit, Hacker News, etc.
+
+If `git-dojo` is a standalone learning app, focus on open-source channels first.  
+If it’s a **GitHub Action/App**, then Marketplace can make sense.
+
+## 3) Share to the open-source community (highest ROI)
+- Post launch on:
+  - Reddit: r/opensource, r/programming, r/learnprogramming (follow rules)
+  - Hacker News (“Show HN”)
+  - Dev.to article (“Built git-dojo to learn Git interactively”)
+  - X/LinkedIn with demo GIF
+- Submit to relevant **Awesome** repos:
+  - `awesome-git`
+  - `awesome-education`
+  - language/framework-specific awesome lists
+- Create a short demo video and pin it in README
+
+## 4) Make contribution-friendly (so community actually joins)
+- Label beginner issues: `good first issue`, `help wanted`
+- Add a clear roadmap (GitHub Projects or roadmap section)
+- Add Discussions tab for Q&A and feedback
+- Add CI (tests + lint) so contributions are trusted
+
+## 5) If you want GitHub Marketplace specifically
+You’d typically need to package it as:
+- **GitHub Action** (if it automates GitHub workflows), or
+- **GitHub App** (if it integrates with GitHub org/repo features)
+
+Then prepare:
+- marketplace-ready listing copy
+- logo/icon
+- docs
+- permissions justification
+
+---
+
+If you want, I can help you next with a **ready-to-paste launch kit** for `git-dojo`:
+- README template
+- CONTRIBUTING template
+- release post for HN/Reddit/Dev.to
+- first 10 GitHub topics and launch checklist.
