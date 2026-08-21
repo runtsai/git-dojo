@@ -74,6 +74,9 @@ function makeFetch(
         if (!b?.moduleId || typeof b?.track !== "string") {
           return jsonResponse(400, { error: "invalid body" });
         }
+        if (b.moduleId === "99.99") {
+          return jsonResponse(400, { error: "Unknown module: 99.99" });
+        }
         return jsonResponse(200, { entries: [] });
       }
 
