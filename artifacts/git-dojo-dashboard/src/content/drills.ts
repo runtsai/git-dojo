@@ -28,7 +28,7 @@ export interface ConceptDrill {
    * has at least one warm-up question.
    */
   breakthroughId?: string;
-  unlockedBy: string[];
+  unlockedBy: [string, ...string[]];
 }
 
 export interface CommandDrill {
@@ -50,7 +50,7 @@ export interface CommandDrill {
    * has at least one warm-up question.
    */
   breakthroughId?: string;
-  unlockedBy: string[];
+  unlockedBy: [string, ...string[]];
 }
 
 export type DrillItem = ConceptDrill | CommandDrill;
