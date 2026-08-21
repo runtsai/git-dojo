@@ -119,6 +119,8 @@ export function Module1_1({ onStepChange }: VisualModuleProps = {}) {
       completionTitle="Module Passed!"
       completionText="You've completed the first step of the visual track. You now understand what GitHub is, and where the sealed record lives."
       practicePointer="The commands behind this screen live in the Command Test Center — Lesson 1 and 2, whenever you're curious. Optional, always."
+      nextModuleHref="/learn/1-2"
+      nextModuleLabel="Next: Repository Home Screen →"
       onPrev={step > 1 ? handlePrev : undefined}
       onNext={step < TOTAL_STEPS ? handleNext : undefined}
       nextLabel={step === 4 ? "Begin Hands-On Task" : "Continue"}

@@ -89,9 +89,10 @@ function makeFetch(
           !Array.isArray(b?.candidates) ||
           b.candidates.some(
             (candidate) =>
-              typeof candidate !== "object" ||
               candidate === null ||
-              !("id" in candidate),
+              typeof candidate !== "object" ||
+              !("id" in candidate) ||
+              typeof candidate.id !== "string",
           )
         ) {
           return jsonResponse(400, { error: "invalid body" });
