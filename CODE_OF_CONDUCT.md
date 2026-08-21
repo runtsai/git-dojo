@@ -28,4 +28,4 @@ The maintainer will review reports promptly and may remove content, limit partic
 
 ## Scope
 
-This policy applies in Git Dojo repository spaces and in public or private interactions that represent the project.
+This policy applies in Git Dojo repository spaces and in interactions where someone represents the project.

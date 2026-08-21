@@ -2,7 +2,7 @@
 name: Lesson improvement
 about: Suggest a clearer, safer, or more accurate way to teach a Git concept
 title: "[Lesson]: "
-labels: lesson
+labels: documentation
 ---
 
 ## Lesson or page

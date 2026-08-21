@@ -39,7 +39,7 @@ Use up to ten:
 > - Crisis scenarios for branches, remote collaboration, conflicts, and recovery
 > - Optional warm-up drills for recall
 >
-> Try it: https://git-dojo.com  
+> Try it: https://git-dojo.com<br>
 > Source: https://github.com/runtsai/git-dojo
 >
 > Feedback from first-time Git learners is especially welcome.
@@ -59,7 +59,7 @@ It is a free, open-source learning app with two independent paths:
 
 The terminal course includes nine scenarios, from first commits to remote push conflicts and reviewing a contractor delivery with a planted secret.
 
-Live app: https://git-dojo.com  
+Live app: https://git-dojo.com<br>
 Source: https://github.com/runtsai/git-dojo
 
 I would especially value feedback on where Git explanations are still confusing or technically inaccurate.
@@ -100,7 +100,7 @@ I just opened Git Dojo to the public: a free, open-source way to learn Git throu
 
 Make real commits, branches, merges, conflicts, and recoveries in throwaway repositories — not your real project.
 
-Try it: https://git-dojo.com  
+Try it: https://git-dojo.com<br>
 Source: https://github.com/runtsai/git-dojo
 
 ## Low-cost launch order
@@ -110,4 +110,4 @@ Source: https://github.com/runtsai/git-dojo
 3. Share one community post where feedback is likely to be high quality.
 4. Watch traffic and feedback for a few days.
 5. Improve the README or onboarding based on real questions.
-6. Only then consider a larger post such as Show HN.
+6. Then consider a larger post such as Show HN.

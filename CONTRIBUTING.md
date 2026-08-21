@@ -66,4 +66,4 @@ Before requesting review:
 
 ## Community expectations
 
-Be constructive, patient, and specific. Git can feel high-stakes to new learners; help us make the project a place where questions are welcome. See [CODE_OF_CONDUCT.md](./CODE_OF_CONDUCT.md) for the full policy.
+Be constructive, patient, and specific. Git can feel high-stakes to new learners; help us keep this project welcoming to questions. See [CODE_OF_CONDUCT.md](./CODE_OF_CONDUCT.md) for the full policy.

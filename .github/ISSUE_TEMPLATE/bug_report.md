@@ -27,4 +27,4 @@ Describe the expected result.
 
 ## Screenshots or error messages
 
-If safe to share, paste screenshots or the exact error text here. Please remove private information and secrets first.
+If safe to share, add screenshots or the exact error text here. Remove private information and secrets first.

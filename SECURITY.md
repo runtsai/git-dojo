@@ -30,4 +30,4 @@ Reports are especially helpful for issues involving:
 - Exposure of secrets or private files.
 - Unsafe filesystem or Git operations.
 - Injection, cross-site scripting, or denial-of-service risks.
-- Dependency vulnerabilities that affect the deployed application.
+- Dependency vulnerabilities affecting the deployed application.

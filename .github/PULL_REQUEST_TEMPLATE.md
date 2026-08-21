@@ -18,4 +18,4 @@ Explain the problem this solves.
 - [ ] This pull request is focused on one change.
 - [ ] I removed any secrets, personal information, and generated output.
 - [ ] Lesson content is technically accurate.
-- [ ] I followed the [contribution guide](../CONTRIBUTING.md).
+- [ ] I followed the [Git Dojo contribution guide](https://github.com/runtsai/git-dojo/blob/main/CONTRIBUTING.md).

@@ -29,11 +29,11 @@ Open [git-dojo.com](https://git-dojo.com), then choose the path that suits you:
 
 The hands-on course lives in [`git-dojo/`](./git-dojo). It contains nine guided lessons, each with:
 
-| File | Purpose |
-| --- | --- |
-| `README.md` | The lesson and commands to try |
-| `setup.sh` | Creates a disposable practice repository |
-| `check.sh` | Reports what passed and what still needs work |
+| File        | Purpose                                       |
+| ----------- | --------------------------------------------- |
+| `README.md` | The lesson and commands to try                |
+| `setup.sh`  | Creates a disposable practice repository      |
+| `check.sh`  | Reports what passed and what still needs work |
 
 Read the [course guide](./git-dojo/README.md) for Windows, macOS, Linux, Replit Shell, and GitHub Codespaces setup instructions.
 
@@ -81,4 +81,4 @@ Before opening a pull request, please read [CONTRIBUTING.md](./CONTRIBUTING.md).
 
 ## License
 
-Git Dojo is released under the [MIT License](./LICENSE).
+Git Dojo is open source under the [MIT License](./LICENSE).
