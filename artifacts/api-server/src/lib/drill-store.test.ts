@@ -413,6 +413,8 @@ describe("queryDue friction sort stability", () => {
 
     const zeroEntry = first.find((f) => f.sourceId === "source-zero")!;
     expect(zeroEntry).toBeDefined();
+    expect(zeroEntry.recentFailures).toBe(0);
+    expect(zeroEntry.recentPasses).toBeGreaterThan(0);
     expect(zeroEntry.recovered).toBe(true);
     expect(zeroEntry.effectiveFailures).toBe(0);
 
