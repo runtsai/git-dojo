@@ -73,14 +73,50 @@ const MISSION_META: Record<
   },
 };
 
+interface MissionVerificationResult {
+  verified: boolean;
+  githubUnavailable: boolean;
+  detail: string;
+}
+
+export function MissionVerificationNotice({
+  result,
+}: {
+  result: MissionVerificationResult;
+}) {
+  return (
+    <div
+      role="status"
+      className={`text-sm rounded-lg p-3 flex items-start gap-2 border ${
+        result.verified
+          ? "text-emerald-300 bg-emerald-500/10 border-emerald-500/20"
+          : result.githubUnavailable
+            ? "text-red-300 bg-red-500/10 border-red-500/20"
+            : "text-amber-300 bg-amber-500/10 border-amber-500/20"
+      }`}
+    >
+      {result.verified ? (
+        <CheckCircle2 className="w-4 h-4 mt-0.5 flex-shrink-0" />
+      ) : result.githubUnavailable ? (
+        <ShieldAlert className="w-4 h-4 mt-0.5 flex-shrink-0" />
+      ) : (
+        <XCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
+      )}
+      <span className="leading-relaxed">
+        {result.githubUnavailable
+          ? "Can’t reach GitHub right now — try checking your work again in a moment."
+          : result.detail}
+      </span>
+    </div>
+  );
+}
+
 export function GoLive() {
   const queryClient = useQueryClient();
   const { data: status, isLoading } = useGetCapstoneStatus({
     query: { queryKey: getGetCapstoneStatusQueryKey() },
   });
-  const [verifyResults, setVerifyResults] = useState<
-    Record<string, { verified: boolean; detail: string }>
-  >({});
+  const [verifyResults, setVerifyResults] = useState<Record<string, MissionVerificationResult>>({});
   const [verifyingId, setVerifyingId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
@@ -121,16 +157,21 @@ export function GoLive() {
       onSuccess: (result) => {
         setVerifyResults((prev) => ({
           ...prev,
-          [result.missionId]: { verified: result.verified, detail: result.detail },
+          [result.missionId]: {
+            verified: result.verified,
+            githubUnavailable: result.githubUnavailable,
+            detail: result.detail,
+          },
         }));
         setVerifyingId(null);
-        invalidate();
+        if (!result.githubUnavailable) invalidate();
       },
       onError: (err, vars) => {
         setVerifyResults((prev) => ({
           ...prev,
           [vars.missionId]: {
             verified: false,
+            githubUnavailable: false,
             detail: err.data?.error ?? err.message ?? "Verification request failed — try again.",
           },
         }));
@@ -319,22 +360,7 @@ export function GoLive() {
                       </a>
                     )}
 
-                    {result && (
-                      <div
-                        className={`text-sm rounded-lg p-3 flex items-start gap-2 border ${
-                          result.verified
-                            ? "text-emerald-300 bg-emerald-500/10 border-emerald-500/20"
-                            : "text-amber-300 bg-amber-500/10 border-amber-500/20"
-                        }`}
-                      >
-                        {result.verified ? (
-                          <CheckCircle2 className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                        ) : (
-                          <XCircle className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                        )}
-                        <span className="leading-relaxed">{result.detail}</span>
-                      </div>
-                    )}
+                    {result && <MissionVerificationNotice result={result} />}
 
                     <button
                       onClick={() => {

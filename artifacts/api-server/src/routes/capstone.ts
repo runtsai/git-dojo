@@ -4,7 +4,12 @@ import {
   CreateCapstoneRepoResponse,
   VerifyCapstoneMissionResponse,
 } from "@workspace/api-zod";
-import { ghJson, getConnectedLogin } from "../lib/github";
+import {
+  ghJson,
+  getConnectedLogin,
+  getConnectedLoginResult,
+  isGitHubUnavailable,
+} from "../lib/github";
 import {
   MISSIONS,
   type MissionId,
@@ -53,32 +58,82 @@ interface GhRepo {
 async function verifyStateTrust(
   login: string,
   state: CapstoneState,
-): Promise<{ trusted: true } | { trusted: false; reason: string; repoGone: boolean }> {
+): Promise<
+  | { trusted: true }
+  | {
+      trusted: false;
+      reason: string;
+      repoGone: boolean;
+      githubUnavailable: boolean;
+      resetRequired: boolean;
+    }
+> {
   if (!state.createdByDojo || typeof state.repoId !== "number") {
-    return { trusted: false, reason: "no durable record that Dojo created this repo", repoGone: false };
+    return {
+      trusted: false,
+      reason: "no durable record that Dojo created this repo",
+      repoGone: false,
+      githubUnavailable: false,
+      resetRequired: true,
+    };
   }
   if (state.owner !== login) {
     return {
       trusted: false,
       reason: `the capstone state belongs to @${state.owner}, but @${login} is connected`,
       repoGone: false,
+      githubUnavailable: false,
+      resetRequired: true,
     };
   }
   const check = await ghJson<GhRepo>(`/repos/${state.repoFullName}`);
   if (!check.ok) {
     if (check.status === 404) {
-      return { trusted: false, reason: "the practice repo no longer exists on GitHub", repoGone: true };
+      return {
+        trusted: false,
+        reason: "the practice repo no longer exists on GitHub",
+        repoGone: true,
+        githubUnavailable: false,
+        resetRequired: true,
+      };
     }
-    return { trusted: false, reason: `GitHub could not confirm the repo: ${check.errorMessage}`, repoGone: false };
+    return {
+      trusted: false,
+      reason: `GitHub could not confirm the repo: ${check.errorMessage}`,
+      repoGone: false,
+      githubUnavailable: isGitHubUnavailable(check),
+      resetRequired: false,
+    };
   }
   if (check.data!.id !== state.repoId) {
     return {
       trusted: false,
       reason: "a different repository now exists under that name (the original was deleted and recreated)",
       repoGone: false,
+      githubUnavailable: false,
+      resetRequired: true,
     };
   }
   return { trusted: true };
+}
+
+async function diagnoseMissingPracticePr(
+  login: string,
+  state: CapstoneState,
+): Promise<{ resetRequired: boolean; githubUnavailable: boolean; detail: string }> {
+  const trust = await verifyStateTrust(login, state);
+  if (trust.trusted) {
+    return {
+      resetRequired: false,
+      githubUnavailable: false,
+      detail: `The practice PR #${state.prNumber} no longer exists on GitHub. Recreate the practice repo to seed a new one.`,
+    };
+  }
+  return {
+    resetRequired: trust.resetRequired,
+    githubUnavailable: trust.githubUnavailable,
+    detail: trust.reason,
+  };
 }
 
 function statusPayload(login: string | null, state: CapstoneState | null) {
@@ -121,9 +176,19 @@ router.get("/capstone/status", requireOwner, async (req, res): Promise<void> => 
   if (login && state) {
     const trust = await verifyStateTrust(login, state);
     if (!trust.trusted) {
-      req.log.warn({ repo: state.repoFullName, reason: trust.reason }, "Capstone state no longer trusted; clearing");
-      clearCapstone();
-      state = null;
+      if (!trust.resetRequired) {
+        req.log.warn(
+          { repo: state.repoFullName, reason: trust.reason },
+          "GitHub could not confirm capstone trust; preserving state",
+        );
+      } else {
+        req.log.warn(
+          { repo: state.repoFullName, reason: trust.reason },
+          "Capstone state no longer trusted; clearing",
+        );
+        clearCapstone();
+        state = null;
+      }
     }
   }
   res.json(GetCapstoneStatusResponse.parse(statusPayload(login, state)));
@@ -156,6 +221,14 @@ router.post("/capstone/repo", requireOwner, async (req, res): Promise<void> => {
       const check = await ghJson<GhRepo>(`/repos/${existing.repoFullName}`);
       repo = check.ok ? check.data : null;
     } else {
+      if (!trust.resetRequired) {
+        res.status(409).json({
+          error: trust.githubUnavailable
+            ? "GitHub is unavailable right now. Try again in a moment."
+            : `GitHub could not confirm the existing repo (${trust.reason}). Nothing was reset.`,
+        });
+        return;
+      }
       req.log.warn({ reason: trust.reason }, "Existing capstone state not trusted; clearing before create");
       clearCapstone();
     }
@@ -346,6 +419,15 @@ router.delete("/capstone/repo", requireOwner, async (req, res): Promise<void> =>
   }
   const trust = await verifyStateTrust(login, state);
   if (!trust.trusted) {
+    if (!trust.resetRequired) {
+      req.log.warn({ reason: trust.reason }, "GitHub could not confirm deletion trust");
+      res.status(409).json({
+        error: trust.githubUnavailable
+          ? "GitHub is unavailable right now. Nothing was reset; try again in a moment."
+          : `GitHub could not confirm this repo (${trust.reason}). Nothing was reset.`,
+      });
+      return;
+    }
     req.log.warn({ reason: trust.reason }, "Refusing deletion: capstone state not trusted");
     clearCapstone();
     if (trust.repoGone) {
@@ -388,18 +470,48 @@ router.post("/capstone/verify/:missionId", requireOwner, async (req, res): Promi
     res.status(409).json({ error: "The Go Live capstone only runs in the owner's private workspace." });
     return;
   }
-  const login = await getConnectedLogin();
-  if (!login) {
-    res.status(409).json({ error: "GitHub is not connected." });
-    return;
-  }
   const state = loadCapstone();
   if (!state) {
     res.status(409).json({ error: "No practice repo yet. Create it first." });
     return;
   }
+  const loginResult = await getConnectedLoginResult();
+  if (!loginResult.login) {
+    if (loginResult.unavailable) {
+      res.json(
+        VerifyCapstoneMissionResponse.parse({
+          missionId,
+          verified: false,
+          githubUnavailable: true,
+          detail: `Could not reach GitHub to confirm the connected account: ${loginResult.errorMessage ?? "connection unavailable"}`,
+          status: statusPayload(state.owner, state),
+        }),
+      );
+      return;
+    }
+    res.status(409).json({ error: "GitHub is not connected." });
+    return;
+  }
+  const login = loginResult.login;
   const trust = await verifyStateTrust(login, state);
   if (!trust.trusted) {
+    if (trust.githubUnavailable) {
+      req.log.warn({ reason: trust.reason }, "GitHub unavailable during verification trust check");
+      res.json(
+        VerifyCapstoneMissionResponse.parse({
+          missionId,
+          verified: false,
+          githubUnavailable: true,
+          detail: trust.reason,
+          status: statusPayload(login, state),
+        }),
+      );
+      return;
+    }
+    if (!trust.resetRequired) {
+      res.status(409).json({ error: `Cannot verify against GitHub: ${trust.reason}. Nothing was reset.` });
+      return;
+    }
     req.log.warn({ reason: trust.reason }, "Refusing verification: capstone state not trusted");
     clearCapstone();
     res.status(409).json({ error: `Cannot verify against GitHub: ${trust.reason}. The capstone was reset.` });
@@ -407,6 +519,8 @@ router.post("/capstone/verify/:missionId", requireOwner, async (req, res): Promi
   }
 
   let verified = false;
+  let githubUnavailable = false;
+  let verificationBlocked = false;
   let detail = "";
   const fullName = state.repoFullName;
 
@@ -415,7 +529,18 @@ router.post("/capstone/verify/:missionId", requireOwner, async (req, res): Promi
       `/repos/${fullName}/commits?sha=${state.defaultBranch}&per_page=100`,
     );
     if (!commits.ok || !commits.data) {
-      detail = `Could not read commits from GitHub: ${commits.errorMessage}`;
+      if (isGitHubUnavailable(commits)) {
+        githubUnavailable = true;
+        detail = `Could not read commits from GitHub: ${commits.errorMessage}`;
+      } else if (commits.status === 404) {
+        clearCapstone();
+        res.status(409).json({
+          error: "Cannot verify against GitHub: the practice repo no longer exists. The capstone was reset.",
+        });
+        return;
+      } else {
+        detail = `GitHub refused the commits check (${commits.errorMessage}). Reconnect GitHub, then try again.`;
+      }
     } else {
       // Merging the Dojo-seeded PR lands a merge/squash/rebase commit on the
       // default branch that the learner did not author locally — exclude it
@@ -430,6 +555,25 @@ router.post("/capstone/verify/:missionId", requireOwner, async (req, res): Promi
         if (pr.ok && pr.data) {
           if (pr.data.merge_commit_sha) excluded.add(pr.data.merge_commit_sha);
           excludedMessages.push(pr.data.title); // squash-merge commit subject
+        } else {
+          verificationBlocked = true;
+          if (isGitHubUnavailable(pr)) {
+            githubUnavailable = true;
+            detail = `Could not read PR #${state.prNumber} from GitHub: ${pr.errorMessage}`;
+          } else if (pr.status === 404) {
+            const diagnosis = await diagnoseMissingPracticePr(login, state);
+            if (diagnosis.resetRequired) {
+              clearCapstone();
+              res.status(409).json({
+                error: `Cannot verify against GitHub: ${diagnosis.detail}. The capstone was reset.`,
+              });
+              return;
+            }
+            githubUnavailable = diagnosis.githubUnavailable;
+            detail = diagnosis.detail;
+          } else {
+            detail = `GitHub refused the PR check (${pr.errorMessage}). Reconnect GitHub, then try again.`;
+          }
         }
       }
       excludedMessages.push("Dojo: open the practice pull request"); // rebase-merge replays this
@@ -439,16 +583,31 @@ router.post("/capstone/verify/:missionId", requireOwner, async (req, res): Promi
           !excludedMessages.some((m) => c.commit.message.split("\n")[0]!.startsWith(m)),
       );
       if (yours.length > 0) {
-        verified = true;
-        detail = `Verified: found ${yours.length} commit${yours.length === 1 ? "" : "s"} on ${state.defaultBranch} that Dojo did not create — most recent: “${yours[0]!.commit.message.split("\n")[0]}”.`;
+        if (!verificationBlocked) {
+          verified = true;
+          detail = `Verified: found ${yours.length} commit${yours.length === 1 ? "" : "s"} on ${state.defaultBranch} that Dojo did not create — most recent: “${yours[0]!.commit.message.split("\n")[0]}”.`;
+        }
       } else {
-        detail = `Not yet: every commit on ${state.defaultBranch} was seeded by Dojo or produced by merging the practice PR. Commit locally, then run git push.`;
+        if (!verificationBlocked) {
+          detail = `Not yet: every commit on ${state.defaultBranch} was seeded by Dojo or produced by merging the practice PR. Commit locally, then run git push.`;
+        }
       }
     }
   } else if (missionId === "create-branch") {
     const branches = await ghJson<{ name: string }[]>(`/repos/${fullName}/branches?per_page=100`);
     if (!branches.ok || !branches.data) {
-      detail = `Could not read branches from GitHub: ${branches.errorMessage}`;
+      if (isGitHubUnavailable(branches)) {
+        githubUnavailable = true;
+        detail = `Could not read branches from GitHub: ${branches.errorMessage}`;
+      } else if (branches.status === 404) {
+        clearCapstone();
+        res.status(409).json({
+          error: "Cannot verify against GitHub: the practice repo no longer exists. The capstone was reset.",
+        });
+        return;
+      } else {
+        detail = `GitHub refused the branches check (${branches.errorMessage}). Reconnect GitHub, then try again.`;
+      }
     } else {
       const yours = branches.data.filter(
         (b) => b.name !== state.defaultBranch && !b.name.startsWith("dojo/"),
@@ -468,7 +627,23 @@ router.post("/capstone/verify/:missionId", requireOwner, async (req, res): Promi
         `/repos/${fullName}/pulls/${state.prNumber}`,
       );
       if (!pr.ok || !pr.data) {
-        detail = `Could not read PR #${state.prNumber} from GitHub: ${pr.errorMessage}`;
+        if (isGitHubUnavailable(pr)) {
+          githubUnavailable = true;
+          detail = `Could not read PR #${state.prNumber} from GitHub: ${pr.errorMessage}`;
+        } else if (pr.status === 404) {
+          const diagnosis = await diagnoseMissingPracticePr(login, state);
+          if (diagnosis.resetRequired) {
+            clearCapstone();
+            res.status(409).json({
+              error: `Cannot verify against GitHub: ${diagnosis.detail}. The capstone was reset.`,
+            });
+            return;
+          }
+          githubUnavailable = diagnosis.githubUnavailable;
+          detail = diagnosis.detail;
+        } else {
+          detail = `GitHub refused the PR check (${pr.errorMessage}). Reconnect GitHub, then try again.`;
+        }
       } else if (pr.data.merged) {
         verified = true;
         detail = `Verified: PR #${state.prNumber} is merged on GitHub.`;
@@ -507,6 +682,7 @@ router.post("/capstone/verify/:missionId", requireOwner, async (req, res): Promi
     VerifyCapstoneMissionResponse.parse({
       missionId,
       verified,
+      githubUnavailable,
       detail,
       status: statusPayload(login, loadCapstone()),
     }),

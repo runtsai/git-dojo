@@ -1028,12 +1028,15 @@ components:
           type: string
         verified:
           type: boolean
+        githubUnavailable:
+          type: boolean
+          description: True when GitHub could not be reached to perform this verification; retry the check later
         detail:
           type: string
           description: Honest explanation of what the live check saw
         status:
           $ref: "#/components/schemas/CapstoneStatus"
-      required: [missionId, verified, detail, status]
+      required: [missionId, verified, githubUnavailable, detail, status]
     CheckResult:
       type: object
       properties:

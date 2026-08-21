@@ -10,7 +10,7 @@
  * a learner actually starts the capstone.
  *
  * All external I/O is mocked:
- *   - ghJson / getConnectedLogin   → lib/github
+ *   - ghJson / getConnectedLogin / getConnectedLoginResult → lib/github
  *   - loadCapstone / saveCapstone / clearCapstone → lib/capstone-store
  *   - recordCompletion             → lib/progress-store
  *
@@ -44,12 +44,23 @@ interface Schema {
 
 // ---- GitHub connector -------------------------------------------------------
 const mockGetConnectedLogin = vi.fn<() => Promise<string | null>>();
+const mockGetConnectedLoginResult = vi.fn<
+  () => Promise<{ login: string | null; unavailable: boolean; errorMessage: string | null }>
+>();
 const mockGhJson = vi.fn<
   (path: string, init?: { method?: string; body?: unknown }) => Promise<unknown>
 >();
 
 vi.mock("../lib/github.js", () => ({
   getConnectedLogin: (...args: unknown[]) => mockGetConnectedLogin(...(args as [])),
+  getConnectedLoginResult: (...args: unknown[]) =>
+    mockGetConnectedLoginResult(...(args as [])),
+  isGitHubUnavailable: (result: { ok: boolean; status: number }) =>
+    !result.ok &&
+    (result.status === 0 ||
+      result.status === 408 ||
+      result.status === 429 ||
+      result.status >= 500),
   ghJson: (...args: unknown[]) =>
     mockGhJson(...(args as [string, (object | undefined)?])),
   // ghFetch is not used directly by the router
@@ -131,6 +142,11 @@ beforeEach(() => {
   mockCapstoneState = null;
   // Default: GitHub connected.
   mockGetConnectedLogin.mockResolvedValue("testuser");
+  mockGetConnectedLoginResult.mockResolvedValue({
+    login: "testuser",
+    unavailable: false,
+    errorMessage: null,
+  });
 });
 
 // ---------------------------------------------------------------------------
@@ -464,7 +480,11 @@ describe("POST /api/capstone/verify/:missionId — response shape", () => {
   });
 
   it("returns 409 when GitHub is not connected", async () => {
-    mockGetConnectedLogin.mockResolvedValue(null);
+    mockGetConnectedLoginResult.mockResolvedValue({
+      login: null,
+      unavailable: false,
+      errorMessage: "Bad credentials",
+    });
     mockCapstoneState = makeCapstoneState();
 
     const res = await fetch(`${base}/api/capstone/verify/push-commit`, {
@@ -716,14 +736,35 @@ describe("POST /api/capstone/repo — mid-operation GitHub failures", () => {
 // ---------------------------------------------------------------------------
 
 describe("POST /api/capstone/verify/:missionId — mid-operation GitHub failures", () => {
-  /**
-   * verifyStateTrust calls GET /repos/{fullName} and returns trusted:false when
-   * ghJson returns { ok: false } (not a 404). The route then clears state and
-   * returns 409. This exercises the "GitHub becomes unreachable between the
-   * connected-login check and the actual mission verification" scenario.
-   */
-  it("returns 409 when verifyStateTrust repo fetch fails (not 404) mid-verify", async () => {
-    mockCapstoneState = makeCapstoneState();
+  it("signals GitHub unavailable and preserves state when the login check cannot connect", async () => {
+    const state = makeCapstoneState();
+    mockCapstoneState = state;
+    mockGetConnectedLoginResult.mockResolvedValue({
+      login: null,
+      unavailable: true,
+      errorMessage: "connector timeout",
+    });
+
+    const res = await fetch(`${base}/api/capstone/verify/push-commit`, {
+      method: "POST",
+    });
+
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      verified: boolean;
+      githubUnavailable: boolean;
+      detail: string;
+    };
+    expect(body.verified).toBe(false);
+    expect(body.githubUnavailable).toBe(true);
+    expect(body.detail).toContain("connector timeout");
+    expect(mockCapstoneState).toEqual(state);
+    expect(mockGhJson).not.toHaveBeenCalled();
+  });
+
+  it("signals GitHub unavailable and preserves state when the repo trust check cannot connect", async () => {
+    const state = makeCapstoneState();
+    mockCapstoneState = state;
 
     mockGhJson.mockResolvedValue({
       ok: false,
@@ -736,19 +777,36 @@ describe("POST /api/capstone/verify/:missionId — mid-operation GitHub failures
       method: "POST",
     });
 
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      verified: boolean;
+      githubUnavailable: boolean;
+      detail: string;
+    };
+    expect(body.verified).toBe(false);
+    expect(body.githubUnavailable).toBe(true);
+    expect(body.detail).toContain("Service Unavailable");
+    expect(mockCapstoneState).toEqual(state);
+  });
+
+  it("still resets state for a confirmed missing repository", async () => {
+    mockCapstoneState = makeCapstoneState();
+    mockGhJson.mockResolvedValue(ghJsonNotFound());
+
+    const res = await fetch(`${base}/api/capstone/verify/push-commit`, {
+      method: "POST",
+    });
+
     expect(res.status).toBe(409);
-    const body = (await res.json()) as { error: string };
-    expect(typeof body.error).toBe("string");
-    // State should be cleared after trust verification failure
     expect(mockCapstoneState).toBeNull();
   });
 
   /**
    * When ghJson fails during the mission-specific check (after verifyStateTrust
-   * succeeds), the route sets an error detail and returns verified:false — it
-   * does NOT crash or return 500.
+   * succeeds), the route returns verified:false with githubUnavailable:true so
+   * the dashboard can distinguish an outage from incomplete mission work.
    */
-  it("push-commit: returns verified=false (not 500) when commits fetch fails", async () => {
+  it("push-commit: signals GitHub unavailable when commits fetch fails", async () => {
     mockCapstoneState = makeCapstoneState();
     const networkFail = { ok: false, status: 0, data: null, errorMessage: "network error" };
 
@@ -763,13 +821,18 @@ describe("POST /api/capstone/verify/:missionId — mid-operation GitHub failures
     });
 
     const res = await fetch(`${base}/api/capstone/verify/push-commit`, { method: "POST" });
-    expect(res.status).not.toBe(500);
-    const body = (await res.json()) as { verified: boolean; detail: string };
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      verified: boolean;
+      githubUnavailable: boolean;
+      detail: string;
+    };
     expect(body.verified).toBe(false);
+    expect(body.githubUnavailable).toBe(true);
     expect(typeof body.detail).toBe("string");
   });
 
-  it("create-branch: returns verified=false (not 500) when branches fetch fails", async () => {
+  it("create-branch: signals GitHub unavailable when branches fetch fails", async () => {
     mockCapstoneState = makeCapstoneState();
     const networkFail = { ok: false, status: 0, data: null, errorMessage: "network error" };
 
@@ -782,13 +845,18 @@ describe("POST /api/capstone/verify/:missionId — mid-operation GitHub failures
     });
 
     const res = await fetch(`${base}/api/capstone/verify/create-branch`, { method: "POST" });
-    expect(res.status).not.toBe(500);
-    const body = (await res.json()) as { verified: boolean; detail: string };
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      verified: boolean;
+      githubUnavailable: boolean;
+      detail: string;
+    };
     expect(body.verified).toBe(false);
+    expect(body.githubUnavailable).toBe(true);
     expect(typeof body.detail).toBe("string");
   });
 
-  it("merge-pr: returns verified=false (not 500) when PR fetch fails", async () => {
+  it("merge-pr: signals GitHub unavailable when PR fetch fails", async () => {
     mockCapstoneState = makeCapstoneState();
     const networkFail = { ok: false, status: 0, data: null, errorMessage: "network error" };
 
@@ -801,11 +869,122 @@ describe("POST /api/capstone/verify/:missionId — mid-operation GitHub failures
     });
 
     const res = await fetch(`${base}/api/capstone/verify/merge-pr`, { method: "POST" });
-    expect(res.status).not.toBe(500);
-    const body = (await res.json()) as { verified: boolean; detail: string };
+    expect(res.status).toBe(200);
+    const body = (await res.json()) as {
+      verified: boolean;
+      githubUnavailable: boolean;
+      detail: string;
+    };
     expect(body.verified).toBe(false);
+    expect(body.githubUnavailable).toBe(true);
     expect(typeof body.detail).toBe("string");
   });
+
+  it.each([
+    ["push-commit", "/commits"],
+    ["create-branch", "/branches"],
+  ])("%s: resets state when the repo disappears after the trust check", async (missionId, missionPath) => {
+    mockCapstoneState = makeCapstoneState();
+    mockGhJson.mockImplementation(async (path: string) => {
+      if (path === "/repos/testuser/dojo-live-capstone") {
+        return { ok: true, status: 200, data: makeRepo(), errorMessage: null };
+      }
+      if (path.includes(missionPath)) return ghJsonNotFound();
+      throw new Error(`Unexpected ghJson call: ${path}`);
+    });
+
+    const res = await fetch(`${base}/api/capstone/verify/${missionId}`, { method: "POST" });
+
+    expect(res.status).toBe(409);
+    expect(mockCapstoneState).toBeNull();
+  });
+
+  it("merge-pr: treats a missing PR as actionable mission state, not an outage", async () => {
+    const state = makeCapstoneState();
+    mockCapstoneState = state;
+    mockGhJson.mockImplementation(async (path: string) => {
+      if (path === "/repos/testuser/dojo-live-capstone") {
+        return { ok: true, status: 200, data: makeRepo(), errorMessage: null };
+      }
+      if (path.includes("/pulls/42")) return ghJsonNotFound();
+      throw new Error(`Unexpected ghJson call: ${path}`);
+    });
+
+    const res = await fetch(`${base}/api/capstone/verify/merge-pr`, { method: "POST" });
+    const body = (await res.json()) as {
+      verified: boolean;
+      githubUnavailable: boolean;
+      detail: string;
+    };
+
+    expect(res.status).toBe(200);
+    expect(body.verified).toBe(false);
+    expect(body.githubUnavailable).toBe(false);
+    expect(body.detail).toContain("no longer exists");
+    expect(mockCapstoneState).toEqual(state);
+  });
+
+  it.each(["push-commit", "merge-pr"])(
+    "%s: resets state when a PR 404 is followed by confirmation that the repo is gone",
+    async (missionId) => {
+      mockCapstoneState = makeCapstoneState();
+      let repoChecks = 0;
+      mockGhJson.mockImplementation(async (path: string) => {
+        if (path === "/repos/testuser/dojo-live-capstone") {
+          repoChecks += 1;
+          return repoChecks === 1
+            ? { ok: true, status: 200, data: makeRepo(), errorMessage: null }
+            : ghJsonNotFound();
+        }
+        if (path.includes("/commits")) {
+          return {
+            ok: true,
+            status: 200,
+            data: [{ sha: "seed-sha-1", commit: { message: "Initial commit" } }],
+            errorMessage: null,
+          };
+        }
+        if (path.includes("/pulls/42")) return ghJsonNotFound();
+        throw new Error(`Unexpected ghJson call: ${path}`);
+      });
+
+      const res = await fetch(`${base}/api/capstone/verify/${missionId}`, { method: "POST" });
+
+      expect(res.status).toBe(409);
+      expect(repoChecks).toBe(2);
+      expect(mockCapstoneState).toBeNull();
+    },
+  );
+
+  it.each([401, 403])(
+    "create-branch: status %s is not mislabeled as an outage and preserves state",
+    async (status) => {
+      const state = makeCapstoneState();
+      mockCapstoneState = state;
+      mockGhJson.mockImplementation(async (path: string) => {
+        if (path === "/repos/testuser/dojo-live-capstone") {
+          return { ok: true, status: 200, data: makeRepo(), errorMessage: null };
+        }
+        if (path.includes("/branches")) {
+          return { ok: false, status, data: null, errorMessage: "Forbidden" };
+        }
+        throw new Error(`Unexpected ghJson call: ${path}`);
+      });
+
+      const res = await fetch(`${base}/api/capstone/verify/create-branch`, { method: "POST" });
+      const body = (await res.json()) as {
+        verified: boolean;
+        githubUnavailable: boolean;
+        detail: string;
+      };
+
+      expect(res.status).toBe(200);
+      expect(body.verified).toBe(false);
+      expect(body.githubUnavailable).toBe(false);
+      expect(body.detail).toContain("Reconnect GitHub");
+      expect(mockCapstoneState).toEqual(state);
+    },
+  );
 });
 
 // ---------------------------------------------------------------------------

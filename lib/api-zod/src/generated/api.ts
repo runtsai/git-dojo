@@ -557,6 +557,7 @@ export const VerifyCapstoneMissionParams = zod.object({
 export const VerifyCapstoneMissionResponse = zod.object({
   "missionId": zod.string(),
   "verified": zod.boolean(),
+  "githubUnavailable": zod.boolean().describe('True when GitHub could not be reached to perform this verification; retry the check later'),
   "detail": zod.string().describe('Honest explanation of what the live check saw'),
   "status": zod.object({
   "githubConnected": zod.boolean(),

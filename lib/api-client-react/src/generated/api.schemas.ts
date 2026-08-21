@@ -404,6 +404,8 @@ export interface CapstoneStatus {
 export interface CapstoneVerifyResult {
   missionId: string;
   verified: boolean;
+  /** True when GitHub could not be reached to perform this verification; retry the check later */
+  githubUnavailable: boolean;
   /** Honest explanation of what the live check saw */
   detail: string;
   status: CapstoneStatus;

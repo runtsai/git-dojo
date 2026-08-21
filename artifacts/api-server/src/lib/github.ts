@@ -27,6 +27,21 @@ export interface GhResult<T> {
   errorMessage: string | null;
 }
 
+export interface ConnectedLoginResult {
+  login: string | null;
+  unavailable: boolean;
+  errorMessage: string | null;
+}
+
+export function isGitHubUnavailable(
+  result: Pick<GhResult<unknown>, "ok" | "status">,
+): boolean {
+  return (
+    !result.ok &&
+    (result.status === 0 || result.status === 408 || result.status === 429 || result.status >= 500)
+  );
+}
+
 /** Fetch + JSON parse with honest error reporting. Network/auth failures return ok=false. */
 export async function ghJson<T>(
   path: string,
@@ -57,8 +72,23 @@ export async function ghJson<T>(
   }
 }
 
+/**
+ * Returns enough detail for callers that must distinguish a disconnected
+ * account from a transient connector/GitHub outage.
+ */
+export async function getConnectedLoginResult(): Promise<ConnectedLoginResult> {
+  const res = await ghJson<{ login: string }>("/user");
+  if (res.ok && res.data?.login) {
+    return { login: res.data.login, unavailable: false, errorMessage: null };
+  }
+  return {
+    login: null,
+    unavailable: isGitHubUnavailable(res),
+    errorMessage: res.errorMessage,
+  };
+}
+
 /** Returns the connected GitHub login, or null when no account is connected. */
 export async function getConnectedLogin(): Promise<string | null> {
-  const res = await ghJson<{ login: string }>("/user");
-  return res.ok && res.data ? res.data.login : null;
+  return (await getConnectedLoginResult()).login;
 }
