@@ -24,9 +24,11 @@ import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import express from "express";
 import http from "node:http";
 import type { AddressInfo } from "node:net";
-import { mkdtempSync, rmSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
+import { GetCommitDiffResponse } from "@workspace/api-zod";
 
 // ---------------------------------------------------------------------------
 // HTTP helper
@@ -197,5 +199,105 @@ describe("GET /crisis/scenarios/:crisisId/commits/:commitHash/diff — hash vali
       `/crisis/scenarios/nonexistent-scenario/commits/${validHash}/diff`,
     );
     expect(status).toBe(404);
+  });
+});
+
+describe("GET /crisis/scenarios/:crisisId/commits/:commitHash/diff — real commit", () => {
+  let server: http.Server;
+  let port: number;
+  let fakeHome: string;
+  let originalHome: string | undefined;
+  let realHash: string;
+
+  beforeAll(async () => {
+    fakeHome = mkdtempSync(path.join(tmpdir(), "commit-diff-real-test-"));
+    originalHome = process.env.HOME;
+    process.env.HOME = fakeHome;
+
+    const playgroundDir = path.join(fakeHome, "git-dojo", "playground", "crisis-01");
+    mkdirSync(playgroundDir, { recursive: true });
+    const gitEnv = {
+      ...process.env,
+      GIT_AUTHOR_NAME: "Test",
+      GIT_AUTHOR_EMAIL: "test@example.com",
+      GIT_COMMITTER_NAME: "Test",
+      GIT_COMMITTER_EMAIL: "test@example.com",
+      GIT_TERMINAL_PROMPT: "0",
+      GIT_CONFIG_GLOBAL: "/dev/null",
+      HOME: fakeHome,
+    };
+    const git = (...args: string[]) =>
+      execFileSync("git", args, { cwd: playgroundDir, env: gitEnv });
+
+    git("init", "-q", "-b", "main");
+    git("config", "user.name", "Test");
+    git("config", "user.email", "test@example.com");
+    writeFileSync(path.join(playgroundDir, "rates.txt"), "Rush load: $750\n");
+    git("add", "-A");
+    git("commit", "-q", "-m", "Open the rate book");
+    writeFileSync(path.join(playgroundDir, "rates.txt"), "Rush load: $825\n");
+    git("add", "-A");
+    git("commit", "-q", "-m", "Update the rush rate");
+    realHash = execFileSync("git", ["rev-parse", "HEAD"], {
+      cwd: playgroundDir,
+      env: gitEnv,
+    })
+      .toString()
+      .trim();
+
+    const { default: crisisRouter } = await import("./crisis.js");
+    const app = express();
+    app.use((req, _res, next) => {
+      (req as unknown as Record<string, unknown>)["log"] = {
+        info: () => {},
+        warn: () => {},
+        error: () => {},
+      };
+      next();
+    });
+    app.use("/", crisisRouter);
+
+    server = http.createServer(app);
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+    port = (server.address() as AddressInfo).port;
+  });
+
+  afterAll(async () => {
+    await new Promise<void>((resolve, reject) =>
+      server.close((err) => (err ? reject(err) : resolve())),
+    );
+    if (originalHome !== undefined) process.env.HOME = originalHome;
+    else delete process.env.HOME;
+    try {
+      rmSync(fakeHome, { recursive: true, force: true });
+    } catch {
+      /* best-effort cleanup */
+    }
+  });
+
+  it("returns a schema-valid real diff for an existing commit", async () => {
+    const { status, body } = await get(
+      port,
+      `/crisis/scenarios/crisis-01/commits/${realHash}/diff`,
+    );
+
+    expect(status).toBe(200);
+    const diff = GetCommitDiffResponse.parse(JSON.parse(body));
+    expect(diff.hash).toBe(realHash);
+    expect(diff.isMerge).toBe(false);
+    expect(diff.files.some((file) => file.path === "rates.txt")).toBe(true);
+  });
+
+  it("returns 404 for a valid-format hash that does not exist", async () => {
+    const missingHash = "f".repeat(40);
+    expect(missingHash).not.toBe(realHash);
+
+    const { status, body } = await get(
+      port,
+      `/crisis/scenarios/crisis-01/commits/${missingHash}/diff`,
+    );
+
+    expect(status).toBe(404);
+    expect(JSON.parse(body).error).toMatch(/no such commit/i);
   });
 });

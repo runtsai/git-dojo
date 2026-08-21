@@ -289,37 +289,20 @@ describe("diff viewer closes when navigating to a different crisis URL", () => {
     fireEvent.click(screen.getByTestId("trigger-file-diff"));
     expect(screen.getByTestId("diff-viewer")).toBeTruthy();
 
-    act(() => {
-      rerender(<CrisisView />);
-    });
+    navigateToCrisis02(rerender);
 
-    expect(screen.getByTestId("diff-viewer")).toBeTruthy();
+    expect(screen.queryByTestId("diff-viewer")).toBeNull();
   });
 
-  it("diff viewer is absent on the new crisis when no panel was open before navigation", () => {
+  it("closes a commit-diff panel after navigating from crisis-01 to crisis-02", () => {
     const { rerender } = renderOnCrisis01();
 
-    fireEvent.click(screen.getByTestId("trigger-file-diff"));
+    fireEvent.click(screen.getByTestId("trigger-commit-diff"));
     expect(screen.getByTestId("diff-viewer")).toBeTruthy();
 
-    act(() => {
-      rerender(<CrisisView />);
-    });
+    navigateToCrisis02(rerender);
 
-    expect(screen.getByTestId("diff-viewer")).toBeTruthy();
-  });
-
-  it("diff viewer is absent on the new crisis when no panel was open before navigation", () => {
-    const { rerender } = renderOnCrisis01();
-
-    fireEvent.click(screen.getByTestId("trigger-file-diff"));
-    expect(screen.getByTestId("diff-viewer")).toBeTruthy();
-
-    act(() => {
-      rerender(<CrisisView />);
-    });
-
-    expect(screen.getByTestId("diff-viewer")).toBeTruthy();
+    expect(screen.queryByTestId("diff-viewer")).toBeNull();
   });
 
   it("diff viewer is absent on the new crisis when no panel was open before navigation", () => {
