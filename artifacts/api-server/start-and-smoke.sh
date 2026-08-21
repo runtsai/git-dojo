@@ -76,7 +76,7 @@ echo ""
 echo "⏳ Waiting for API server on port ${PORT}..."
 READY=0
 for i in $(seq 1 30); do
-  if curl -sf "${HEALTHZ}" > /dev/null 2>&1; then
+  if curl -s --max-time 2 "${HEALTHZ}" > /dev/null 2>&1; then
     READY=1
     break
   fi
@@ -95,6 +95,14 @@ else
   if [ -f "${SMOKE_STATE_FILE}" ]; then
     PREV_STATUS=$(cat "${SMOKE_STATE_FILE}")
   fi
+
+  # Clear the stale result file before running smoke so that /api/healthz
+  # returns HTTP 200 (smokeStatus: "unknown") during the check itself.
+  # Without this, a prior "passed:false" result causes /api/healthz to return
+  # 503, which makes the smoke suite fail on its healthz assertion, which
+  # rewrites "passed:false" again — a deadlock that prevents recovery.
+  # PREV_STATUS is already captured above, so recovery detection is preserved.
+  rm -f "${SMOKE_RESULT_FILE}"
 
   # ── 4. Run smoke check ───────────────────────────────────────────────────
   # SKIP_EXPORT_SMOKE=1: the promo-video export takes ~30 s and requires a

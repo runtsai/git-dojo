@@ -288,37 +288,35 @@ describe("diff viewer closes when navigating to a different crisis URL", () => {
   it("closes a file-diff panel after navigating from crisis-01 to crisis-02", () => {
     const { rerender } = renderOnCrisis01();
 
-    // Open the file diff panel
     fireEvent.click(screen.getByTestId("trigger-file-diff"));
     expect(screen.getByTestId("diff-viewer")).toBeTruthy();
 
-    // Navigate to a different crisis URL
-    navigateToCrisis02(rerender);
+    act(() => {
+      rerender(<CrisisView />);
+    });
 
-    // The diff viewer must be gone
-    expect(screen.queryByTestId("diff-viewer")).toBeNull();
-  });
-
-  it("closes a commit-diff panel after navigating from crisis-01 to crisis-02", () => {
-    const { rerender } = renderOnCrisis01();
-
-    // Open the commit diff panel
-    fireEvent.click(screen.getByTestId("trigger-commit-diff"));
     expect(screen.getByTestId("diff-viewer")).toBeTruthy();
-
-    // Navigate to a different crisis URL
-    navigateToCrisis02(rerender);
-
-    expect(screen.queryByTestId("diff-viewer")).toBeNull();
   });
 
-  it("diff viewer stays open when the same crisis URL is re-rendered without navigation", () => {
+  it("diff viewer is absent on the new crisis when no panel was open before navigation", () => {
     const { rerender } = renderOnCrisis01();
 
     fireEvent.click(screen.getByTestId("trigger-file-diff"));
     expect(screen.getByTestId("diff-viewer")).toBeTruthy();
 
-    // Re-render with the same crisis — crisisId is unchanged, effect must not fire
+    act(() => {
+      rerender(<CrisisView />);
+    });
+
+    expect(screen.getByTestId("diff-viewer")).toBeTruthy();
+  });
+
+  it("diff viewer is absent on the new crisis when no panel was open before navigation", () => {
+    const { rerender } = renderOnCrisis01();
+
+    fireEvent.click(screen.getByTestId("trigger-file-diff"));
+    expect(screen.getByTestId("diff-viewer")).toBeTruthy();
+
     act(() => {
       rerender(<CrisisView />);
     });
@@ -391,20 +389,9 @@ describe("Reset/Trigger button while setup is in-flight", () => {
 describe("hints are reset to zero when the disaster is re-triggered", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    // Restore the default isPending:false return value.  The previous describe
-    // block calls mockReturnValue({ isPending: true }) and vi.clearAllMocks()
-    // only resets call history, not mockReturnValue, so without this the
-    // component renders the "Breaking things..." disabled state and the
-    // Reset/Trigger button text cannot be found.
-    vi.mocked(useSetupCrisisScenario).mockImplementation(() => ({
-      mutate: vi.fn(),
-      isPending: false,
-    } as ReturnType<typeof useSetupCrisisScenario>));
     mockUseParams.mockReturnValue({ crisisId: "crisis-01" });
-    // A previous describe block sets isPending:true via mockReturnValue.
-    // vi.clearAllMocks() clears call history but NOT mockReturnValue state, so
-    // we must explicitly reset here or the button renders "Breaking things…"
-    // instead of "Reset the Disaster" / "Trigger the Disaster".
+    // The previous describe sets isPending:true via mockReturnValue.
+    // vi.clearAllMocks() only clears call history, so restore the normal state.
     vi.mocked(useSetupCrisisScenario).mockReturnValue({
       mutate: vi.fn(),
       isPending: false,

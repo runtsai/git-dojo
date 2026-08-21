@@ -229,6 +229,83 @@ assert_not_contains \
   "${OUTPUT}" \
   "SMOKE CHECK RECOVERED"
 
+# ── Case 5: Mutation test — broken handle_smoke_result is detected ────────────
+# Override handle_smoke_result with a deliberately broken implementation that
+# emits the normal ✅ line instead of the recovery banner on a FAILED → PASSED
+# transition.  Run the real Case-1 assert_contains / assert_not_contains helpers
+# (inherited from this scope) against the output of the broken function inside a
+# subshell.  The subshell must exit 1, proving the production assertions catch
+# the regression.  If it exits 0 the assertions are not effective.
+echo ""
+echo "Case 5: Mutation test — broken handle_smoke_result is caught by the real assertions"
+
+MUTATION_CAUGHT=0
+(
+  # Reset counters so the subshell tracks only its own assertions.
+  FAIL_COUNT=0
+  PASS_COUNT=0
+
+  # Set up isolated state files.
+  SMOKE_STATE_FILE="${TEST_TMP}/mut-state"
+  SMOKE_RESULT_FILE="${TEST_TMP}/mut-result.json"
+  export SMOKE_STATE_FILE SMOKE_RESULT_FILE
+  echo "FAILED" > "${SMOKE_STATE_FILE}"
+
+  # Override handle_smoke_result with a broken version:
+  # always emits "✅ Smoke check passed", never the recovery banner.
+  handle_smoke_result() {
+    local prev_status="$1"
+    local smoke_passed="$2"
+    if [ "${smoke_passed}" -eq 0 ]; then
+      echo "PASSED" > "${SMOKE_STATE_FILE}"
+      write_smoke_result "true"
+      echo ""
+      echo "✅ Smoke check passed"   # BUG: missing recovery banner when prev=FAILED
+    else
+      echo "FAILED" > "${SMOKE_STATE_FILE}"
+      write_smoke_result "false"
+      echo ""
+      echo "⚠️  Smoke check FAILED — check the output above"
+    fi
+  }
+
+  # Call the broken function with the same arguments as Case 1.
+  OUTPUT=$(handle_smoke_result "FAILED" 0)
+
+  # Run the real production assertions — these are the same helpers used in
+  # all other cases; they are inherited from the outer scope.
+  assert_contains \
+    "recovery banner headline is present" \
+    "${OUTPUT}" \
+    "SMOKE CHECK RECOVERED"
+
+  assert_contains \
+    "recovery banner shows previous run FAILED" \
+    "${OUTPUT}" \
+    "previous run had FAILED, now PASSED"
+
+  assert_contains \
+    "recovery banner confirms rollback" \
+    "${OUTPUT}" \
+    "Rollback confirmed: API is healthy again"
+
+  assert_not_contains \
+    "normal ✅ line is absent during recovery" \
+    "${OUTPUT}" \
+    "✅ Smoke check passed"
+
+  # Broken function → at least some assertions must have failed.
+  [ "${FAIL_COUNT}" -gt 0 ] && exit 1
+  exit 0
+) > /dev/null 2>&1 || MUTATION_CAUGHT=1
+# (subshell output suppressed — it is expected ❌ noise from the broken function)
+
+if [ "${MUTATION_CAUGHT}" -eq 1 ]; then
+  pass "mutation test: broken handle_smoke_result was caught by the real assertions"
+else
+  fail "mutation test: broken handle_smoke_result was NOT caught — assertions are ineffective"
+fi
+
 # ── Summary ──────────────────────────────────────────────────────────────────
 echo ""
 echo "══════════════════════════════════════════"
