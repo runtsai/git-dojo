@@ -114,6 +114,16 @@ function setupLessons(title: string | undefined) {
   } as ReturnType<typeof useListLessons>);
 }
 
+function setupLessonsResponse(
+  data: [{ id: string; title?: string; folderName?: string }] | undefined,
+  isLoading: boolean,
+) {
+  vi.mocked(useListLessons).mockReturnValue({
+    data,
+    isLoading,
+  } as ReturnType<typeof useListLessons>);
+}
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
@@ -161,5 +171,24 @@ describe("LessonContent — title fallback in heading", () => {
     setupLessons("First Commit");
     render(<LessonView />);
     expect(document.title).toBe("First Commit | Test Center");
+  });
+
+  it("keeps a non-empty heading during a lessons-list refetch with no data", () => {
+    setupLessons("First Commit");
+    const { rerender } = render(<LessonView />);
+
+    const headingBeforeRefetch = screen.getByRole("heading", { level: 1 });
+    expect(headingBeforeRefetch.textContent?.trim()).toBe("First Commit");
+
+    // A stale-while-revalidate response can briefly expose a loading state
+    // without data. The heading must remain usable during that transition.
+    setupLessonsResponse(undefined, true);
+    rerender(<LessonView />);
+
+    const headingDuringRefetch = screen.getByRole("heading", { level: 1 });
+    expect(["First Commit", "lesson-01"]).toContain(
+      headingDuringRefetch.textContent?.trim(),
+    );
+    expect(headingDuringRefetch.textContent?.trim()).not.toBe("");
   });
 });
