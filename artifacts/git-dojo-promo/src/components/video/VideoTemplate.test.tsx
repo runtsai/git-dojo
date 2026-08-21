@@ -359,4 +359,31 @@ describe("VideoTemplate – loopFading guard against accidental overlay", () => 
       vi.useRealTimers();
     }
   });
+
+  it("throws at module startup when s0 is too short for the fade-out", async () => {
+    // Re-import the module with an invalid source-of-truth duration so this
+    // test exercises the module-level guard rather than merely checking its
+    // current production configuration.
+    vi.resetModules();
+    vi.doMock("@workspace/promo-config", () => ({
+      SCENE_DURATIONS: {
+        s0: 600,
+        s1: 4500,
+        s2: 4500,
+        s3: 4000,
+        s4: 4000,
+        s5: 1500,
+      },
+      TOTAL_RUNTIME_MS: 19100,
+    }));
+
+    try {
+      await expect(import("./VideoTemplate")).rejects.toThrow(
+        "LOOP_FADE_OUT_MS (700 ms) must be less than SCENE_DURATIONS.s0 (600 ms).",
+      );
+    } finally {
+      vi.doUnmock("@workspace/promo-config");
+      vi.resetModules();
+    }
+  });
 });
