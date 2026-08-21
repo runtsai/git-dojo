@@ -125,11 +125,12 @@ describe("GET /healthz", () => {
     expect(status).toBe(200);
     expect(data.status).toBe("ok");
     expect(data.smokeStatus).toBe("passed");
+    expect(data.passed).toBe(true);
     expect(data.smokeCheckedAt).toBe(checkedAt);
   });
 
   // 3. passed: false -------------------------------------------------------
-  it("returns HTTP 503, status degraded and smokeStatus failed when the file records passed: false", async () => {
+  it("returns HTTP 200, status degraded and passed:false when the file records passed: false", async () => {
     const checkedAt = "2026-08-17T09:55:00.000Z";
     readFileSyncMock.mockReturnValue(
       JSON.stringify({ passed: false, checkedAt }),
@@ -138,9 +139,10 @@ describe("GET /healthz", () => {
     const { status, body } = await makeRequest(port, "/healthz");
     const data = body as Record<string, unknown>;
 
-    expect(status).toBe(503);
+    expect(status).toBe(200);
     expect(data.status).toBe("degraded");
     expect(data.smokeStatus).toBe("failed");
+    expect(data.passed).toBe(false);
     expect(data.smokeCheckedAt).toBe(checkedAt);
   });
 

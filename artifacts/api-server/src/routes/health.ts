@@ -4,7 +4,8 @@ import { HealthCheckResponse } from "@workspace/api-zod";
 
 const router: IRouter = Router();
 
-const SMOKE_RESULT_FILE = "/tmp/api-smoke-result.json";
+const SMOKE_RESULT_FILE =
+  process.env["SMOKE_RESULT_FILE"] ?? "/tmp/api-smoke-result.json";
 
 interface SmokeResult {
   passed: boolean;
@@ -43,11 +44,15 @@ router.get("/healthz", (_req, res) => {
   const data = HealthCheckResponse.parse({
     status: overallStatus,
     smokeStatus,
-    ...(smoke !== null ? { smokeCheckedAt: smoke.checkedAt } : {}),
+    ...(smoke !== null
+      ? { passed: smoke.passed, smokeCheckedAt: smoke.checkedAt }
+      : {}),
   });
 
-  const httpStatus = overallStatus === "degraded" ? 503 : 200;
-  res.status(httpStatus).json(data);
+  // A completed smoke failure is useful status information, not a process
+  // failure. Keep the server eligible for traffic while clients render its
+  // degraded state from the response body.
+  res.status(200).json(data);
 });
 
 export default router;

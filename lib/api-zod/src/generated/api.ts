@@ -15,6 +15,7 @@ import * as zod from 'zod';
 export const HealthCheckResponse = zod.object({
   "status": zod.enum(['ok', 'degraded']),
   "smokeStatus": zod.enum(['passed', 'failed', 'unknown']).describe('Result of the last startup smoke check'),
+  "passed": zod.boolean().optional().describe('Raw pass\/fail result from the last completed smoke check'),
   "smokeCheckedAt": zod.string().optional().describe('ISO 8601 timestamp of when the last smoke check completed')
 })
 

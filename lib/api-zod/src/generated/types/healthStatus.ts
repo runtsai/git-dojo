@@ -12,6 +12,8 @@ export interface HealthStatus {
   status: HealthStatusStatus;
   /** Result of the last startup smoke check */
   smokeStatus: HealthStatusSmokeStatus;
+  /** Raw pass/fail result from the last completed smoke check */
+  passed?: boolean;
   /** ISO 8601 timestamp of when the last smoke check completed */
   smokeCheckedAt?: string;
 }
