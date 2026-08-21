@@ -795,6 +795,11 @@ describe("queryDue recovery filter — end-to-end via recordGraderResult", () =>
     const entry = friction.find((f) => f.sourceId === "source-legacy")!;
     expect(entry).toBeDefined();
 
+    // Raw aggregate totals must be preserved for display even when the
+    // legacy record has no rolling-window history.
+    expect(entry.failures).toBe(4);
+    expect(entry.passes).toBe(1);
+
     // 2. All four rolling-window fields are 0 (empty runs → nothing to compute).
     expect(entry.recentPasses).toBe(0);
     expect(entry.recentFailures).toBe(0);

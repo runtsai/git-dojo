@@ -1208,8 +1208,9 @@ describe("DELETE /api/capstone/repo — response shape", () => {
     expect(typeof body.error).toBe("string");
   });
 
-  it("returns 409 and clears state when GitHub is unavailable during trust verification", async () => {
-    mockCapstoneState = makeCapstoneState();
+  it("returns 409 and preserves state when GitHub is unavailable during trust verification", async () => {
+    const state = makeCapstoneState();
+    mockCapstoneState = state;
 
     mockGhJson.mockResolvedValue({
       ok: false,
@@ -1222,8 +1223,8 @@ describe("DELETE /api/capstone/repo — response shape", () => {
 
     expect(res.status).toBe(409);
     const body = (await res.json()) as { error: string };
-    expect(typeof body.error).toBe("string");
-    expect(mockCapstoneState).toBeNull();
+    expect(body.error).toContain("Nothing was reset");
+    expect(mockCapstoneState).toEqual(state);
   });
 
   it("returns DeleteCapstoneRepoResponse shape when deletion succeeds", async () => {
