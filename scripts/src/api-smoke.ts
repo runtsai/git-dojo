@@ -851,6 +851,11 @@ export async function runChecks(
       { moduleId: "99.99", track: "visual" },
       "POST /api/progress/complete (unknown moduleId → 400)",
     );
+    await smokeExpect400(
+      "/api/progress/complete",
+      { moduleId: "1.1", track: "cli" },
+      "POST /api/progress/complete (CLI track cannot be client-completed → 400)",
+    );
 
     // 9. Drills due — POST because the candidate set is client-owned, but it is
     //    a pure query with no persistence.  A non-empty candidates array ensures

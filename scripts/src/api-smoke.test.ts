@@ -77,12 +77,23 @@ function makeFetch(
         if (b.moduleId === "99.99") {
           return jsonResponse(400, { error: "Unknown module: 99.99" });
         }
+        if (b.track !== "visual") {
+          return jsonResponse(400, { error: "CLI track cannot be client-completed" });
+        }
         return jsonResponse(200, { entries: [] });
       }
 
       if (path === "/api/drills/due") {
         const b = rawBody as Record<string, unknown> | undefined;
-        if (!Array.isArray(b?.candidates)) {
+        if (
+          !Array.isArray(b?.candidates) ||
+          b.candidates.some(
+            (candidate) =>
+              typeof candidate !== "object" ||
+              candidate === null ||
+              !("id" in candidate),
+          )
+        ) {
           return jsonResponse(400, { error: "invalid body" });
         }
         return jsonResponse(200, { items: [], dueCount: 0, friction: [] });
