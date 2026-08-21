@@ -61,6 +61,26 @@ run_check() {
   rm -f "$tmpout"
 }
 
+# Run check.sh for an intentionally incomplete lesson; require both a non-zero
+# exit and a specific FAIL line, without counting the expected FAIL lines in the
+# full selftest totals.
+run_check_expect_fail() {
+  local lesson_dir="$1" label="$2" fragment="$3"
+  local tmpout rc=0
+  tmpout="$(mktemp)"
+  bash "$lesson_dir/check.sh" 2>&1 | tee "$tmpout" || rc=$?
+  local fail_lines
+  fail_lines="$(grep "^FAIL:" "$tmpout" 2>/dev/null || true)"
+  if [ "$rc" -eq 0 ]; then
+    fail "$label — expected check.sh to exit non-zero but it exited 0"
+  elif ! printf '%s\n' "$fail_lines" | grep -qF "$fragment"; then
+    fail "$label — expected FAIL line containing '$fragment' not found; got: $fail_lines"
+  else
+    ok "$label — check.sh correctly exited non-zero with FAIL: …$fragment…"
+  fi
+  rm -f "$tmpout"
+}
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Isolate git identity so the sandbox never touches the real ~/.gitconfig.
 # ─────────────────────────────────────────────────────────────────────────────
@@ -433,6 +453,20 @@ git push -q
 step "Lesson 08 — grader check"
 run_check "$LESSON_08"
 
+step "Lesson 08 — sad path: committed safety section but skipped recovery push"
+cd "$LESSONS_DIR"
+assert_clean_playground "$PLAY_08"
+bash "$LESSON_08/setup.sh" > /dev/null 2>&1
+assert_playground_created "$PLAY_08"
+cd "$PLAY_08/laptop"
+printf "\nSection 3: Safety\nNo driver dispatches without a rest log.\n" >> handbook.txt
+git add handbook.txt
+git commit -qm "Add safety section to the handbook"
+bash "$LESSON_08/bot.sh" > /dev/null 2>&1
+run_check_expect_fail "$LESSON_08" \
+  "Lesson 08 — skipped recovery push is rejected" \
+  "Your safety commit made it to the shared remote"
+
 # ═════════════════════════════════════════════════════════════════════════════
 # Lesson 09 — The Standoff
 # ═════════════════════════════════════════════════════════════════════════════
@@ -484,6 +518,22 @@ git push -q
 
 step "Lesson 09 — grader check"
 run_check "$LESSON_09"
+
+step "Lesson 09 — sad path: left the rate conflict unresolved"
+cd "$LESSONS_DIR"
+assert_clean_playground "$PLAY_09"
+bash "$LESSON_09/setup.sh" > /dev/null 2>&1
+assert_playground_created "$PLAY_09"
+cd "$PLAY_09/laptop"
+sed -i 's/^Standard crate: .*/Standard crate: 200 per pallet/' rates.txt
+git add rates.txt
+git commit -qm "Set standard crate rate to 200 per signed contract"
+bash "$LESSON_09/bot.sh" > /dev/null 2>&1
+git fetch -q
+git merge origin/main --no-edit 2>/dev/null || true
+run_check_expect_fail "$LESSON_09" \
+  "Lesson 09 — unresolved conflict is rejected" \
+  "No conflict markers left in rates.txt"
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Cleanup
