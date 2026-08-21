@@ -107,6 +107,18 @@ git commit -qm "Audit: record the fee-change commit for traceability"
 
 run_grader "$LESSON_02" "Lesson 02"
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Sad-path: Lesson 02 without the audit file
+# Verifies the grader catches the missing learner deliverable.
+# ─────────────────────────────────────────────────────────────────────────────
+step "Lesson 02 sad-path — audit.txt never committed"
+cd "$LESSONS_DIR"
+bash "$LESSON_02/setup.sh" > /dev/null 2>&1
+
+run_grader_expect_fail "$LESSON_02" \
+  "Lesson 02 sad-path (no audit.txt)" \
+  "audit.txt exists and is committed"
+
 # ═════════════════════════════════════════════════════════════════════════════
 # Lesson 03 — Undo Without Erasing
 # ═════════════════════════════════════════════════════════════════════════════
@@ -121,6 +133,22 @@ TEMP_HASH=$(git log --format="%H %s" | grep -i "temporary" | awk '{print $1}' | 
 git revert --no-edit "$TEMP_HASH" > /dev/null 2>&1
 
 run_grader "$LESSON_03" "Lesson 03"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Sad-path: Lesson 03 without reverting the temporary note
+# Verifies the grader catches an undone defect that remains in history.
+# ─────────────────────────────────────────────────────────────────────────────
+step "Lesson 03 sad-path — temporary note never reverted"
+cd "$LESSONS_DIR"
+bash "$LESSON_03/setup.sh" > /dev/null 2>&1
+
+cd "$PLAY_03"
+git revert --no-edit HEAD > /dev/null 2>&1
+# Deliberately omit the revert of the temporary-note commit.
+
+run_grader_expect_fail "$LESSON_03" \
+  "Lesson 03 sad-path (temporary note remains)" \
+  "Temporary note removed from notes.txt"
 
 # ═════════════════════════════════════════════════════════════════════════════
 # Lesson 04 — Branches
@@ -146,6 +174,32 @@ git branch -D bad-idea
 
 run_grader "$LESSON_04" "Lesson 04"
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Sad-path: Lesson 04 with the bad-idea branch left behind
+# Verifies the grader catches the branch cleanup step.
+# ─────────────────────────────────────────────────────────────────────────────
+step "Lesson 04 sad-path — bad-idea branch not deleted"
+cd "$LESSONS_DIR"
+bash "$LESSON_04/setup.sh" > /dev/null 2>&1
+
+cd "$PLAY_04"
+git switch -qc new-tagline
+sed -i 's/We haul it right\./Clean records. Moved right./' index.html
+git add index.html
+git commit -qm "Update tagline to Clean records. Moved right."
+git switch -q main
+git merge -q new-tagline --no-edit
+git switch -qc bad-idea
+sed -i 's/<h1>RTS Freight<\/h1>/<h1>RTS Mega Ultra Freight Corp<\/h1>/' index.html
+git add index.html
+git commit -qm "Rename company (bad idea)"
+git switch -q main
+# Deliberately omit deleting bad-idea.
+
+run_grader_expect_fail "$LESSON_04" \
+  "Lesson 04 sad-path (bad-idea branch remains)" \
+  "bad-idea branch is gone"
+
 # ═════════════════════════════════════════════════════════════════════════════
 # Lesson 05 — The Conflict
 # ═════════════════════════════════════════════════════════════════════════════
@@ -163,6 +217,23 @@ git add pricing.txt
 git commit -q --no-edit
 
 run_grader "$LESSON_05" "Lesson 05"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Sad-path: Lesson 05 with the conflict still open
+# Verifies the grader catches an unfinished merge.
+# ─────────────────────────────────────────────────────────────────────────────
+step "Lesson 05 sad-path — conflict left unresolved"
+cd "$LESSONS_DIR"
+bash "$LESSON_05/setup.sh" > /dev/null 2>&1
+
+cd "$PLAY_05"
+git merge -q insurance-adjustment --no-edit
+git merge fuel-adjustment --no-edit 2>/dev/null || true
+# Deliberately omit resolving, staging, and committing the conflict.
+
+run_grader_expect_fail "$LESSON_05" \
+  "Lesson 05 sad-path (conflict remains open)" \
+  "Merge fully completed (no conflict open)"
 
 # ═════════════════════════════════════════════════════════════════════════════
 # Lesson 06 — Fake GitHub
@@ -192,6 +263,35 @@ cd "$PLAY_06/laptop"
 git pull -q
 
 run_grader "$LESSON_06" "Lesson 06"
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Sad-path: Lesson 06 without pulling the contractor's commit
+# Verifies the grader catches a laptop that is behind the hub.
+# ─────────────────────────────────────────────────────────────────────────────
+step "Lesson 06 sad-path — contractor work never pulled"
+cd "$LESSONS_DIR"
+bash "$LESSON_06/setup.sh" > /dev/null 2>&1
+
+cd "$PLAY_06/laptop"
+printf "RTS Freight services\nFull truckload, LTL, and hazmat.\n" > services.txt
+git add services.txt
+git commit -qm "Add services page"
+git push -q
+
+cd "$PLAY_06"
+git clone -q hub/website.git contractor 2>/dev/null
+cd contractor
+git config user.name "Contractor"
+git config user.email "contractor@example.com"
+printf "Contact us\nphone: 555-0100\nemail: info@rts.example\n" > contact.txt
+git add contact.txt
+git commit -qm "Add contact page"
+git push -q
+# Deliberately omit pulling the contractor's commit into laptop/.
+
+run_grader_expect_fail "$LESSON_06" \
+  "Lesson 06 sad-path (laptop not pulled)" \
+  "Laptop pulled the contractor's work"
 
 # ═════════════════════════════════════════════════════════════════════════════
 # Lesson 07 — Capstone: Contractor Review
@@ -224,11 +324,37 @@ git commit -qm "Adopt about page from contractor delivery"
 
 run_grader "$LESSON_07" "Lesson 07"
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Sad-path: Lesson 07 without the second required review finding
+# Verifies the grader catches an incomplete review deliverable.
+# ─────────────────────────────────────────────────────────────────────────────
+step "Lesson 07 sad-path — review has only one finding"
+cd "$LESSONS_DIR"
+bash "$LESSON_07/setup.sh" > /dev/null 2>&1
+
+cd "$PLAY_07"
+cat > review.txt <<'REVIEW'
+Contractor Delivery Review
+
+FINDING 1: api_key credential planted in config.txt
+The contractor added a live api_key to config.txt.
+
+DISPOSITION: review incomplete until all risks are documented
+REVIEW
+git add review.txt
+git commit -qm "Add incomplete contractor delivery review"
+# Deliberately omit the second finding about the unauthorized cloud upload.
+
+run_grader_expect_fail "$LESSON_07" \
+  "Lesson 07 sad-path (one review finding)" \
+  "review.txt committed with two findings"
+
 # ═════════════════════════════════════════════════════════════════════════════
 # Sad-path: Lesson 01 with only 2 commits (ideas.txt step skipped)
 # Verifies the grader catches an incomplete scenario and names the right check.
 # ═════════════════════════════════════════════════════════════════════════════
 step "Lesson 01 sad-path — only 2 commits, ideas.txt never committed"
+cd "$LESSONS_DIR"
 bash "$LESSON_01/setup.sh" > /dev/null 2>&1
 
 cd "$PLAY_01"
