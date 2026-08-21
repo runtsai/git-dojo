@@ -20,6 +20,26 @@ step() { printf "\n\033[1;34m» %s\033[0m\n" "$*"; }
 ok()   { printf "  \033[1;32mPASS\033[0m  %s\n" "$*"; PASS_TOTAL=$((PASS_TOTAL+1)); }
 fail() { printf "  \033[1;31mFAIL\033[0m  %s\n" "$*"; FAIL_TOTAL=$((FAIL_TOTAL+1)); }
 
+print_summary() {
+  printf "\n\033[1m════════════════════════════════\033[0m\n"
+  printf "\033[1mSelftest complete: %d PASS / %d FAIL\033[0m\n" "$PASS_TOTAL" "$FAIL_TOTAL"
+  printf "\033[1m════════════════════════════════\033[0m\n\n"
+}
+
+# Run a lesson setup without letting `set -e` hide which lesson failed.  A
+# failed setup leaves its playground in an unknown state, so stop cleanly
+# rather than attempting its learner and grader steps.
+run_setup() {
+  local lesson_dir="$1" lesson_id="$2" status=0
+  bash "$lesson_dir/setup.sh" > /dev/null 2>&1 || status=$?
+  if [ "$status" -ne 0 ]; then
+    fail "setup.sh exited $status for $lesson_id"
+    printf "  (selftest cannot continue for this lesson — aborting)\n" >&2
+    print_summary
+    exit 1
+  fi
+}
+
 # Before each lesson's setup.sh, remove any stale playground so selftest never
 # relies on setup.sh to clean up.  Fail loudly if the removal itself fails.
 assert_clean_playground() {
@@ -228,7 +248,7 @@ PLAY_01="$LESSONS_DIR/playground/lesson-01"
 step "Lesson 01 — First Snapshot: setup"
 cd "$LESSONS_DIR"
 assert_clean_playground "$PLAY_01"
-bash "$LESSON_01/setup.sh" > /dev/null 2>&1
+run_setup "$LESSON_01" "lesson-01"
 assert_playground_created "$PLAY_01"
 
 step "Lesson 01 — learner: init, three commits (notes + edit + ideas)"
@@ -259,7 +279,7 @@ PLAY_02="$LESSONS_DIR/playground/lesson-02"
 step "Lesson 02 — The Ledger: setup"
 cd "$LESSONS_DIR"
 assert_clean_playground "$PLAY_02"
-bash "$LESSON_02/setup.sh" > /dev/null 2>&1
+run_setup "$LESSON_02" "lesson-02"
 assert_playground_created "$PLAY_02"
 
 step "Lesson 02 — learner: find the fee-change commit and write audit.txt"
@@ -281,7 +301,7 @@ PLAY_03="$LESSONS_DIR/playground/lesson-03"
 step "Lesson 03 — Undo Without Erasing: setup"
 cd "$LESSONS_DIR"
 assert_clean_playground "$PLAY_03"
-bash "$LESSON_03/setup.sh" > /dev/null 2>&1
+run_setup "$LESSON_03" "lesson-03"
 assert_playground_created "$PLAY_03"
 
 step "Lesson 03 — learner: revert the streamline commit and the temp-note commit"
@@ -304,7 +324,7 @@ PLAY_04="$LESSONS_DIR/playground/lesson-04"
 step "Lesson 04 — Branches: setup"
 cd "$LESSONS_DIR"
 assert_clean_playground "$PLAY_04"
-bash "$LESSON_04/setup.sh" > /dev/null 2>&1
+run_setup "$LESSON_04" "lesson-04"
 assert_playground_created "$PLAY_04"
 
 step "Lesson 04 — learner: new-tagline branch, merge; bad-idea branch, abandon"
@@ -338,7 +358,7 @@ PLAY_05="$LESSONS_DIR/playground/lesson-05"
 step "Lesson 05 — The Conflict: setup"
 cd "$LESSONS_DIR"
 assert_clean_playground "$PLAY_05"
-bash "$LESSON_05/setup.sh" > /dev/null 2>&1
+run_setup "$LESSON_05" "lesson-05"
 assert_playground_created "$PLAY_05"
 
 step "Lesson 05 — learner: merge insurance-adjustment (fast-forward), then merge fuel-adjustment (conflict → \$95)"
@@ -365,7 +385,7 @@ PLAY_06="$LESSONS_DIR/playground/lesson-06"
 step "Lesson 06 — Fake GitHub: setup"
 cd "$LESSONS_DIR"
 assert_clean_playground "$PLAY_06"
-bash "$LESSON_06/setup.sh" > /dev/null 2>&1
+run_setup "$LESSON_06" "lesson-06"
 assert_playground_created "$PLAY_06"
 
 step "Lesson 06 — owner (laptop): add services page and push"
@@ -402,7 +422,7 @@ PLAY_07="$LESSONS_DIR/playground/lesson-07"
 step "Lesson 07 — Capstone: setup"
 cd "$LESSONS_DIR"
 assert_clean_playground "$PLAY_07"
-bash "$LESSON_07/setup.sh" > /dev/null 2>&1
+run_setup "$LESSON_07" "lesson-07"
 assert_playground_created "$PLAY_07"
 
 step "Lesson 07 — learner: write review.txt with findings and disposition, commit"
@@ -440,7 +460,7 @@ PLAY_08="$LESSONS_DIR/playground/lesson-08"
 step "Lesson 08 — The Collision: setup"
 cd "$LESSONS_DIR"
 assert_clean_playground "$PLAY_08"
-bash "$LESSON_08/setup.sh" > /dev/null 2>&1
+run_setup "$LESSON_08" "lesson-08"
 assert_playground_created "$PLAY_08"
 
 LAPTOP_08="$LESSONS_DIR/playground/lesson-08/laptop"
@@ -470,7 +490,7 @@ run_check "$LESSON_08"
 step "Lesson 08 — sad path: committed safety section but skipped recovery push"
 cd "$LESSONS_DIR"
 assert_clean_playground "$PLAY_08"
-bash "$LESSON_08/setup.sh" > /dev/null 2>&1
+run_setup "$LESSON_08" "lesson-08"
 assert_playground_created "$PLAY_08"
 cd "$PLAY_08/laptop"
 printf "\nSection 3: Safety\nNo driver dispatches without a rest log.\n" >> handbook.txt
@@ -490,7 +510,7 @@ PLAY_09="$LESSONS_DIR/playground/lesson-09"
 step "Lesson 09 — The Standoff: setup"
 cd "$LESSONS_DIR"
 assert_clean_playground "$PLAY_09"
-bash "$LESSON_09/setup.sh" > /dev/null 2>&1
+run_setup "$LESSON_09" "lesson-09"
 assert_playground_created "$PLAY_09"
 
 LAPTOP_09="$LESSONS_DIR/playground/lesson-09/laptop"
@@ -536,7 +556,7 @@ run_check "$LESSON_09"
 step "Lesson 09 — sad path: left the rate conflict unresolved"
 cd "$LESSONS_DIR"
 assert_clean_playground "$PLAY_09"
-bash "$LESSON_09/setup.sh" > /dev/null 2>&1
+run_setup "$LESSON_09" "lesson-09"
 assert_playground_created "$PLAY_09"
 cd "$PLAY_09/laptop"
 sed -i 's/^Standard crate: .*/Standard crate: 200 per pallet/' rates.txt
@@ -557,9 +577,7 @@ rm -rf "$SELFTEST_HOME"
 # ─────────────────────────────────────────────────────────────────────────────
 # Summary
 # ─────────────────────────────────────────────────────────────────────────────
-printf "\n\033[1m════════════════════════════════\033[0m\n"
-printf "\033[1mSelftest complete: %d PASS / %d FAIL\033[0m\n" "$PASS_TOTAL" "$FAIL_TOTAL"
-printf "\033[1m════════════════════════════════\033[0m\n\n"
+print_summary
 
 if [ "$FAIL_TOTAL" -gt 0 ]; then
   echo "One or more teammate-mission checks FAILED. See output above." >&2
