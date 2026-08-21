@@ -137,6 +137,9 @@ async function diagnoseMissingPracticePr(
 }
 
 function statusPayload(login: string | null, state: CapstoneState | null) {
+  const allMissionsVerified =
+    state !== null && MISSIONS.every((mission) => !!state.missionsVerifiedAt[mission.id]);
+
   return {
     githubConnected: login !== null,
     githubLogin: login,
@@ -158,7 +161,10 @@ function statusPayload(login: string | null, state: CapstoneState | null) {
       verified: !!state?.missionsVerifiedAt[m.id],
       verifiedAt: state?.missionsVerifiedAt[m.id] ?? null,
     })),
-    badgeEarnedAt: state?.badgeEarnedAt ?? null,
+    // Never report a badge from an incomplete state. saveCapstone writes the
+    // state atomically, but this also protects status consumers from any
+    // legacy or externally edited record that has the two fields out of sync.
+    badgeEarnedAt: allMissionsVerified ? (state.badgeEarnedAt ?? null) : null,
   };
 }
 

@@ -21,6 +21,7 @@ import { describe, it, expect, vi, beforeEach, afterEach, beforeAll, afterAll } 
 import express from "express";
 import type { Server } from "node:http";
 import {
+  GetCapstoneStatusResponse,
   CreateCapstoneRepoResponse,
   VerifyCapstoneMissionResponse,
   DeleteCapstoneRepoResponse,
@@ -321,6 +322,64 @@ describe("POST /api/capstone/repo — response shape", () => {
 
     const res = await fetch(`${base}/api/capstone/repo`, { method: "POST" });
     await assertSchemaMatch(res, CreateCapstoneRepoResponse);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// GET /api/capstone/status
+// ---------------------------------------------------------------------------
+
+describe("GET /api/capstone/status — badge consistency", () => {
+  it("never returns a badge timestamp while any mission is unverified", async () => {
+    mockCapstoneState = makeCapstoneState({
+      missionsVerifiedAt: {
+        "push-commit": "2026-01-01T00:00:00.000Z",
+        "create-branch": "2026-01-01T00:01:00.000Z",
+      },
+      badgeEarnedAt: "2026-01-01T00:02:00.000Z",
+    });
+    mockGhJson.mockResolvedValue({
+      ok: true,
+      status: 200,
+      data: makeRepo(),
+      errorMessage: null,
+    });
+
+    const res = await fetch(`${base}/api/capstone/status`);
+    const body = await assertSchemaMatch(res, GetCapstoneStatusResponse) as {
+      missions: Array<{ verifiedAt: string | null }>;
+      badgeEarnedAt: string | null;
+    };
+
+    expect(body.missions.some((mission) => mission.verifiedAt === null)).toBe(true);
+    expect(body.badgeEarnedAt).toBeNull();
+  });
+
+  it("returns the badge timestamp once every mission is verified", async () => {
+    const badgeEarnedAt = "2026-01-01T00:02:00.000Z";
+    mockCapstoneState = makeCapstoneState({
+      missionsVerifiedAt: {
+        "push-commit": "2026-01-01T00:00:00.000Z",
+        "create-branch": "2026-01-01T00:01:00.000Z",
+        "merge-pr": "2026-01-01T00:01:30.000Z",
+      },
+      badgeEarnedAt,
+    });
+    mockGhJson.mockResolvedValue({
+      ok: true,
+      status: 200,
+      data: makeRepo(),
+      errorMessage: null,
+    });
+
+    const res = await fetch(`${base}/api/capstone/status`);
+    const body = await assertSchemaMatch(res, GetCapstoneStatusResponse) as {
+      missions: Array<{ verifiedAt: string | null }>;
+      badgeEarnedAt: string | null;
+    };
+
+    expect(body.missions.every((mission) => mission.verifiedAt !== null)).toBe(true);
+    expect(body.badgeEarnedAt).toBe(badgeEarnedAt);
   });
 });
 
