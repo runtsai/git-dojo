@@ -351,6 +351,95 @@ describe("queryDue friction sort stability", () => {
     expect(friction[1].sourceId).toBe("source-z");
   });
 
+  it("moves a newly failed source above unchanged zero-score sources without reordering unaffected sources", () => {
+    const dayMs = 24 * 60 * 60 * 1000;
+    const baseTime = new Date("2026-08-21T12:00:00.000Z").getTime();
+    const veryOldAge = 200 * dayMs;
+
+    vi.useFakeTimers();
+    vi.setSystemTime(baseTime);
+    try {
+      setDrillData({
+        "source-high": {
+          failures: 2,
+          passes: 0,
+          runs: [failureAt(1_000, baseTime), failureAt(2_000, baseTime)],
+        },
+        "source-middle": {
+          failures: 1,
+          passes: 0,
+          // This rounds to 0.8, between source-high and the zero-score sources.
+          runs: [failureAt(5 * dayMs, baseTime)],
+        },
+        "source-zero-a": {
+          failures: 1,
+          passes: 0,
+          runs: [failureAt(veryOldAge, baseTime)],
+        },
+        "source-zero-b": {
+          failures: 1,
+          passes: 0,
+          runs: [failureAt(veryOldAge + 1_000, baseTime)],
+        },
+        "source-zero-new": {
+          failures: 1,
+          passes: 0,
+          // This source starts at the bottom with an effectively zero score.
+          runs: [failureAt(veryOldAge + 2_000, baseTime)],
+        },
+      });
+
+      const candidates = [
+        { id: "d1", sourceId: "source-high" },
+        { id: "d2", sourceId: "source-middle" },
+        { id: "d3", sourceId: "source-zero-a" },
+        { id: "d4", sourceId: "source-zero-b" },
+        { id: "d5", sourceId: "source-zero-new" },
+      ];
+
+      const { friction: before } = queryDue(candidates);
+      expect(before.map((entry) => entry.sourceId)).toEqual([
+        "source-high",
+        "source-middle",
+        "source-zero-a",
+        "source-zero-b",
+        "source-zero-new",
+      ]);
+      expect(before.find((entry) => entry.sourceId === "source-zero-new")!.effectiveFailures).toBe(0);
+
+      // A failure during the session appends a fresh run to source-zero-new without
+      // changing any other source's history.
+      recordGraderResult("source-zero-new", false);
+
+      const { friction: after } = queryDue(candidates);
+      expect(after.find((entry) => entry.sourceId === "source-zero-new")!.effectiveFailures).toBe(1);
+      expect(after.map((entry) => entry.sourceId)).toEqual([
+        "source-high",
+        "source-zero-new",
+        "source-middle",
+        "source-zero-a",
+        "source-zero-b",
+      ]);
+
+      // The newly active source moves above the unchanged zero-score sources,
+      // while filtering it out leaves every unaffected source in its original
+      // relative order.
+      expect(after.filter((entry) => entry.sourceId !== "source-zero-new").map((entry) => entry.sourceId)).toEqual(
+        before
+          .filter((entry) => entry.sourceId !== "source-zero-new")
+          .map((entry) => entry.sourceId),
+      );
+      expect(after.findIndex((entry) => entry.sourceId === "source-zero-new")).toBeLessThan(
+        after.findIndex((entry) => entry.sourceId === "source-zero-a"),
+      );
+      expect(after.findIndex((entry) => entry.sourceId === "source-zero-new")).toBeLessThan(
+        after.findIndex((entry) => entry.sourceId === "source-zero-b"),
+      );
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("zero-score recovered source disappears on the next call while active sources retain their order", () => {
     // Scenario: source-zero has very old failures (effectiveFailures ≈ 0) and
     // a recent all-pass run-tail that qualifies it as "recovered".  Two active
