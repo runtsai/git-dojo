@@ -344,6 +344,50 @@ describe("back-to-back merges (fan-in)", () => {
 });
 
 // ---------------------------------------------------------------------------
+// Sequential branch merges: each finished feature lane is reused
+// ---------------------------------------------------------------------------
+
+describe("sequential branch merges", () => {
+  it("reuses the freed feature lane across multiple one-at-a-time merges", () => {
+    // Four independent features are each merged before the next one begins:
+    //
+    //   merge-4 ← feature-4
+    //   |
+    //   merge-3 ← feature-3
+    //   |
+    //   merge-2 ← feature-2
+    //   |
+    //   merge-1 ← feature-1
+    //   |
+    //   root
+    //
+    // Only main and the current feature are live at any point, so the peak
+    // simultaneous width is two lanes (columns 0 and 1). A leaked feature lane
+    // would open a fresh column for every earlier merge.
+    const root = makeCommit("Root");
+    const feature1 = makeCommit("Feature-1", [root.hash]);
+    const merge1 = makeCommit("Merge feature-1", [root.hash, feature1.hash]);
+    const feature2 = makeCommit("Feature-2", [merge1.hash]);
+    const merge2 = makeCommit("Merge feature-2", [merge1.hash, feature2.hash]);
+    const feature3 = makeCommit("Feature-3", [merge2.hash]);
+    const merge3 = makeCommit("Merge feature-3", [merge2.hash, feature3.hash]);
+    const feature4 = makeCommit("Feature-4", [merge3.hash]);
+    const merge4 = makeCommit("Merge feature-4", [merge3.hash, feature4.hash]);
+
+    const { rows, maxCol } = layoutGraph([
+      merge4, feature4, merge3, feature3, merge2, feature2, merge1, feature1, root,
+    ]);
+    const featureCols = [feature1, feature2, feature3, feature4].map(
+      (feature) => rows.find((row) => row.commit.hash === feature.hash)!.col,
+    );
+    const peakSimultaneousLanes = 2;
+
+    expect(maxCol).toBe(peakSimultaneousLanes - 1);
+    expect(featureCols).toEqual([1, 1, 1, 1]);
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Branch survives its own merge (merged-in branch continues forward)
 // ---------------------------------------------------------------------------
 
