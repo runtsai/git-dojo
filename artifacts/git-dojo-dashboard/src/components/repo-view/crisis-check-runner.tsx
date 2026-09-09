@@ -7,6 +7,7 @@ import {
 import { Play, CheckCircle2, XCircle, Terminal, Check } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { trackEvent } from "@/lib/analytics";
 
 export function CrisisCheckRunner({
   crisisId,
@@ -25,6 +26,10 @@ export function CrisisCheckRunner({
       {
         onSuccess: (data) => {
           setResult({ passed: data.passed, output: data.output });
+          trackEvent("crisis_check_completed", {
+            crisis_id: crisisId,
+            result: data.passed === true ? "passed" : data.passed === false ? "failed" : "unknown",
+          });
           queryClient.invalidateQueries({ queryKey: getGetCrisisRepoStateQueryKey(crisisId) });
           // The server records the badge itself when the grader passes —
           // just refresh the ledger.

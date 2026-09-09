@@ -2,6 +2,7 @@ import { useRunLessonCheck, getGetRepoStateQueryKey, getGetProgressQueryKey } fr
 import { Play, CheckCircle2, XCircle, Terminal, Check } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { trackEvent } from "@/lib/analytics";
 
 export function CheckRunner({ lessonId }: { lessonId: string }) {
   const queryClient = useQueryClient();
@@ -12,6 +13,10 @@ export function CheckRunner({ lessonId }: { lessonId: string }) {
     runCheck.mutate({ lessonId }, {
       onSuccess: (data) => {
         setResult({ passed: data.passed, output: data.output });
+        trackEvent("lesson_check_completed", {
+          lesson_id: lessonId,
+          result: data.passed === true ? "passed" : data.passed === false ? "failed" : "unknown",
+        });
         queryClient.invalidateQueries({ queryKey: getGetRepoStateQueryKey(lessonId) });
         // The server records the badge itself when the grader passes —
         // just refresh the ledger.

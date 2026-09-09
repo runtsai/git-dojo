@@ -1,6 +1,7 @@
-import { type ReactNode, useState } from "react";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 import { Link } from "wouter";
 import { ArrowLeft, CheckCircle2, ChevronRight, ChevronDown, AlertCircle } from "lucide-react";
+import { trackEvent } from "@/lib/analytics";
 
 /**
  * Props for the shared visual-module outer shell.
@@ -126,6 +127,14 @@ export function VisualModuleShell({
   const isCompletion = step === effectiveCompletionStep;
   const hasNav = Boolean(onPrev || onNext || onSubmit);
   const primaryDisabled = isPending || isSubmitDisabled;
+  const trackedCompletionModuleRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!isCompletion || !moduleId || trackedCompletionModuleRef.current === moduleId) return;
+
+    trackedCompletionModuleRef.current = moduleId;
+    trackEvent("visual_module_completed", { module_id: moduleId });
+  }, [isCompletion, moduleId]);
 
   // Collapse state for the hint panel, persisted to localStorage per module.
   // Defaults to expanded (false) on first visit.

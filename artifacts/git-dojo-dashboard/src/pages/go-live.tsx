@@ -24,6 +24,7 @@ import {
   GitMerge,
   ShieldAlert,
 } from "lucide-react";
+import { trackEvent } from "@/lib/analytics";
 
 function CommandBlock({ command }: { command: string }) {
   const [copied, setCopied] = useState(false);
@@ -131,6 +132,7 @@ export function GoLive() {
     mutation: {
       onSuccess: () => {
         setActionError(null);
+        trackEvent("capstone_repo_created");
         invalidate();
       },
       onError: (err) => setActionError(err.data?.error ?? err.message ?? "Repo creation failed."),
@@ -155,6 +157,14 @@ export function GoLive() {
   const verify = useVerifyCapstoneMission({
     mutation: {
       onSuccess: (result) => {
+        trackEvent("capstone_mission_checked", {
+          mission_id: result.missionId,
+          result: result.githubUnavailable
+            ? "github_unavailable"
+            : result.verified
+              ? "verified"
+              : "not_verified",
+        });
         setVerifyResults((prev) => ({
           ...prev,
           [result.missionId]: {

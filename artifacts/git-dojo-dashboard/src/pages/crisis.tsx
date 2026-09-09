@@ -30,6 +30,7 @@ import { MapPeek } from "@/components/map-peek";
 import { HINT_STEPS } from "@/content/hint-steps";
 
 import { safeStorage } from "@/lib/safe-storage";
+import { trackEvent } from "@/lib/analytics";
 
 export function CrisisView() {
   const { crisisId } = useParams<{ crisisId: string }>();
@@ -111,6 +112,10 @@ export function CrisisView() {
       { crisisId: crisis.id },
       {
         onSuccess: () => {
+          trackEvent("crisis_setup_completed", {
+            crisis_id: crisis.id,
+            action: live ? "reset" : "initial_setup",
+          });
           queryClient.invalidateQueries({ queryKey: getGetCrisisRepoStateQueryKey(crisis.id) });
           queryClient.invalidateQueries({ queryKey: getListCrisisScenariosQueryKey() });
         },
@@ -256,7 +261,15 @@ export function CrisisView() {
                     return (
                       <div key={step.key}>
                         <button
-                          onClick={() => setHintsOpenPersisted(revealed ? idx : idx + 1)}
+                          onClick={() => {
+                            if (!revealed) {
+                              trackEvent("crisis_hint_revealed", {
+                                crisis_id: crisis.id,
+                                hint_level: idx + 1,
+                              });
+                            }
+                            setHintsOpenPersisted(revealed ? idx : idx + 1);
+                          }}
                           disabled={!revealed && idx > hintsOpen}
                           className="w-full flex items-center justify-between px-6 py-4 text-left text-sm font-bold text-foreground hover:bg-secondary/30 transition-colors disabled:opacity-40 disabled:cursor-not-allowed focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                         >

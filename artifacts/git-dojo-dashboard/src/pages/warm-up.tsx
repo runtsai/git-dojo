@@ -23,6 +23,7 @@ import {
   type ConceptDrill,
   type DrillItem,
 } from "@/content/drills";
+import { trackEvent } from "@/lib/analytics";
 
 const SESSION_SIZE = 8;
 
@@ -98,10 +99,19 @@ export function WarmUp() {
     setSession(ordered);
     setIndex(0);
     setOutcomes([]);
+    trackEvent("warm_up_started", {
+      mode: onlyDue ? "due" : "practice",
+      card_count: ordered.length,
+    });
   };
 
   const recordOutcome = (item: DrillItem, correct: boolean) => {
     setOutcomes((prev) => [...prev, { item, correct }]);
+    trackEvent("warm_up_answered", {
+      item_type: item.type,
+      correct,
+      source_type: item.sourceId?.startsWith("crisis-") ? "crisis" : "lesson",
+    });
     // Fire-and-forget: the server reschedules the item; the UI already
     // knows the outcome. Refetch happens at session end.
     recordDrillAttempt({ itemId: item.id, correct, sourceId: item.sourceId ?? null }).catch(
@@ -218,7 +228,15 @@ export function WarmUp() {
           item={item}
           stats={sessionStatsRef.current.get(item.id)}
           onAnswered={(correct) => recordOutcome(item, correct)}
-          onNext={() => setIndex((i) => i + 1)}
+          onNext={() => {
+            if (index === session.length - 1) {
+              trackEvent("warm_up_completed", {
+                card_count: session.length,
+                correct_count: outcomes.filter((outcome) => outcome.correct).length,
+              });
+            }
+            setIndex((i) => i + 1);
+          }}
           isLast={index === session.length - 1}
         />
       </div>
