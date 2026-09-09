@@ -389,6 +389,15 @@ describe("error banner", () => {
     expect(banner.textContent).toContain("Something went wrong");
   });
 
+  it("does not render a role='alert' element on the completion screen when error is set", () => {
+    render(
+      <VisualModuleShell
+        {...base({ step: 6, completionStep: 6, error: "Some error" })}
+      />,
+    );
+    expect(screen.queryByRole("alert")).toBeNull();
+  });
+
   it("does not render a role='alert' element when error is null", () => {
     render(<VisualModuleShell {...base({ error: null })} />);
     expect(screen.queryByRole("alert")).toBeNull();
