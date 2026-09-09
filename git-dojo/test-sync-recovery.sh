@@ -447,6 +447,21 @@ simulate_course_sync() {
       fi
     fi
 
+    # Pre-copy root-file check (mirrors sync-course-to-github.sh). A missing
+    # course entrypoint must abort before cp, commit, or push can run.
+    if [ -n "${SYNC_REQUIRED_ROOT_FILES:-}" ]; then
+      local _source_root_missing=()
+      for _f in $SYNC_REQUIRED_ROOT_FILES; do
+        if [ ! -f "$workspace_dir/$_f" ]; then
+          _source_root_missing+=("$_f")
+        fi
+      done
+      if [ "${#_source_root_missing[@]}" -gt 0 ]; then
+        printf 'ERROR: required root file missing from workspace source: %s\n' "${_source_root_missing[@]}" >&2
+        exit 1
+      fi
+    fi
+
     cp -r "$workspace_dir"/. .
 
     # Post-copy manifest check (belt-and-suspenders; also mirrors the script).
@@ -1092,60 +1107,61 @@ else
 fi
 
 # ═════════════════════════════════════════════════════════════════════════════
-# Test 12: Missing required root file — sync exits non-zero
+# Test 12: Missing setup.ps1 — sync exits non-zero
 #
 #   The production script copies four root-level files (setup.sh, setup.ps1,
-#   reset.sh, README.md) with individual cp calls, then verifies each is present
-#   in the sync directory.  On some systems cp exits 0 even when the source is
-#   absent, so the explicit post-copy check is the only reliable guard.
+#   reset.sh, README.md) and verifies each exists in the workspace before copy.
+#   This prevents a partial workspace from reaching cp, committing, or pushing
+#   an incomplete course tree.
 #
-#   12a — setup.sh is missing from the workspace: the post-copy root-file check
-#         must fire and abort with a clear error before git add runs.
+#   12a — setup.ps1 is missing from the workspace: the pre-copy root-file check
+#         must fire and abort with a clear error before cp or git add runs.
 #         Nothing must be pushed to the remote.
 #
 #   12b — Happy-path control: all required root files are present; sync must
 #         succeed and push normally.
 # ═════════════════════════════════════════════════════════════════════════════
-printf "\n» Test 12: required root file absent — sync exits non-zero with a clear error\n"
+printf "\n» Test 12: missing setup.ps1 — sync exits non-zero with a clear error\n"
 
-# ── 12a: setup.sh is missing from the workspace ──────────────────────────────
+# ── 12a: setup.ps1 is missing from the workspace ─────────────────────────────
 REMOTE12A="$TMP/remote12a.git"
 git init --bare -q "$REMOTE12A"
 
 WS12A="$TMP/ws12a"
 mkdir -p "$WS12A/lesson-01"
 echo "Lesson 01" > "$WS12A/lesson-01/README.md"
-# setup.sh is deliberately absent
+echo "echo 'Setting up...'" > "$WS12A/setup.sh"
+# setup.ps1 is deliberately absent
 echo "echo 'Resetting...'" > "$WS12A/reset.sh"
 echo "# Git Dojo Course"  > "$WS12A/README.md"
 
 SYNC12A_EXIT=0
-SYNC12A_OUTPUT=$(SYNC_REQUIRED_ROOT_FILES="setup.sh reset.sh README.md" \
+SYNC12A_OUTPUT=$(SYNC_REQUIRED_ROOT_FILES="setup.sh setup.ps1 reset.sh README.md" \
   simulate_course_sync "$REMOTE12A" "$WS12A" 2>&1) || SYNC12A_EXIT=$?
 
 if [ "$SYNC12A_EXIT" != "0" ]; then
-  pass "missing root file: sync exited non-zero ($SYNC12A_EXIT) — absent setup.sh is detected"
+  pass "missing setup.ps1: sync exited non-zero ($SYNC12A_EXIT) — absent setup.ps1 is detected"
 else
-  fail "missing root file: sync exited 0 — should have rejected workspace with no setup.sh"
+  fail "missing setup.ps1: sync exited 0 — should have rejected workspace with no setup.ps1"
 fi
 
 if echo "$SYNC12A_OUTPUT" | grep -qi "ERROR"; then
-  pass "missing root file: error message present in output — failure is explicit, not silent"
+  pass "missing setup.ps1: error message present in output — failure is explicit, not silent"
 else
-  fail "missing root file: no ERROR line found — failure may be silent or cryptic"
+  fail "missing setup.ps1: no ERROR line found — failure may be silent or cryptic"
 fi
 
-if echo "$SYNC12A_OUTPUT" | grep -qi "setup.sh"; then
-  pass "missing root file: output names the missing file — error is actionable for the user"
+if echo "$SYNC12A_OUTPUT" | grep -qi "setup.ps1"; then
+  pass "missing setup.ps1: output names the missing file — error is actionable for the user"
 else
-  fail "missing root file: output does not mention setup.sh — error lacks actionable detail"
+  fail "missing setup.ps1: output does not mention setup.ps1 — error lacks actionable detail"
 fi
 
 PUSHED12A=$(git ls-remote "$REMOTE12A" refs/heads/main 2>/dev/null | awk '{print $1}')
 if [ -z "$PUSHED12A" ]; then
-  pass "missing root file: nothing pushed to remote — abort happened before any commit"
+  pass "missing setup.ps1: nothing pushed to remote — abort happened before any commit"
 else
-  fail "missing root file: remote has a commit ($PUSHED12A) — sync should have aborted before committing"
+  fail "missing setup.ps1: remote has a commit ($PUSHED12A) — sync should have aborted before committing"
 fi
 
 # ── 12b: all required root files present — sync succeeds ─────────────────────
@@ -1156,11 +1172,12 @@ WS12B="$TMP/ws12b"
 mkdir -p "$WS12B/lesson-01"
 echo "Lesson 01"            > "$WS12B/lesson-01/README.md"
 echo "echo 'Setting up...'" > "$WS12B/setup.sh"
+echo "Write-Output 'Setting up...'" > "$WS12B/setup.ps1"
 echo "echo 'Resetting...'"  > "$WS12B/reset.sh"
 echo "# Git Dojo Course"    > "$WS12B/README.md"
 
 SYNC12B_EXIT=0
-SYNC_REQUIRED_ROOT_FILES="setup.sh reset.sh README.md" \
+SYNC_REQUIRED_ROOT_FILES="setup.sh setup.ps1 reset.sh README.md" \
   simulate_course_sync "$REMOTE12B" "$WS12B" 2>/dev/null || SYNC12B_EXIT=$?
 
 if [ "$SYNC12B_EXIT" = "0" ]; then

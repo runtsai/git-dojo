@@ -49,6 +49,23 @@ if [ ! -d "$COURSE_DIR" ]; then
   exit 1
 fi
 
+# Every root-level course entrypoint must exist before any mirror content is
+# removed or copied. This makes a partial workspace fail with a useful message
+# instead of letting an individual cp command terminate the sync cryptically.
+REQUIRED_ROOT_FILES=(setup.sh setup.ps1 reset.sh README.md)
+MISSING_ROOT_FILES=()
+for _file in "${REQUIRED_ROOT_FILES[@]}"; do
+  if [ ! -f "$COURSE_DIR/$_file" ]; then
+    MISSING_ROOT_FILES+=("$_file")
+  fi
+done
+if [ "${#MISSING_ROOT_FILES[@]}" -gt 0 ]; then
+  echo "ERROR: the following required root files are missing from $COURSE_DIR:"
+  printf '  - %s\n' "${MISSING_ROOT_FILES[@]}"
+  echo "  Restore the missing file(s) before syncing the course mirror."
+  exit 1
+fi
+
 # Pre-copy manifest check: every expected lesson must exist in the source tree.
 # A lesson renamed to a non-lesson-* name will be caught here before cp runs.
 MISSING_FROM_SOURCE=()
@@ -150,7 +167,6 @@ fi
 # Post-copy root-file check: every required root file must have arrived.
 # These are copied individually above; a missing source file may cause cp to
 # exit 0 on some systems, so we check explicitly after the copy block.
-REQUIRED_ROOT_FILES=(setup.sh setup.ps1 reset.sh README.md)
 MISSING_ROOT_FILES=()
 for _f in "${REQUIRED_ROOT_FILES[@]}"; do
   if [ ! -f "$_f" ]; then
