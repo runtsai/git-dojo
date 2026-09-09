@@ -7,7 +7,8 @@ set -euo pipefail
 # Serialize concurrent selftest runs so they do not stomp on each other's
 # shared playground directories.  The lock is released automatically when
 # this process exits (file descriptor 9 is closed by the OS).
-exec 9>/tmp/git-dojo-selftest.lock
+SELFTEST_LOCK_FILE="${SELFTEST_LOCK_FILE:-/tmp/git-dojo-selftest.lock}"
+exec 9>"$SELFTEST_LOCK_FILE"
 flock -x 9
 
 LESSONS_DIR="$(cd "$(dirname "$0")" && pwd)"
@@ -26,18 +27,12 @@ print_summary() {
   printf "\033[1m════════════════════════════════\033[0m\n\n"
 }
 
-# Run a lesson setup without letting `set -e` hide which lesson failed.  A
-# failed setup leaves its playground in an unknown state, so stop cleanly
-# rather than attempting its learner and grader steps.
+# Run a lesson setup without letting `set -e` hide which lesson failed.
+# Failure accounting belongs to prepare_lesson so it always happens once in
+# the parent shell.
 run_setup() {
-  local lesson_dir="$1" lesson_id="$2" status=0
-  bash "$lesson_dir/setup.sh" > /dev/null 2>&1 || status=$?
-  if [ "$status" -ne 0 ]; then
-    fail "setup.sh exited $status for $lesson_id"
-    printf "  (selftest cannot continue for this lesson — aborting)\n" >&2
-    print_summary
-    exit 1
-  fi
+  local lesson_dir="$1" lesson_id="$2"
+  SELFTEST_SETUP_ID="$lesson_id" bash "$lesson_dir/setup.sh" > /dev/null 2>&1
 }
 
 # Before each lesson's setup.sh, remove any stale playground so selftest never
@@ -55,11 +50,37 @@ assert_clean_playground() {
 # rather than letting the next `cd` produce a cryptic "no such directory".
 assert_playground_created() {
   local dir="$1"
-  if [ ! -d "$dir" ]; then
-    fail "setup.sh did not create playground: $dir"
-    printf "  (selftest cannot continue for this lesson — aborting)\n" >&2
-    exit 1
+  [ -d "$dir" ]
+}
+
+# Set up a lesson in the parent shell so setup failures remain in the final
+# totals.  Restore the caller's directory before returning either outcome.
+prepare_lesson() {
+  local lesson_dir="$1" playground_dir="$2" lesson_id="$3" original_dir status
+  original_dir="$(pwd)"
+  cd "$LESSONS_DIR"
+  if ! assert_clean_playground "$playground_dir"; then
+    cd "$original_dir"
+    return 1
   fi
+  if run_setup "$lesson_dir" "$lesson_id"; then
+    :
+  else
+    status=$?
+    fail "setup.sh exited $status for $lesson_id"
+    printf "  (selftest cannot continue for this lesson — skipping)\n" >&2
+    cd "$original_dir"
+    return 1
+  fi
+  if assert_playground_created "$playground_dir"; then
+    :
+  else
+    fail "setup.sh did not create playground: $playground_dir"
+    printf "  (selftest cannot continue for this lesson — skipping)\n" >&2
+    cd "$original_dir"
+    return 1
+  fi
+  cd "$original_dir"
 }
 
 # Run check.sh for a lesson; parse PASS/FAIL lines and update the global counters.
@@ -115,6 +136,18 @@ git config --global init.defaultBranch main
 git config --global merge.conflictstyle merge
 # Trust all directories so git 2.35+ dubious-ownership checks never fire in CI.
 git config --global --add safe.directory '*'
+
+# ═════════════════════════════════════════════════════════════════════════════
+# Selftest setup-failure continuation regression
+# ═════════════════════════════════════════════════════════════════════════════
+if [ "${SELFTEST_SKIP_CONTINUATION_REGRESSION:-0}" != "1" ]; then
+  step "Selftest setup-failure continuation regression"
+  if bash "$LESSONS_DIR/test-selftest-setup-continuation.sh" 2>&1; then
+    ok "test-selftest-setup-continuation.sh — later lessons run after broken setup"
+  else
+    fail "test-selftest-setup-continuation.sh — selftest stopped or miscounted broken setups"
+  fi
+fi
 
 # ═════════════════════════════════════════════════════════════════════════════
 # Manifest ↔ folder cross-check
@@ -246,10 +279,7 @@ LESSON_01="$LESSONS_DIR/lesson-01-first-snapshot"
 PLAY_01="$LESSONS_DIR/playground/lesson-01"
 
 step "Lesson 01 — First Snapshot: setup"
-cd "$LESSONS_DIR"
-assert_clean_playground "$PLAY_01"
-run_setup "$LESSON_01" "lesson-01"
-assert_playground_created "$PLAY_01"
+if prepare_lesson "$LESSON_01" "$PLAY_01" "lesson-01"; then
 
 step "Lesson 01 — learner: init, three commits (notes + edit + ideas)"
 cd "$PLAY_01"
@@ -269,6 +299,7 @@ git commit -qm "Add ideas file for future reference"
 
 step "Lesson 01 — grader check"
 run_check "$LESSON_01"
+fi
 
 # ═════════════════════════════════════════════════════════════════════════════
 # Lesson 02 — The Ledger
@@ -277,10 +308,7 @@ LESSON_02="$LESSONS_DIR/lesson-02-the-ledger"
 PLAY_02="$LESSONS_DIR/playground/lesson-02"
 
 step "Lesson 02 — The Ledger: setup"
-cd "$LESSONS_DIR"
-assert_clean_playground "$PLAY_02"
-run_setup "$LESSON_02" "lesson-02"
-assert_playground_created "$PLAY_02"
+if prepare_lesson "$LESSON_02" "$PLAY_02" "lesson-02"; then
 
 step "Lesson 02 — learner: find the fee-change commit and write audit.txt"
 cd "$PLAY_02"
@@ -291,6 +319,7 @@ git commit -qm "Audit: record the fee-change commit for traceability"
 
 step "Lesson 02 — grader check"
 run_check "$LESSON_02"
+fi
 
 # ═════════════════════════════════════════════════════════════════════════════
 # Lesson 03 — Undo Without Erasing
@@ -299,10 +328,7 @@ LESSON_03="$LESSONS_DIR/lesson-03-undo-without-erasing"
 PLAY_03="$LESSONS_DIR/playground/lesson-03"
 
 step "Lesson 03 — Undo Without Erasing: setup"
-cd "$LESSONS_DIR"
-assert_clean_playground "$PLAY_03"
-run_setup "$LESSON_03" "lesson-03"
-assert_playground_created "$PLAY_03"
+if prepare_lesson "$LESSON_03" "$PLAY_03" "lesson-03"; then
 
 step "Lesson 03 — learner: revert the streamline commit and the temp-note commit"
 cd "$PLAY_03"
@@ -314,6 +340,7 @@ git revert --no-edit "$TEMP_HASH" > /dev/null 2>&1
 
 step "Lesson 03 — grader check"
 run_check "$LESSON_03"
+fi
 
 # ═════════════════════════════════════════════════════════════════════════════
 # Lesson 04 — Branches
@@ -322,10 +349,7 @@ LESSON_04="$LESSONS_DIR/lesson-04-branches"
 PLAY_04="$LESSONS_DIR/playground/lesson-04"
 
 step "Lesson 04 — Branches: setup"
-cd "$LESSONS_DIR"
-assert_clean_playground "$PLAY_04"
-run_setup "$LESSON_04" "lesson-04"
-assert_playground_created "$PLAY_04"
+if prepare_lesson "$LESSON_04" "$PLAY_04" "lesson-04"; then
 
 step "Lesson 04 — learner: new-tagline branch, merge; bad-idea branch, abandon"
 cd "$PLAY_04"
@@ -348,6 +372,7 @@ git branch -D bad-idea
 
 step "Lesson 04 — grader check"
 run_check "$LESSON_04"
+fi
 
 # ═════════════════════════════════════════════════════════════════════════════
 # Lesson 05 — The Conflict
@@ -356,10 +381,7 @@ LESSON_05="$LESSONS_DIR/lesson-05-the-conflict"
 PLAY_05="$LESSONS_DIR/playground/lesson-05"
 
 step "Lesson 05 — The Conflict: setup"
-cd "$LESSONS_DIR"
-assert_clean_playground "$PLAY_05"
-run_setup "$LESSON_05" "lesson-05"
-assert_playground_created "$PLAY_05"
+if prepare_lesson "$LESSON_05" "$PLAY_05" "lesson-05"; then
 
 step "Lesson 05 — learner: merge insurance-adjustment (fast-forward), then merge fuel-adjustment (conflict → \$95)"
 cd "$PLAY_05"
@@ -375,6 +397,7 @@ git commit -q --no-edit
 
 step "Lesson 05 — grader check"
 run_check "$LESSON_05"
+fi
 
 # ═════════════════════════════════════════════════════════════════════════════
 # Lesson 06 — Fake GitHub
@@ -383,10 +406,7 @@ LESSON_06="$LESSONS_DIR/lesson-06-fake-github"
 PLAY_06="$LESSONS_DIR/playground/lesson-06"
 
 step "Lesson 06 — Fake GitHub: setup"
-cd "$LESSONS_DIR"
-assert_clean_playground "$PLAY_06"
-run_setup "$LESSON_06" "lesson-06"
-assert_playground_created "$PLAY_06"
+if prepare_lesson "$LESSON_06" "$PLAY_06" "lesson-06"; then
 
 step "Lesson 06 — owner (laptop): add services page and push"
 cd "$PLAY_06/laptop"
@@ -412,6 +432,7 @@ git pull -q
 
 step "Lesson 06 — grader check"
 run_check "$LESSON_06"
+fi
 
 # ═════════════════════════════════════════════════════════════════════════════
 # Lesson 07 — Capstone: Contractor Review
@@ -420,10 +441,7 @@ LESSON_07="$LESSONS_DIR/lesson-07-capstone-contractor-review"
 PLAY_07="$LESSONS_DIR/playground/lesson-07"
 
 step "Lesson 07 — Capstone: setup"
-cd "$LESSONS_DIR"
-assert_clean_playground "$PLAY_07"
-run_setup "$LESSON_07" "lesson-07"
-assert_playground_created "$PLAY_07"
+if prepare_lesson "$LESSON_07" "$PLAY_07" "lesson-07"; then
 
 step "Lesson 07 — learner: write review.txt with findings and disposition, commit"
 cd "$PLAY_07"
@@ -450,6 +468,7 @@ git commit -qm "Adopt about page from contractor delivery"
 
 step "Lesson 07 — grader check"
 run_check "$LESSON_07"
+fi
 
 # ═════════════════════════════════════════════════════════════════════════════
 # Lesson 08 — The Collision
@@ -458,10 +477,7 @@ LESSON_08="$LESSONS_DIR/lesson-08-the-collision"
 PLAY_08="$LESSONS_DIR/playground/lesson-08"
 
 step "Lesson 08 — The Collision: setup"
-cd "$LESSONS_DIR"
-assert_clean_playground "$PLAY_08"
-run_setup "$LESSON_08" "lesson-08"
-assert_playground_created "$PLAY_08"
+if prepare_lesson "$LESSON_08" "$PLAY_08" "lesson-08"; then
 
 LAPTOP_08="$LESSONS_DIR/playground/lesson-08/laptop"
 
@@ -486,12 +502,10 @@ git push -q
 
 step "Lesson 08 — grader check"
 run_check "$LESSON_08"
+fi
 
 step "Lesson 08 — sad path: committed safety section but skipped recovery push"
-cd "$LESSONS_DIR"
-assert_clean_playground "$PLAY_08"
-run_setup "$LESSON_08" "lesson-08"
-assert_playground_created "$PLAY_08"
+if prepare_lesson "$LESSON_08" "$PLAY_08" "lesson-08"; then
 cd "$PLAY_08/laptop"
 printf "\nSection 3: Safety\nNo driver dispatches without a rest log.\n" >> handbook.txt
 git add handbook.txt
@@ -500,6 +514,7 @@ bash "$LESSON_08/bot.sh" > /dev/null 2>&1
 run_check_expect_fail "$LESSON_08" \
   "Lesson 08 — skipped recovery push is rejected" \
   "Your safety commit made it to the shared remote"
+fi
 
 # ═════════════════════════════════════════════════════════════════════════════
 # Lesson 09 — The Standoff
@@ -508,10 +523,7 @@ LESSON_09="$LESSONS_DIR/lesson-09-the-standoff"
 PLAY_09="$LESSONS_DIR/playground/lesson-09"
 
 step "Lesson 09 — The Standoff: setup"
-cd "$LESSONS_DIR"
-assert_clean_playground "$PLAY_09"
-run_setup "$LESSON_09" "lesson-09"
-assert_playground_created "$PLAY_09"
+if prepare_lesson "$LESSON_09" "$PLAY_09" "lesson-09"; then
 
 LAPTOP_09="$LESSONS_DIR/playground/lesson-09/laptop"
 
@@ -552,12 +564,10 @@ git push -q
 
 step "Lesson 09 — grader check"
 run_check "$LESSON_09"
+fi
 
 step "Lesson 09 — sad path: left the rate conflict unresolved"
-cd "$LESSONS_DIR"
-assert_clean_playground "$PLAY_09"
-run_setup "$LESSON_09" "lesson-09"
-assert_playground_created "$PLAY_09"
+if prepare_lesson "$LESSON_09" "$PLAY_09" "lesson-09"; then
 cd "$PLAY_09/laptop"
 sed -i 's/^Standard crate: .*/Standard crate: 200 per pallet/' rates.txt
 git add rates.txt
@@ -568,6 +578,7 @@ git merge origin/main --no-edit 2>/dev/null || true
 run_check_expect_fail "$LESSON_09" \
   "Lesson 09 — unresolved conflict is rejected" \
   "No conflict markers left in rates.txt"
+fi
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Cleanup
