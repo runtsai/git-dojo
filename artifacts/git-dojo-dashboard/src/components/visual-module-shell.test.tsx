@@ -258,6 +258,33 @@ describe("isSubmitDisabled", () => {
     expect(screen.getByRole("alert").textContent).toContain("Grading failed — please wait");
   });
 
+  it("stays disabled when grading settles but recovery still blocks submission", () => {
+    const { rerender } = render(
+      <VisualModuleShell
+        {...base({
+          onSubmit: vi.fn(),
+          isPending: true,
+          isSubmitDisabled: true,
+        })}
+      />,
+    );
+    expect((screen.getByRole("button") as HTMLButtonElement).disabled).toBe(true);
+
+    rerender(
+      <VisualModuleShell
+        {...base({
+          onSubmit: vi.fn(),
+          isPending: false,
+          isSubmitDisabled: true,
+          error: "Grading failed — please wait",
+        })}
+      />,
+    );
+
+    expect((screen.getByRole("button") as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByRole("alert").textContent).toContain("Grading failed — please wait");
+  });
+
   it("re-enables the submit button when error is cleared and isSubmitDisabled returns to false", () => {
     const { rerender } = render(
       <VisualModuleShell
