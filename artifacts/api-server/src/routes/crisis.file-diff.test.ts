@@ -547,3 +547,131 @@ describe("GET /crisis/scenarios/:crisisId/file-diff — partial resolution (rate
     expect(json["status"]).not.toBe("conflicted");
   });
 });
+
+// ---------------------------------------------------------------------------
+// Suite 4 — complete resolution: both files resolved and staged, then the merge
+//            is committed.
+//
+// Once both conflicts are resolved, each file should be reported as staged
+// rather than conflicted. After the merge commit, the working tree is clean, so
+// neither file should have a working-copy diff for the endpoint to return.
+// ---------------------------------------------------------------------------
+
+describe("GET /crisis/scenarios/:crisisId/file-diff — completed merge", () => {
+  let server: http.Server;
+  let port: number;
+  let fakeHome: string;
+  let originalHome: string | undefined;
+  let playgroundDir: string;
+
+  beforeAll(async () => {
+    fakeHome = mkdtempSync(path.join(tmpdir(), "crisis-filediff-complete-"));
+    originalHome = process.env.HOME;
+    process.env.HOME = fakeHome;
+
+    playgroundDir = path.join(fakeHome, "git-dojo", "playground", "crisis-02");
+    mkdirSync(playgroundDir, { recursive: true });
+
+    const git = (...args: string[]) => g(playgroundDir, ...args);
+
+    git("init", "-q", "-b", "main");
+
+    const RATES = "RTS Freight rates\nStandard load: $500\nRush load: $750\nFuel surcharge: $40\n";
+    const DRIVERS = "Active drivers\nM. Alvarez\nJ. Okafor\n";
+
+    writeFileSync(path.join(playgroundDir, "rates.txt"), RATES);
+    writeFileSync(path.join(playgroundDir, "drivers.txt"), DRIVERS);
+    git("add", "-A");
+    git("commit", "-q", "-m", "Open the books");
+
+    git("switch", "-q", "-c", "rate-overhaul");
+    writeFileSync(
+      path.join(playgroundDir, "rates.txt"),
+      RATES.replace("Fuel surcharge: $40", "Fuel surcharge: $80"),
+    );
+    writeFileSync(path.join(playgroundDir, "drivers.txt"), DRIVERS + "T. Brandt\n");
+    git("add", "-A");
+    git("commit", "-q", "-m", "Overhaul: raise fuel surcharge, add Brandt");
+
+    git("switch", "-q", "main");
+    writeFileSync(
+      path.join(playgroundDir, "rates.txt"),
+      RATES.replace("Fuel surcharge: $40", "Fuel surcharge: $65"),
+    );
+    writeFileSync(path.join(playgroundDir, "drivers.txt"), DRIVERS + "R. Chen\n");
+    git("add", "-A");
+    git("commit", "-q", "-m", "Mainline: raise fuel surcharge, add Chen");
+
+    try {
+      git("merge", "rate-overhaul");
+    } catch {
+      /* expected: conflict leaves both files mid-merge */
+    }
+
+    writeFileSync(
+      path.join(playgroundDir, "rates.txt"),
+      "RTS Freight rates\nStandard load: $500\nRush load: $750\nFuel surcharge: $72\n",
+    );
+    writeFileSync(
+      path.join(playgroundDir, "drivers.txt"),
+      DRIVERS + "R. Chen\nT. Brandt\n",
+    );
+    git("add", "rates.txt", "drivers.txt");
+
+    const { default: crisisRouter } = await import("./crisis.js");
+
+    const app = express();
+    app.use((req, _res, next) => {
+      (req as unknown as Record<string, unknown>)["log"] = {
+        info: () => {},
+        warn: () => {},
+        error: () => {},
+      };
+      next();
+    });
+    app.use("/", crisisRouter);
+
+    server = http.createServer(app);
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+    port = (server.address() as AddressInfo).port;
+  });
+
+  afterAll(async () => {
+    await new Promise<void>((resolve, reject) =>
+      server.close((err) => (err ? reject(err) : resolve())),
+    );
+    if (originalHome !== undefined) process.env.HOME = originalHome;
+    else delete process.env.HOME;
+    try {
+      rmSync(fakeHome, { recursive: true, force: true });
+    } catch {
+      /* best-effort cleanup */
+    }
+  });
+
+  it("stops reporting either resolved file as conflicted, then returns 404 for both after the merge commit", async () => {
+    for (const file of ["rates.txt", "drivers.txt"]) {
+      const { status, body } = await get(
+        port,
+        `/crisis/scenarios/crisis-02/file-diff?filePath=${file}`,
+      );
+      expect(status).toBe(200);
+      const json = JSON.parse(body) as Record<string, unknown>;
+      assertWorkingFileDiffShape(json, file);
+      expect(json["status"]).not.toBe("conflicted");
+    }
+
+    g(playgroundDir, "commit", "-q", "-m", "Resolve rate overhaul merge");
+
+    for (const file of ["rates.txt", "drivers.txt"]) {
+      const { status, body } = await get(
+        port,
+        `/crisis/scenarios/crisis-02/file-diff?filePath=${file}`,
+      );
+      expect(status).toBe(404);
+      expect(JSON.parse(body)).toEqual({
+        error: `No working-copy changes found for: ${file}`,
+      });
+    }
+  });
+});
