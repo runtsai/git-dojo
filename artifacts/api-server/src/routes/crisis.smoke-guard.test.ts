@@ -520,14 +520,13 @@ async function runSmoke(port: number): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
-// 4. Setup → check round-trip — grader must report passed after a fresh setup
+// 4. Setup → check round-trip — graders start in the intended state
 //
-// Confirms that calling setup immediately followed by check never produces a
-// false failure.  Covers the crisis-smoke sentinel (trivially solvable by
-// design) so that any grader regression is caught before a learner sees it.
+// The crisis-smoke sentinel is trivially solvable by design, while every real
+// learner scenario must remain unsolved until the learner repairs it.
 // ---------------------------------------------------------------------------
 
-describe("POST setup → POST check round-trip — grader passes after a fresh setup", () => {
+describe("POST setup → POST check round-trip — graders start in the intended state", () => {
   let server: http.Server;
   let port: number;
   let fakeHome: string;
@@ -610,6 +609,25 @@ describe("POST setup → POST check round-trip — grader passes after a fresh s
       .split("\n")
       .filter((line) => line.startsWith("FAIL:"));
     expect(failLines).toHaveLength(0);
+  });
+
+  it.each([
+    "crisis-01",
+    "crisis-02",
+    "crisis-03",
+    "crisis-04",
+    "crisis-05",
+    "crisis-06",
+  ])("%s: grader returns passed:false immediately after setup", async (scenarioId) => {
+    const setup = await httpPost(port, `/crisis/scenarios/${scenarioId}/setup`);
+    expect(setup.status).toBe(200);
+    expect((setup.body as { ok?: boolean }).ok).toBe(true);
+
+    const check = await httpPost(port, `/crisis/scenarios/${scenarioId}/check`);
+    expect(check.status).toBe(200);
+    const result = check.body as { ran?: boolean; passed?: boolean };
+    expect(result.ran).toBe(true);
+    expect(result.passed).toBe(false);
   });
 });
 
