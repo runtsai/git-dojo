@@ -202,7 +202,7 @@ export function Module2_4() {
     <VisualModuleShell
       title="Ruth's fix: close the loop"
       step={step}
-      totalDots={3}
+      totalDots={TOTAL_STEPS}
       completionSlot={completionSlot}
       onPrev={step > 1 ? handlePrev : undefined}
       onNext={step < TOTAL_STEPS ? handleNext : undefined}

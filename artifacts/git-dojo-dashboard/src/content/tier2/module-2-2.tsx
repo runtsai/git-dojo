@@ -83,6 +83,7 @@ export function Module2_2({ onStepChange }: VisualModuleProps = {}) {
     <VisualModuleShell
       title="Files changed: read every line"
       step={step}
+      totalDots={TOTAL_STEPS}
       completionTitle="Module Complete"
       completionText="You caught a live credential and a silent behavior flip — the two classic merge-stoppers. Now you deliver the verdict."
       practicePointer="To practice reading diffs in the terminal, try the Command Test Center — Lesson 2. The Breakthrough Secrets Never Heal covers why credentials found in a diff can't be erased once they're committed. Optional, always."

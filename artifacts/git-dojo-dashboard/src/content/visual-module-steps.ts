@@ -22,8 +22,9 @@
  *   2. In the module file, import from this registry and re-export:
  *        import { visualModuleSteps as _steps } from "../visual-module-steps";
  *        export const TOTAL_STEPS = _steps["<tier>.<module>"];
- *   3. Use `TOTAL_STEPS` in `handleNext`, `onNext`, and `onSubmit` — never a
- *      raw literal — so the registry remains the single source of truth.
+ *   3. Use `TOTAL_STEPS` in `handleNext`, `onNext`, `onSubmit`, and the shell's
+ *      `totalDots` prop — never a raw literal — so the registry remains the
+ *      single source of truth for navigation and displayed progress.
  *   4. Add the module's lessonLocations entry to src/content/map/index.ts with
  *      `TOTAL_STEPS` map-step entries so the map-coverage test passes.
  */

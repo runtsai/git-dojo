@@ -104,6 +104,7 @@ export function Module1_4({ onStepChange }: VisualModuleProps = {}) {
     <VisualModuleShell
       title="Repo settings basics"
       step={step}
+      totalDots={TOTAL_STEPS}
       completionTitle="Module Passed!"
       completionText="You know how to lock the vault. You understand the difference between public visibility and the permanent destruction of history."
       practicePointer="What the default branch setting really means — and why Git history doesn't bounce back after deletion — lives in the Breakthroughs: Branches Are Stickers and Secrets Never Heal. Optional, always."

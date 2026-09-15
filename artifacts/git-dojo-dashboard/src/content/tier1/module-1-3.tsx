@@ -134,6 +134,7 @@ export function Module1_3({ onStepChange }: VisualModuleProps = {}) {
     <VisualModuleShell
       title="Reading history visually"
       step={step}
+      totalDots={TOTAL_STEPS}
       completionTitle="Module Passed!"
       completionText="You can now audit your company's records. You know how to find the exact moment a file changed and read the diff to see what was replaced."
       practicePointer="To learn how to read this history in your terminal using git log, try the Command Test Center — Lesson 2. Optional, always."

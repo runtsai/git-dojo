@@ -95,6 +95,7 @@ export function Module1_2({ onStepChange }: VisualModuleProps = {}) {
     <VisualModuleShell
       title="The repository home screen"
       step={step}
+      totalDots={TOTAL_STEPS}
       completionTitle="Module Passed!"
       completionText="You know your way around the front door. You can instantly tell how active a project is and where to find its purpose."
       practicePointer="To learn how to create your first snapshot from the terminal, try the Command Test Center — Lesson 1. Optional, always."

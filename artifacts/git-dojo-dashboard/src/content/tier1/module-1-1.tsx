@@ -116,6 +116,7 @@ export function Module1_1({ onStepChange }: VisualModuleProps = {}) {
     <VisualModuleShell
       title="What GitHub actually is"
       step={step}
+      totalDots={TOTAL_STEPS}
       completionTitle="Module Passed!"
       completionText="You've completed the first step of the visual track. You now understand what GitHub is, and where the sealed record lives."
       practicePointer="The commands behind this screen live in the Command Test Center — Lesson 1 and 2, whenever you're curious. Optional, always."
