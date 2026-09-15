@@ -895,6 +895,41 @@ describe("queryDue recovery filter — end-to-end via recordGraderResult", () =>
     expect(reentry.recentFailures).toBeGreaterThan(0);
   });
 
+  it("re-enters the weak-spots list after persisted recovery state is reloaded before new failures", () => {
+    const sourceId = "source-reentry-after-restart";
+    const candidates = [{ id: "d1", sourceId }];
+
+    for (let i = 0; i < 3; i++) recordGraderResult(sourceId, false);
+    for (let i = 0; i < 5; i++) recordGraderResult(sourceId, true);
+
+    // Complete the one-shot recovery lifecycle. The first query persists
+    // recoveredSince; the second confirms the recovered source is hidden.
+    const { friction: badge } = queryDue(candidates);
+    expect(badge.find((entry) => entry.sourceId === sourceId)?.recovered).toBe(true);
+
+    const { friction: hidden } = queryDue(candidates);
+    expect(hidden.some((entry) => entry.sourceId === sourceId)).toBe(false);
+
+    // Simulate a server restart: retain only the serialized drills.json output
+    // and make the next operation reload and normalise that persisted state.
+    const persistedJson = mockFileContents.value;
+    expect(persistedJson).not.toBeNull();
+    expect(JSON.parse(persistedJson!).friction[sourceId].recoveredSince).not.toBeNull();
+    mockFileContents.value = persistedJson;
+    mockTempFiles.clear();
+
+    for (let i = 0; i < 3; i++) recordGraderResult(sourceId, false);
+
+    const persistedAfterRegression = JSON.parse(mockFileContents.value!);
+    expect(persistedAfterRegression.friction[sourceId].recoveredSince).toBeNull();
+
+    const { friction: reappeared } = queryDue(candidates);
+    const entry = reappeared.find((candidate) => candidate.sourceId === sourceId);
+    expect(entry).toBeDefined();
+    expect(entry!.recovered).toBe(false);
+    expect(entry!.recentFailures).toBeGreaterThan(0);
+  });
+
   it("correctly recovers when early failures are evicted from the rolling window as 30 passes push past FRICTION_WINDOW", () => {
     // Record 1 failure then 30 consecutive passes = FRICTION_WINDOW+1 total runs.
     // recordGraderResult trims to the last FRICTION_WINDOW (30) entries, evicting
