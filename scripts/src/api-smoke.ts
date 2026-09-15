@@ -569,6 +569,17 @@ export async function smokeDurationMismatch(
   return "passed";
 }
 
+/** Test-only access to the module-level smoke counters. */
+export const apiSmokeTestHooks = {
+  resetCounts(): void {
+    passed = 0;
+    failed = 0;
+  },
+  getCounts(): { passed: number; failed: number } {
+    return { passed, failed };
+  },
+};
+
 /**
  * Atomically write the smoke result JSON file that /api/healthz reads.
  * Uses a .tmp → rename two-step so the server never reads a partial file.

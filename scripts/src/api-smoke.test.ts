@@ -16,7 +16,11 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { run, smokeDurationMismatch } from "./api-smoke.js";
+import {
+  apiSmokeTestHooks,
+  run,
+  smokeDurationMismatch,
+} from "./api-smoke.js";
 
 // ---------------------------------------------------------------------------
 // Minimal valid response bodies — satisfy the Zod schemas used in each check.
@@ -235,6 +239,7 @@ describe("api-smoke result file", () => {
 describe("duration-mismatch smoke step", () => {
   beforeEach(() => {
     delete process.env["SKIP_DURATION_CHECK"];
+    apiSmokeTestHooks.resetCounts();
   });
 
   afterEach(() => {
@@ -266,6 +271,7 @@ describe("duration-mismatch smoke step", () => {
         /window\.__exportTotalMs=21000 ms.*totalDurationMs=22500 ms.*diff: -1500 ms/,
       ),
     );
+    expect(apiSmokeTestHooks.getCounts()).toEqual({ passed: 0, failed: 1 });
   });
 
   it("passes when the promo page and meta endpoint totals agree", async () => {
@@ -285,6 +291,24 @@ describe("duration-mismatch smoke step", () => {
     expect(outcome).toBe("passed");
     expect(log).toHaveBeenCalledWith(
       expect.stringContaining("both agree: 22500 ms"),
+    );
+  });
+
+  it("skips without incrementing passed or failed when SKIP_DURATION_CHECK=1", async () => {
+    process.env["SKIP_DURATION_CHECK"] = "1";
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+    const fetchMock = vi.fn();
+    vi.stubGlobal("fetch", fetchMock);
+    const readPageTotalMs = vi.fn();
+
+    const outcome = await smokeDurationMismatch({ readPageTotalMs });
+
+    expect(outcome).toBe("skipped");
+    expect(apiSmokeTestHooks.getCounts()).toEqual({ passed: 0, failed: 0 });
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(readPageTotalMs).not.toHaveBeenCalled();
+    expect(log).toHaveBeenCalledWith(
+      "  -  duration-mismatch: promo-page vs promo-meta  (skipped — SKIP_DURATION_CHECK=1)",
     );
   });
 });
