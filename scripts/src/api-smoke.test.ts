@@ -16,7 +16,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { run } from "./api-smoke.js";
+import { run, smokeDurationMismatch } from "./api-smoke.js";
 
 // ---------------------------------------------------------------------------
 // Minimal valid response bodies — satisfy the Zod schemas used in each check.
@@ -229,5 +229,62 @@ describe("api-smoke result file", () => {
     const raw = await readFile(resultFile, "utf8");
     const result = JSON.parse(raw) as { passed: boolean; checkedAt: string };
     expect(result.passed).toBe(false);
+  });
+});
+
+describe("duration-mismatch smoke step", () => {
+  beforeEach(() => {
+    delete process.env["SKIP_DURATION_CHECK"];
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+    delete process.env["SKIP_DURATION_CHECK"];
+  });
+
+  it("fails with both totals and their diff when the promo page reports a wrong total", async () => {
+    vi.stubGlobal("fetch", async () =>
+      jsonResponse(200, {
+        sceneDurations: {},
+        totalDurationMs: 22_500,
+        totalDurationSec: 22.5,
+      }),
+    );
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const outcome = await smokeDurationMismatch({
+      readPageTotalMs: async () => 21_000,
+    });
+
+    expect(outcome).toBe("failed");
+    expect(error).toHaveBeenCalledWith(
+      expect.stringContaining("duration-mismatch: promo-page vs promo-meta"),
+    );
+    expect(error).toHaveBeenCalledWith(
+      expect.stringMatching(
+        /window\.__exportTotalMs=21000 ms.*totalDurationMs=22500 ms.*diff: -1500 ms/,
+      ),
+    );
+  });
+
+  it("passes when the promo page and meta endpoint totals agree", async () => {
+    vi.stubGlobal("fetch", async () =>
+      jsonResponse(200, {
+        sceneDurations: {},
+        totalDurationMs: 22_500,
+        totalDurationSec: 22.5,
+      }),
+    );
+    const log = vi.spyOn(console, "log").mockImplementation(() => {});
+
+    const outcome = await smokeDurationMismatch({
+      readPageTotalMs: async () => 22_500,
+    });
+
+    expect(outcome).toBe("passed");
+    expect(log).toHaveBeenCalledWith(
+      expect.stringContaining("both agree: 22500 ms"),
+    );
   });
 });

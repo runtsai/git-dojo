@@ -453,54 +453,18 @@ function findChromiumPath(): string {
  * Skipped when SKIP_DURATION_CHECK=1.  Not gated on SKIP_EXPORT_SMOKE because
  * this step does no video recording and completes in a few seconds.
  */
-async function smokeDurationMismatch(): Promise<void> {
-  const label = "duration-mismatch: promo-page vs promo-meta";
+type DurationMismatchOutcome = "passed" | "failed" | "skipped";
 
-  if (process.env["SKIP_DURATION_CHECK"] === "1") {
-    console.log(`  -  ${label}  (skipped — SKIP_DURATION_CHECK=1)`);
-    return;
-  }
+interface DurationMismatchOptions {
+  readPageTotalMs?: () => Promise<unknown>;
+}
 
-  // ── 1. Fetch expected duration from the meta endpoint ─────────────────────
-  let apiTotalMs: number;
-  try {
-    const metaRes = await fetch(`${BASE}/api/export/promo-meta`);
-    if (!metaRes.ok) {
-      fail(label, `Could not fetch /api/export/promo-meta — HTTP ${metaRes.status}`);
-      return;
-    }
-    const meta = (await metaRes.json()) as { totalDurationMs?: number };
-    if (typeof meta.totalDurationMs !== "number" || meta.totalDurationMs <= 0) {
-      fail(
-        label,
-        `promo-meta returned invalid totalDurationMs: ${JSON.stringify(meta.totalDurationMs)}`,
-      );
-      return;
-    }
-    apiTotalMs = meta.totalDurationMs;
-  } catch (err) {
-    fail(label, `Failed to fetch /api/export/promo-meta: ${String(err)}`);
-    return;
-  }
-
-  // ── 2. Launch the promo page and read window.__exportTotalMs ──────────────
-  let chromiumPath: string;
-  try {
-    chromiumPath = findChromiumPath();
-  } catch (err) {
-    console.log(`  -  ${label}  (skipped — ${String(err)})`);
-    return;
-  }
-
+async function readPromoPageTotalMs(): Promise<unknown> {
+  const chromiumPath = findChromiumPath();
   let browser: import("puppeteer-core").Browser | null = null;
+
   try {
-    let puppeteer: typeof import("puppeteer-core")["default"];
-    try {
-      puppeteer = (await import("puppeteer-core")).default;
-    } catch {
-      console.log(`  -  ${label}  (skipped — puppeteer-core not installed)`);
-      return;
-    }
+    const puppeteer = (await import("puppeteer-core")).default;
     browser = await puppeteer.launch({
       executablePath: chromiumPath,
       headless: true,
@@ -513,66 +477,14 @@ async function smokeDurationMismatch(): Promise<void> {
     });
 
     const page = await browser.newPage();
-
-    let navError: Error | null = null;
-    try {
-      await page.goto(PROMO_EXPORT_PAGE_URL, {
-        waitUntil: "networkidle2",
-        timeout: 30_000,
-      });
-    } catch (err) {
-      navError = err instanceof Error ? err : new Error(String(err));
-    }
-
-    if (navError) {
-      // Promo app not running in this environment — skip gracefully.
-      console.log(
-        `  -  ${label}  (skipped — promo page unreachable: ${navError.message})`,
-      );
-      return;
-    }
-
-    // Wait for the React app to signal export readiness (sets __exportReady).
-    try {
-      await page.waitForFunction("window.__exportReady === true", {
-        timeout: 15_000,
-      });
-    } catch {
-      // Navigation succeeded but the React bundle never signalled readiness —
-      // this indicates a broken bundle or runtime exception, not a missing service.
-      fail(
-        label,
-        `Promo page loaded but window.__exportReady was never set (bundle crash or export-mode regression at ${PROMO_EXPORT_PAGE_URL})`,
-      );
-      return;
-    }
-
-    const pageTotalMs = await page.evaluate("window.__exportTotalMs");
-
-    if (typeof pageTotalMs !== "number" || pageTotalMs <= 0) {
-      fail(
-        label,
-        `window.__exportTotalMs is not a positive number (got ${JSON.stringify(pageTotalMs)})`,
-      );
-      return;
-    }
-
-    // ── 3. Compare ────────────────────────────────────────────────────────────
-    if (pageTotalMs !== apiTotalMs) {
-      fail(
-        label,
-        `Duration mismatch — window.__exportTotalMs=${pageTotalMs} ms ` +
-          `but /api/export/promo-meta totalDurationMs=${apiTotalMs} ms ` +
-          `(diff: ${pageTotalMs - apiTotalMs} ms). ` +
-          `Update SCENE_DURATIONS in lib/promo-config/src/index.ts or ` +
-          `VideoWithControls so both sides agree before re-exporting.`,
-      );
-      return;
-    }
-
-    ok(`${label}  [both agree: ${pageTotalMs} ms]`);
-  } catch (err) {
-    fail(label, `Unexpected error: ${String(err)}`);
+    await page.goto(PROMO_EXPORT_PAGE_URL, {
+      waitUntil: "networkidle2",
+      timeout: 30_000,
+    });
+    await page.waitForFunction("window.__exportReady === true", {
+      timeout: 15_000,
+    });
+    return page.evaluate("window.__exportTotalMs");
   } finally {
     try {
       await browser?.close();
@@ -580,6 +492,81 @@ async function smokeDurationMismatch(): Promise<void> {
       /* already closed */
     }
   }
+}
+
+export async function smokeDurationMismatch(
+  options: DurationMismatchOptions = {},
+): Promise<DurationMismatchOutcome> {
+  const label = "duration-mismatch: promo-page vs promo-meta";
+
+  if (process.env["SKIP_DURATION_CHECK"] === "1") {
+    console.log(`  -  ${label}  (skipped — SKIP_DURATION_CHECK=1)`);
+    return "skipped";
+  }
+
+  // ── 1. Fetch expected duration from the meta endpoint ─────────────────────
+  let apiTotalMs: number;
+  try {
+    const metaRes = await fetch(`${BASE}/api/export/promo-meta`);
+    if (!metaRes.ok) {
+      fail(label, `Could not fetch /api/export/promo-meta — HTTP ${metaRes.status}`);
+      return "failed";
+    }
+    const meta = (await metaRes.json()) as { totalDurationMs?: number };
+    if (typeof meta.totalDurationMs !== "number" || meta.totalDurationMs <= 0) {
+      fail(
+        label,
+        `promo-meta returned invalid totalDurationMs: ${JSON.stringify(meta.totalDurationMs)}`,
+      );
+      return "failed";
+    }
+    apiTotalMs = meta.totalDurationMs;
+  } catch (err) {
+    fail(label, `Failed to fetch /api/export/promo-meta: ${String(err)}`);
+    return "failed";
+  }
+
+  // ── 2. Launch the promo page and read window.__exportTotalMs ──────────────
+  let pageTotalMs: unknown;
+  try {
+    pageTotalMs = await (options.readPageTotalMs ?? readPromoPageTotalMs)();
+  } catch (err) {
+    const message = String(err);
+    if (
+      message.includes("Chromium not found") ||
+      message.includes("Cannot find package 'puppeteer-core'") ||
+      message.includes("net::ERR_CONNECTION_REFUSED")
+    ) {
+      console.log(`  -  ${label}  (skipped — ${message})`);
+      return "skipped";
+    }
+    fail(label, `Unexpected error: ${message}`);
+    return "failed";
+  }
+
+  if (typeof pageTotalMs !== "number" || pageTotalMs <= 0) {
+    fail(
+      label,
+      `window.__exportTotalMs is not a positive number (got ${JSON.stringify(pageTotalMs)})`,
+    );
+    return "failed";
+  }
+
+  // ── 3. Compare ────────────────────────────────────────────────────────────
+  if (pageTotalMs !== apiTotalMs) {
+    fail(
+      label,
+      `Duration mismatch — window.__exportTotalMs=${pageTotalMs} ms ` +
+        `but /api/export/promo-meta totalDurationMs=${apiTotalMs} ms ` +
+        `(diff: ${pageTotalMs - apiTotalMs} ms). ` +
+        `Update SCENE_DURATIONS in lib/promo-config/src/index.ts or ` +
+        `VideoWithControls so both sides agree before re-exporting.`,
+    );
+    return "failed";
+  }
+
+  ok(`${label}  [both agree: ${pageTotalMs} ms]`);
+  return "passed";
 }
 
 /**
