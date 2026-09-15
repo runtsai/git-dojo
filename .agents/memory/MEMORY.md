@@ -6,3 +6,4 @@
 - [Mirror sync fast-forward](mirror-sync-fast-forward.md) — mirror syncs must commit on top of the fetched remote branch; rebasing a fresh root commit conflicts on every changed file.
 - [OpenAPI integer types break codegen](openapi-integer-types.md) — use `type: number`, never `type: integer`; orval emits z.int() which zod 3.25 lacks.
 - [Owner-gating verification](owner-gating-verification.md) — curl drops empty-value headers (use `-H "Header;"`); absent headers = workspace-internal, empty = anonymous visitor.
+- [Validation workflow updates](validation-workflows.md) — update validation workflows through the validation skill, not the general workflow configurator.
