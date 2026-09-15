@@ -414,6 +414,45 @@ fi
 rm -rf "$TRAP_ROOT06"
 
 # ═════════════════════════════════════════════════════════════════════════════
+# mkdir failure — every lesson exits non-zero and prints the doctor.sh hint
+# ─────────────────────────────────────────────────────────────────────────────
+# Strategy: shadow mkdir with a fake binary that always exits 1. Each lesson
+# calls mkdir as its first setup operation, which simulates a playground parent
+# that cannot be written on a locked-down machine.
+# ═════════════════════════════════════════════════════════════════════════════
+printf "\n\033[1;34m» mkdir failure — all lessons fail loudly\033[0m\n"
+
+MKDIR_ROOT="$(mktemp -d)"
+MKDIR_FAKE_BIN="$MKDIR_ROOT/bin"
+mkdir -p "$MKDIR_FAKE_BIN"
+printf '#!/usr/bin/env bash\nexit 1\n' > "$MKDIR_FAKE_BIN/mkdir"
+chmod +x "$MKDIR_FAKE_BIN/mkdir"
+
+for SETUP in "$LESSONS_DIR"/lesson-*/setup.sh; do
+  LESSON_NAME="$(basename "$(dirname "$SETUP")")"
+  LESSON_ROOT="$MKDIR_ROOT/$LESSON_NAME"
+  cp -r "$(dirname "$SETUP")" "$LESSON_ROOT"
+
+  MKDIR_STATUS=0
+  MKDIR_OUT="$(PATH="$MKDIR_FAKE_BIN:$PATH" bash "$LESSON_ROOT/setup.sh" 2>&1)" \
+    || MKDIR_STATUS=$?
+
+  if [ "$MKDIR_STATUS" -ne 0 ]; then
+    ok "mkdir failure: $LESSON_NAME exits non-zero"
+  else
+    fail "mkdir failure: $LESSON_NAME exited 0 despite mkdir failing"
+  fi
+
+  if echo "$MKDIR_OUT" | grep -q "doctor.sh"; then
+    ok "mkdir failure: $LESSON_NAME prints doctor.sh hint"
+  else
+    fail "mkdir failure: $LESSON_NAME did not print doctor.sh hint — output was: $MKDIR_OUT"
+  fi
+done
+
+rm -rf "$MKDIR_ROOT"
+
+# ═════════════════════════════════════════════════════════════════════════════
 # ERR trap text consistency — all lesson setup scripts must share identical
 # doctor-hint text so learners always see the same guidance.
 # ─────────────────────────────────────────────────────────────────────────────
