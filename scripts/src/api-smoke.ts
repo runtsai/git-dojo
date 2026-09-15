@@ -882,6 +882,11 @@ export async function runChecks(
       { candidates: [{ sourceId: null }] },
       "POST /api/drills/due (candidate is missing id → 400)",
     );
+    await smokeExpect400(
+      "/api/drills/due",
+      { candidates: [{ id: 123 }] },
+      "POST /api/drills/due (candidate id is number, not string → 400)",
+    );
 
     // 9b. Record a drill attempt — persists an answer and reschedules the item.
     //     Uses a synthetic itemId so it never collides with real learner data.
