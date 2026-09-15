@@ -745,6 +745,57 @@ describe("loadDiskCache – cache sweep", () => {
     );
   });
 
+  it("keeps renderCache null when concurrent startup loads race to delete the same corrupt file", async () => {
+    const currentHash = await computePromoSourceHash();
+    const currentFile = `${currentHash}.mp4`;
+    const cachePath = path.join(FAKE_CACHE_DIR, currentFile);
+
+    readdirMock.mockImplementation(async (dir: unknown) => {
+      if (String(dir) === FAKE_CACHE_DIR) {
+        return [currentFile] as unknown as Awaited<ReturnType<typeof import("node:fs/promises").readdir>>;
+      }
+      return [] as unknown as Awaited<ReturnType<typeof import("node:fs/promises").readdir>>;
+    });
+    existsSyncMock.mockImplementation((p: unknown) => {
+      const s = String(p);
+      return s.endsWith(".mp3") || s === cachePath;
+    });
+    readFileMock.mockImplementation(async (p: unknown) => {
+      if (String(p) === cachePath) {
+        return Buffer.from("NOT-AN-MP4") as unknown as Awaited<ReturnType<typeof import("node:fs/promises").readFile>>;
+      }
+      return Buffer.from("") as unknown as Awaited<ReturnType<typeof import("node:fs/promises").readFile>>;
+    });
+
+    let releaseFirstRm: (() => void) | undefined;
+    const firstRmBlocked = new Promise<void>((resolve) => {
+      releaseFirstRm = resolve;
+    });
+    rmMock.mockImplementation(async () => {
+      if (rmMock.mock.calls.length === 1) {
+        await firstRmBlocked;
+        return;
+      }
+
+      releaseFirstRm?.();
+      throw Object.assign(new Error("ENOENT: no such file or directory"), {
+        code: "ENOENT",
+      });
+    });
+
+    const firstLoad = loadDiskCache();
+    const secondLoad = loadDiskCache();
+
+    await expect(Promise.all([firstLoad, secondLoad])).resolves.toEqual([
+      undefined,
+      undefined,
+    ]);
+    expect(rmMock).toHaveBeenCalledTimes(2);
+    expect(rmMock).toHaveBeenNthCalledWith(1, cachePath);
+    expect(rmMock).toHaveBeenNthCalledWith(2, cachePath);
+    expect(getRenderCacheForTest()).toBeNull();
+  });
+
   it("skips the cache and leaves renderCache null when PROMO_EXPORT_CACHE_DIR changes between restarts", async () => {
     // Two-phase test that mirrors a real env-var change between server restarts.
     //
