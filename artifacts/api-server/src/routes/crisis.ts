@@ -16,10 +16,35 @@ import { recordCompletion, loadEntries } from "../lib/progress-store";
 import { recordGraderResult } from "../lib/drill-store";
 import { readRepoState, buildSummary, isRepo, git, readCommitDiff, readWorkingFileDiff, COMMIT_HASH_RE } from "../lib/repo-state";
 import { requireOwner } from "../middlewares/require-owner";
+import { rateLimit } from "../middlewares/rate-limit";
 
 const run = promisify(execFile);
 
 const router: IRouter = Router();
+const setupQueues = new Map<string, Promise<void>>();
+
+/**
+ * Serialize destructive setup work for each scenario while allowing different
+ * scenarios to initialize independently.
+ */
+async function queueScenarioSetup<T>(scenarioId: string, setup: () => Promise<T>): Promise<T> {
+  const previous = setupQueues.get(scenarioId) ?? Promise.resolve();
+  let release!: () => void;
+  const current = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  setupQueues.set(scenarioId, current);
+
+  await previous;
+  try {
+    return await setup();
+  } finally {
+    release();
+    if (setupQueues.get(scenarioId) === current) {
+      setupQueues.delete(scenarioId);
+    }
+  }
+}
 
 /**
  * Crisis playgrounds live under the same dojo root the lessons use. That
@@ -442,15 +467,18 @@ router.get("/crisis/scenarios", async (_req, res) => {
   );
 });
 
-router.post("/crisis/scenarios/:crisisId/setup", requireOwner, async (req, res) => {
+router.post("/crisis/scenarios/:crisisId/setup", requireOwner, rateLimit("crisis-operations", 30, 60_000), async (req, res) => {
   const scenario = findScenario(String(req.params.crisisId ?? ""));
   if (!scenario) {
     res.status(404).json({ error: `Scenario not found: ${req.params.crisisId}` });
     return;
   }
   try {
-    const pg = await freshRepo(scenario.id);
-    await scenario.setup(pg);
+    const pg = await queueScenarioSetup(scenario.id, async () => {
+      const repo = await freshRepo(scenario.id);
+      await scenario.setup(repo);
+      return repo;
+    });
     res.json(
       SetupCrisisScenarioResponse.parse({
         ok: true,
@@ -459,7 +487,7 @@ router.post("/crisis/scenarios/:crisisId/setup", requireOwner, async (req, res) 
       }),
     );
   } catch (err) {
-    res.json(
+    res.status(500).json(
       SetupCrisisScenarioResponse.parse({
         ok: false,
         message: err instanceof Error ? err.message : "Setup failed",
@@ -543,7 +571,7 @@ router.get("/crisis/scenarios/:crisisId/file-diff", async (req, res) => {
   res.json(GetCrisisFileDiffResponse.parse(diff));
 });
 
-router.post("/crisis/scenarios/:crisisId/check", requireOwner, async (req, res) => {
+router.post("/crisis/scenarios/:crisisId/check", requireOwner, rateLimit("crisis-operations", 30, 60_000), async (req, res) => {
   const scenario = findScenario(String(req.params.crisisId ?? ""));
   if (!scenario) {
     res.status(404).json({ error: `Scenario not found: ${req.params.crisisId}` });
