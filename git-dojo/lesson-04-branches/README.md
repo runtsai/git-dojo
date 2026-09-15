@@ -48,10 +48,10 @@ git switch main
 grep tagline index.html
 ```
 
-The file on `main` still says the OLD tagline. Switching branches physically
-swaps the files in the folder to that branch's truth. Draft and trunk are
-genuinely separate worlds. Go back: `git switch new-tagline` — the new
-tagline returns.
+The file on `main` still says the OLD tagline. When Git can switch safely, it
+updates the tracked files in your working folder to match the branch you chose.
+The branches share earlier history, but their tips can carry different work.
+Go back: `git switch new-tagline` — the new tagline returns.
 
 **5. Make a second, throwaway draft — then kill it.**
 
@@ -75,8 +75,10 @@ git switch main
 git branch -D bad-idea
 ```
 
-Gone — and `main` never contained it. **This is why branches make you brave:**
-experiments are free because the trunk was never at risk.
+The `bad-idea` branch label is gone — and `main` never contained its commit.
+The commit may still be recoverable through the reflog until Git eventually
+prunes it. **This is why branches make you brave:** experiments stay separate
+from the trunk unless you choose to merge them.
 
 **6. Merge the good draft — the owner-approval act.**
 
@@ -85,10 +87,10 @@ git switch main
 git merge --no-ff new-tagline -m "Approve and adopt new tagline"
 ```
 
-`--no-ff` forces a real merge commit even though Git could have just slid the
-label forward — so your approval is a permanent, dated record with your message
-on it, not a silent shortcut. `main` now carries the tagline commit. The
-candidate became truth by explicit decision — yours.
+When Git could otherwise fast-forward by sliding the branch label ahead,
+`--no-ff` forces a real merge commit — so your approval is a permanent, dated
+record with your message on it, not a silent shortcut. `main` now carries the
+tagline commit. The candidate became truth by explicit decision — yours.
 
 ## Grade yourself
 

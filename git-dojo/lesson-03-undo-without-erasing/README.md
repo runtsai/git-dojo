@@ -21,7 +21,8 @@ git log --oneline
 git show HEAD
 ```
 
-`HEAD` means "the newest commit." The show output proves it: the line
+`HEAD` means "the commit you currently have checked out." Here that is the tip
+of your current branch. The show output proves the line
 `3. Lock out power before service` was removed. That's a real defect.
 
 **2. Look at history — do NOT delete anything.**

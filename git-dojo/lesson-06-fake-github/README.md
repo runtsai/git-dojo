@@ -1,13 +1,15 @@
 # Lesson 6 — Fake GitHub (push and pull, no internet)
 
-**What you'll learn:** what a "remote" really is, and the push/pull sync loop —
-by building a working GitHub-equivalent **on your own disk**. When you touch
-real GitHub afterward, nothing will be new except the URL.
+**What you'll learn:** what a Git "remote" really is, and the push/pull sync
+loop — by building the Git repository part of a hosting service **on your own
+disk**. When you touch real GitHub afterward, the transport commands will
+already be familiar.
 
-The secret nobody tells beginners: GitHub is, at its core, just a Git
-repository sitting on someone else's computer. You can make one on yours. A
-"bare" repo is a repo with no working files — records vault only — which is
-exactly what a hosting server is.
+GitHub is a hosting platform backed by Git repositories. It adds authentication,
+pull requests, Actions, permissions, and other collaboration tools. You can
+reproduce the repository part on your own computer: a "bare" repo has no
+working files — records vault only — and is the kind of repo a hosting server
+stores.
 
 Setup creates: `hub/website.git` (the fake GitHub) and `laptop/` (your
 machine's copy, already connected to it).
@@ -27,7 +29,8 @@ git remote -v
 
 `origin` → a path ending in `hub/website.git`. `origin` is just the
 conventional name for "the shared copy." On real GitHub this would be an
-`https://github.com/...` URL. That is the *entire* difference.
+`https://github.com/...` URL. The Git transport works the same way, while
+GitHub adds authentication and collaboration rules around it.
 
 **2. Make a change and push it up.**
 
@@ -57,15 +60,17 @@ The two `config` lines make this clone a genuinely different person — the
 contractor, Sam Okafor — so the commit Sam makes next carries Sam's name, not
 yours. Read that log — the contractor received your full history, hashes
 identical.
-**A clone is a byte-exact custody readback.** Verify it yourself:
+**A matching commit hash proves both repos have the same commit.** Verify it
+yourself:
 
 ```
 git rev-parse HEAD
 cd ../laptop && git rev-parse HEAD
 ```
 
-Same hash, both machines. That is proof-grade replication, and you did it
-with two commands.
+Same hash, both machines. Their `HEAD` points to the same snapshot and history.
+That does not mean every ref, config setting, hook, or uncommitted working-tree
+file is identical.
 
 **4. The contractor ships work; you receive it.**
 
@@ -93,8 +98,9 @@ git remote add github <the-URL-github-shows-you>
 git push github main
 ```
 
-Your practice history appears on the real site. Same verbs, same behavior —
-you already knew how; you just proved it.
+Your practice history appears on the real site. The transport verbs are the
+same, but GitHub may enforce permissions and branch-protection rules. You
+already know the core push workflow.
 
 ## Grade yourself
 

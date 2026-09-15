@@ -172,7 +172,7 @@ export function Module1_5({ onStepChange }: VisualModuleProps = {}) {
               <div>
                 <h3 className="text-xl font-bold text-foreground mb-2">Finding the Needle</h3>
                 <p className="text-muted-foreground reading-text">
-                  You don't need to click through folders to find a document. The search box indexes every word in every file across all your repositories. You type "vendor rate", it takes you straight to the policy.
+                  You don't need to click through folders to find a document. The search box can find indexed code and files in repositories you have permission to view, subject to GitHub's indexing limits. Search for "vendor rate" and it can take you straight to the policy.
                 </p>
               </div>
             </div>
