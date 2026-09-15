@@ -590,6 +590,27 @@ describe("POST setup → POST check round-trip — grader passes after a fresh s
     const failLines = lines.filter((l) => l.startsWith("FAIL:"));
     expect(failLines).toHaveLength(0);
   });
+
+  it("crisis-smoke: calling setup twice keeps the grader passing with no FAIL lines", async () => {
+    const firstSetup = await httpPost(port, "/crisis/scenarios/crisis-smoke/setup");
+    expect(firstSetup.status).toBe(200);
+    expect((firstSetup.body as { ok?: boolean }).ok).toBe(true);
+
+    const secondSetup = await httpPost(port, "/crisis/scenarios/crisis-smoke/setup");
+    expect(secondSetup.status).toBe(200);
+    expect((secondSetup.body as { ok?: boolean }).ok).toBe(true);
+
+    const check = await httpPost(port, "/crisis/scenarios/crisis-smoke/check");
+    expect(check.status).toBe(200);
+    const result = check.body as { ran?: boolean; passed?: boolean; output?: string };
+    expect(result.ran).toBe(true);
+    expect(result.passed).toBe(true);
+
+    const failLines = (result.output ?? "")
+      .split("\n")
+      .filter((line) => line.startsWith("FAIL:"));
+    expect(failLines).toHaveLength(0);
+  });
 });
 
 describe("smoke-script integration — sentinel contract (crisis-smoke always set up)", () => {
