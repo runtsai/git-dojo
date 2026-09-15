@@ -675,3 +675,98 @@ describe("GET /crisis/scenarios/:crisisId/file-diff — completed merge", () => 
     }
   });
 });
+
+// ---------------------------------------------------------------------------
+// Suite 5 — both-deleted conflict: the original path is absent from disk.
+//
+// When both branches rename the same file to different destinations, Git keeps
+// the original path as an unmerged "DD" entry. readWorkingFileDiff must report
+// that entry even though there is no working-tree file to stat.
+// ---------------------------------------------------------------------------
+
+describe("GET /crisis/scenarios/:crisisId/file-diff — both-deleted conflict", () => {
+  let server: http.Server;
+  let port: number;
+  let fakeHome: string;
+  let originalHome: string | undefined;
+
+  beforeAll(async () => {
+    fakeHome = mkdtempSync(path.join(tmpdir(), "crisis-filediff-dd-"));
+    originalHome = process.env.HOME;
+    process.env.HOME = fakeHome;
+
+    const playgroundDir = path.join(fakeHome, "git-dojo", "playground", "crisis-02");
+    mkdirSync(playgroundDir, { recursive: true });
+
+    const env = {
+      ...process.env,
+      GIT_AUTHOR_NAME: "Previous Operator",
+      GIT_AUTHOR_EMAIL: "ops@example.com",
+      GIT_COMMITTER_NAME: "Previous Operator",
+      GIT_COMMITTER_EMAIL: "ops@example.com",
+      GIT_TERMINAL_PROMPT: "0",
+      GIT_CONFIG_GLOBAL: "/dev/null",
+      HOME: fakeHome,
+    };
+    const git = (...args: string[]) =>
+      execFileSync("git", args, { cwd: playgroundDir, env, encoding: "utf8" });
+
+    git("init", "-q", "-b", "main");
+    writeFileSync(path.join(playgroundDir, "dispatch.txt"), "Morning dispatch\n");
+    git("add", "-A");
+    git("commit", "-q", "-m", "Add dispatch sheet");
+
+    git("switch", "-q", "-c", "archive-dispatch");
+    git("mv", "dispatch.txt", "dispatch-archive.txt");
+    git("commit", "-q", "-m", "Archive dispatch sheet");
+
+    git("switch", "-q", "main");
+    git("mv", "dispatch.txt", "dispatch-current.txt");
+    git("commit", "-q", "-m", "Keep current dispatch sheet");
+
+    try {
+      git("merge", "archive-dispatch");
+    } catch {
+      /* expected: rename/rename conflict leaves dispatch.txt as DD */
+    }
+
+    expect(git("status", "--porcelain")).toContain("DD dispatch.txt");
+
+    const { default: crisisRouter } = await import("./crisis.js");
+    const app = express();
+    app.use((req, _res, next) => {
+      (req as unknown as Record<string, unknown>)["log"] = {
+        info: () => {},
+        warn: () => {},
+        error: () => {},
+      };
+      next();
+    });
+    app.use("/", crisisRouter);
+
+    server = http.createServer(app);
+    await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+    port = (server.address() as AddressInfo).port;
+  });
+
+  afterAll(async () => {
+    await new Promise<void>((resolve, reject) =>
+      server.close((err) => (err ? reject(err) : resolve())),
+    );
+    if (originalHome !== undefined) process.env.HOME = originalHome;
+    else delete process.env.HOME;
+    rmSync(fakeHome, { recursive: true, force: true });
+  });
+
+  it("returns 200 with conflicted status when the DD path no longer exists", async () => {
+    const { status, body } = await get(
+      port,
+      "/crisis/scenarios/crisis-02/file-diff?filePath=dispatch.txt",
+    );
+
+    expect(status).toBe(200);
+    const json = JSON.parse(body) as Record<string, unknown>;
+    assertWorkingFileDiffShape(json, "dispatch.txt");
+    expect(json["status"]).toBe("conflicted");
+  });
+});
