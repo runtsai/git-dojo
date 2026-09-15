@@ -171,6 +171,7 @@ import exportRouter, {
   isValidMp4Buffer,
 } from "./export.js";
 import puppeteer from "puppeteer-core";
+import { logger } from "../lib/logger.js";
 
 // ---------------------------------------------------------------------------
 // HTTP helper — collect status + full body from a GET request.
@@ -723,15 +724,25 @@ describe("loadDiskCache – cache sweep", () => {
     });
 
     // rm() throws a permission error when trying to delete the corrupt file.
-    rmMock.mockRejectedValueOnce(
-      Object.assign(new Error("EACCES: permission denied"), { code: "EACCES" }),
+    const permissionError = Object.assign(
+      new Error("EACCES: permission denied"),
+      { code: "EACCES" },
     );
+    rmMock.mockRejectedValueOnce(permissionError);
+    const warnSpy = vi.spyOn(logger, "warn").mockImplementation(() => undefined);
 
     // Must resolve (not throw) despite the rm() failure.
     await expect(loadDiskCache()).resolves.toBeUndefined();
 
     // renderCache stays null — the corrupt file content was never accepted.
     expect(getRenderCacheForTest()).toBeNull();
+
+    // Operators must be told that the corrupt current-hash slot remains on
+    // disk, rather than mistaking this non-fatal startup for successful cleanup.
+    expect(warnSpy).toHaveBeenCalledWith(
+      { err: permissionError, path: cachePath },
+      "export: failed to remove corrupt cache file (non-fatal)",
+    );
   });
 
   it("skips the cache and leaves renderCache null when PROMO_EXPORT_CACHE_DIR changes between restarts", async () => {
